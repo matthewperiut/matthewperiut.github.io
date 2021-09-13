@@ -44,7 +44,7 @@ function draw() {
     }
     if (y > height - playerScale) // fifty due to player height
     {
-      y = 350;
+      y = height - playerScale;
       vy = 0;
     }
     else {
