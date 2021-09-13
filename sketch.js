@@ -21,16 +21,16 @@ var vx = 0;
 var vy = 0;
 var x = 50;
 var y = 0;
-var scale = 50;
+var playerScale = 50;
 var canJump = false;
 var wantsJump = false;
 
 function draw() {
     background(220);
     if(vx < 0)
-      image(fimg,x,y,50,50);
+      image(fimg,x,y,playerScale,playerScale);
     else if(vx => 0)
-      image(rimg,x,y,50,50);
+      image(rimg,x,y,playerScale,playerScale);
 
     vx = 0;
     if(right)
@@ -42,7 +42,7 @@ function draw() {
     {
       x = 0;
     }
-    if (y > height - scale) // fifty due to player height
+    if (y > height - playerScale) // fifty due to player height
     {
       y = 350;
       vy = 0;
@@ -50,7 +50,7 @@ function draw() {
     else {
       vy += 2 * (deltaTime/50);
     }
-    if (y == height - scale)
+    if (y == height - playerScale)
     {
       canJump = true;
     }
@@ -65,9 +65,9 @@ function draw() {
     var newx = x + vx * (deltaTime/50);
     var newy = y + vy * (deltaTime/50);
 
-    if(newy > height - scale)
+    if(newy > height - playerScale)
     {
-      y = height - scale;
+      y = height - playerScale;
       vy = 0;
     }
     else
@@ -75,12 +75,12 @@ function draw() {
       y = newy;
     }
 
-    if(!(newx < 0 || newx > width - scale))
+    if(!(newx < 0 || newx > width - playerScale))
     {
       x = newx;
     }
 
-    if(y == height - scale)
+    if(y == height - playerScale)
     {
       vy = 0;
     }
@@ -89,10 +89,10 @@ function draw() {
 function windowResized()
 {
   resizeCanvas(windowWidth, windowHeight);
-  if(x > windowWidth-scale)
-    x = width-scale;
+  if(x > windowWidth-playerScale)
+    x = width-playerScale;
   if(y > windowHeight)
-    y = height-scale;
+    y = height-playerScale;
 }
 
 function keyPressed()
