@@ -28,9 +28,9 @@ var wantsJump = false;
 function draw() {
     background(220);
     if(vx < 0)
-      image(fimg,x,y,scale,scale);
+      image(fimg,x,y,50,50);
     else if(vx => 0)
-      image(rimg,x,y,scale,scale);
+      image(rimg,x,y,50,50);
 
     vx = 0;
     if(right)
