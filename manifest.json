@@ -3,11 +3,11 @@
     {
       "group": "com.periut",
       "artifact": "starac",
-      "version": "1.2.0+mcb1.7.3+gen2",
-      "path": "repository/com/periut/starac/1.2.0+mcb1.7.3+gen2/starac-1.2.0+mcb1.7.3+gen2.jar",
+      "version": "1.2.1+mcb1.7.3+gen2",
+      "path": "repository/com/periut/starac/1.2.1+mcb1.7.3+gen2/starac-1.2.1+mcb1.7.3+gen2.jar",
       "repo": "matthewperiut/starac",
       "branch": "ornithe-lwjgl3",
-      "commit": "fd8d5e0"
+      "commit": "b8fc933"
     },
     {
       "group": "net.glasslauncher.mods",
