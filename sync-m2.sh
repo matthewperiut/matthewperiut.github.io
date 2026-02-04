@@ -9,7 +9,7 @@ PRISM_ZIP="$HOME/Documents/ornithe-prism-instance.zip"
 MANIFEST="./manifest.json"
 
 echo "Syncing Maven repository..."
-rsync -av --ignore-existing --exclude='**/submodule/**' "$M2_REPO/" "$TARGET_REPO/"
+rsync -av --ignore-existing "$M2_REPO/" "$TARGET_REPO/"
 
 echo "Copying Prism instance..."
 cp -n "$PRISM_ZIP" ./ornithe-prism-instance.zip 2>/dev/null || echo "Prism zip already exists or not found"
