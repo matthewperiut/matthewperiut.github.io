@@ -1,0 +1,7 @@
+{
+  "jars": [
+    {"group": "com.periut", "artifact": "starac", "version": "1.2.0+mcb1.7.3+gen2", "path": "repository/com/periut/starac/1.2.0+mcb1.7.3+gen2/starac-1.2.0+mcb1.7.3+gen2.jar", "repo": "matthewperiut/starac", "branch": "ornithe-lwjgl3", "commit": "fd8d5e0"},
+    {"group": "net.glasslauncher.mods", "artifact": "GlassConfigAPI", "version": "3.3.0+gen2", "path": "repository/net/glasslauncher/mods/GlassConfigAPI/3.3.0+gen2/GlassConfigAPI-3.3.0+gen2.jar", "repo": "Glass-Series/glass-config-api", "branch": "master", "commit": "9c8b90e"},
+    {"group": "net.modificationstation", "artifact": "StationAPI", "version": "2.0.0-alpha.5.4+gen2", "path": "repository/net/modificationstation/StationAPI/2.0.0-alpha.5.4+gen2/StationAPI-2.0.0-alpha.5.4+gen2.jar", "repo": "matthewperiut/StationAPI", "branch": "ornithe-starac-support-prep", "commit": "ed21109"}
+  ]
+}

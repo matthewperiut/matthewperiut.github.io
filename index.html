@@ -1,15 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <link rel='icon' href='favicon.ico' type='favicon.ico'/ >
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="style.css">
-    <meta charset="utf-8" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ornithe Gen2 Mods</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background: #e8e8e8;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        table {
+            margin: 15px auto 0;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+        }
+        a {
+            color: #0066cc;
+        }
+        .maven-link {
+            font-size: 0.9em;
+        }
+        .download-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .download-btn:hover {
+            background: #3a8eef;
+        }
+        h1, h2 {
+            font-weight: normal;
+            margin: 0 0 15px;
+        }
+        .toggle-link {
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+        .source-col {
+            display: none;
+        }
+        .show-source .source-col {
+            display: table-cell;
+        }
+    </style>
+</head>
+<body>
+    <div class="section maven-link">
+        Looking for the maven repository? <a href="repository/">Go here</a>
+    </div>
 
-  </head>
-  <body>
-    <script src="sketch.js"></script>
-  </body>
+    <div class="section">
+        <h1>Ornithe Gen 2 Prism Instance Download</h1>
+        <a class="download-btn" href="ornithe-prism-instance.zip" download>Download Prism Instance</a>
+    </div>
+
+    <div class="section">
+        <h2>Ornithe (gen2) Prod Mods for Babric migration ecosystem</h2>
+        <a href="#" id="toggle-source" class="toggle-link">Show source location</a>
+        <table>
+        <thead>
+            <tr>
+                <th>Mod</th>
+                <th>Version</th>
+                <th>Download</th>
+                <th class="source-col">Repo</th>
+                <th class="source-col">Branch</th>
+                <th class="source-col">Commit</th>
+            </tr>
+        </thead>
+        <tbody id="mod-list">
+            <tr><td colspan="6">Loading...</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <script>
+        async function loadMods() {
+            try {
+                const response = await fetch('manifest.json');
+                const data = await response.json();
+                const tbody = document.getElementById('mod-list');
+
+                if (data.jars.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6">No mods found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.jars.map(jar => {
+                    const filename = jar.path.split('/').pop();
+                    const repoUrl = jar.repo ? `https://github.com/${jar.repo}` : '';
+                    const repoLink = jar.repo ? `<a href="${repoUrl}">${jar.repo}</a>` : '-';
+                    const branchLink = jar.repo && jar.branch ? `<a href="${repoUrl}/tree/${jar.branch}">${jar.branch}</a>` : '-';
+                    const commitLink = jar.repo && jar.commit ? `<a href="${repoUrl}/commit/${jar.commit}">${jar.commit.substring(0, 7)}</a>` : '-';
+                    return `<tr>
+                        <td>${jar.artifact}</td>
+                        <td>${jar.version}</td>
+                        <td><a href="${jar.path}" download="${filename}">Download</a></td>
+                        <td class="source-col">${repoLink}</td>
+                        <td class="source-col">${branchLink}</td>
+                        <td class="source-col">${commitLink}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('mod-list').innerHTML =
+                    '<tr><td colspan="6">Error loading manifest. Run sync-m2.sh first.</td></tr>';
+            }
+        }
+        loadMods();
+
+        document.getElementById('toggle-source').addEventListener('click', function(e) {
+            e.preventDefault();
+            const table = document.querySelector('table');
+            table.classList.toggle('show-source');
+            this.textContent = table.classList.contains('show-source')
+                ? 'Hide source location'
+                : 'Show source location';
+        });
+    </script>
+</body>
 </html>
-

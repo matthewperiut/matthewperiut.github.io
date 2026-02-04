@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>net.glasslauncher.mods</groupId>
+  <artifactId>GlassConfigAPI</artifactId>
+  <versioning>
+    <latest>3.3.0+gen2</latest>
+    <release>3.3.0+gen2</release>
+    <versions>
+      <version>3.3.0+gen2</version>
+    </versions>
+    <lastUpdated>20260204214224</lastUpdated>
+  </versioning>
+</metadata>
