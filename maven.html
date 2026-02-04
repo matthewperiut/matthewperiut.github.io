@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maven Repository Browser</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #e8e8e8;
+        }
+        .section {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 20px;
+        }
+        h1 {
+            font-weight: normal;
+            margin: 0 0 10px;
+            font-size: 1.4em;
+        }
+        .breadcrumb {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+        }
+        .listing {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .listing li {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .listing li:last-child {
+            border-bottom: none;
+        }
+        .listing a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .listing a:hover {
+            text-decoration: underline;
+        }
+        .folder::before {
+            content: "📁 ";
+        }
+        .file::before {
+            content: "📄 ";
+        }
+        .back-link {
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Back to downloads</a>
+    <div class="section">
+        <h1>Maven Repository</h1>
+        <div class="breadcrumb" id="breadcrumb">repository/</div>
+        <ul class="listing" id="listing">
+            <li>Loading...</li>
+        </ul>
+    </div>
+
+    <script>
+        let tree = {};
+
+        async function loadTree() {
+            const response = await fetch('repository-tree.json');
+            tree = await response.json();
+            navigateFromHash();
+        }
+
+        function navigateFromHash() {
+            const path = decodeURIComponent(window.location.hash.slice(1)) || '';
+            navigate(path);
+        }
+
+        function navigate(path) {
+            const parts = path ? path.split('/').filter(Boolean) : [];
+            let current = tree;
+
+            for (const part of parts) {
+                if (current.children && current.children[part]) {
+                    current = current.children[part];
+                } else {
+                    current = null;
+                    break;
+                }
+            }
+
+            renderBreadcrumb(parts);
+            renderListing(current, parts);
+        }
+
+        function renderBreadcrumb(parts) {
+            const bc = document.getElementById('breadcrumb');
+            let html = '<a href="#" onclick="navigate(\'\'); return false;">repository</a>/';
+            let pathSoFar = '';
+
+            for (let i = 0; i < parts.length; i++) {
+                pathSoFar += (pathSoFar ? '/' : '') + parts[i];
+                const encodedPath = encodeURIComponent(pathSoFar);
+                html += `<a href="#${encodedPath}" onclick="navigate('${pathSoFar}'); return false;">${parts[i]}</a>/`;
+            }
+
+            bc.innerHTML = html;
+        }
+
+        function renderListing(node, currentParts) {
+            const listing = document.getElementById('listing');
+
+            if (!node) {
+                listing.innerHTML = '<li>Path not found</li>';
+                return;
+            }
+
+            let html = '';
+            const currentPath = currentParts.join('/');
+
+            // Parent directory link
+            if (currentParts.length > 0) {
+                const parentPath = currentParts.slice(0, -1).join('/');
+                const encodedParent = encodeURIComponent(parentPath);
+                html += `<li><a href="#${encodedParent}" onclick="navigate('${parentPath}'); return false;">..</a></li>`;
+            }
+
+            if (node.children) {
+                // Sort: folders first, then files
+                const entries = Object.entries(node.children);
+                entries.sort((a, b) => {
+                    const aIsDir = a[1].children !== undefined;
+                    const bIsDir = b[1].children !== undefined;
+                    if (aIsDir && !bIsDir) return -1;
+                    if (!aIsDir && bIsDir) return 1;
+                    return a[0].localeCompare(b[0]);
+                });
+
+                for (const [name, child] of entries) {
+                    const childPath = currentPath ? `${currentPath}/${name}` : name;
+                    const encodedPath = encodeURIComponent(childPath);
+
+                    if (child.children) {
+                        html += `<li class="folder"><a href="#${encodedPath}" onclick="navigate('${childPath}'); return false;">${name}/</a></li>`;
+                    } else {
+                        html += `<li class="file"><a href="repository/${childPath}" download>${name}</a></li>`;
+                    }
+                }
+            }
+
+            if (!html) {
+                html = '<li>Empty directory</li>';
+            }
+
+            listing.innerHTML = html;
+        }
+
+        window.addEventListener('hashchange', navigateFromHash);
+        loadTree();
+    </script>
+</body>
+</html>

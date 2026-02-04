@@ -117,4 +117,26 @@ cat >> "$MANIFEST" << 'FOOTER'
 }
 FOOTER
 
-echo "Done! Files synced and manifest generated."
+echo "Generating repository-tree.json..."
+
+python3 << 'PYTHONSCRIPT'
+import os
+import json
+
+def build_tree(path):
+    tree = {"children": {}}
+    for entry in sorted(os.listdir(path)):
+        full_path = os.path.join(path, entry)
+        if os.path.isdir(full_path):
+            tree["children"][entry] = build_tree(full_path)
+        else:
+            tree["children"][entry] = {}
+    return tree
+
+if os.path.isdir("./repository"):
+    tree = build_tree("./repository")
+    with open("repository-tree.json", "w") as f:
+        json.dump(tree, f)
+PYTHONSCRIPT
+
+echo "Done! Files synced and manifests generated."
