@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 BASE_URL="https://matthewperiut.github.io/babric2ornithe"
 
 echo "Installing babric2ornithe v${VERSION}..."

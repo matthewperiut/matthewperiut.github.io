@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$Version = "0.1.0"
+$Version = "0.2.0"
 $BaseUrl = "https://matthewperiut.github.io/babric2ornithe"
 
 Write-Host "Installing babric2ornithe v$Version..."
