@@ -1,0 +1,251 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut",
+    "module": "retrocommands",
+    "version": "0.6.0+gen2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "retrocommands-0.6.0+gen2.jar",
+          "url": "retrocommands-0.6.0+gen2.jar",
+          "size": 124449,
+          "sha512": "a1e088a8e1cbb5eb9124e416eb5d3d19f99f3bd3ee347c819c8ad69a0fbf78572baab62b8878721b7f0a85476d3b13c754208a335af6d8bb73860ebd90925396",
+          "sha256": "fab7401c0704f0ffdca692bdb3cc46dbe0a5f6870ebbd187531d629bdfadfd7b",
+          "sha1": "835c44bc0967a7db37ece4b9247b6dd9f1ae81e4",
+          "md5": "6189cd4fc89e2a4b8ed411576dc25396"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "1.8.0-beta4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-slf4j18-impl",
+          "version": {
+            "requires": "2.17.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "io.github.llamalad7",
+          "module": "mixinextras-fabric",
+          "version": {
+            "requires": "0.2.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "blue.endless",
+          "module": "jankson",
+          "version": {
+            "requires": "1.2.1"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.2.1-jre"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.18.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.modificationstation",
+          "module": "StationAPI",
+          "version": {
+            "requires": "2.0.0-alpha.5.4+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "accessory-api",
+          "version": {
+            "requires": "0.8.0+gen2"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.glasslauncher.mods",
+          "module": "GlassConfigAPI",
+          "version": {
+            "requires": "3.3.0+gen2"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut.cryonicconfig",
+          "module": "cryonicconfig-ornithe",
+          "version": {
+            "requires": "1.0.0+gen2+mcb1.7.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "starac",
+          "version": {
+            "requires": "1.2.1+mcb1.7.3+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.github.GeyserMC",
+          "module": "MCAuthLib",
+          "version": {
+            "requires": "d9d773e5d50327c33898c65cd545a4f6ef3ba1b5"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "maven.modrinth",
+          "module": "retroauth",
+          "version": {
+            "requires": "1.1.0"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "retrocommands-0.6.0+gen2.jar",
+          "url": "retrocommands-0.6.0+gen2.jar",
+          "size": 124449,
+          "sha512": "a1e088a8e1cbb5eb9124e416eb5d3d19f99f3bd3ee347c819c8ad69a0fbf78572baab62b8878721b7f0a85476d3b13c754208a335af6d8bb73860ebd90925396",
+          "sha256": "fab7401c0704f0ffdca692bdb3cc46dbe0a5f6870ebbd187531d629bdfadfd7b",
+          "sha1": "835c44bc0967a7db37ece4b9247b6dd9f1ae81e4",
+          "md5": "6189cd4fc89e2a4b8ed411576dc25396"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "retrocommands-0.6.0+gen2-sources.jar",
+          "url": "retrocommands-0.6.0+gen2-sources.jar",
+          "size": 65297,
+          "sha512": "c8801079b45c04c30e878c7b7ba1b1fdb883c9b58471381c8b57fd0ab1366b5e42a434d2ce97b65f73ec3a6bfbd14d1f439169761e92c12996588d657555aced",
+          "sha256": "cc44a369c069db12763b86f727bef1b65e649ab813998aa7fc6f192857c601e7",
+          "sha1": "b806fc4991e356104ac4441f040772cd64f6c679",
+          "md5": "f321bedc1afb819e150d2d6388b52108"
+        }
+      ]
+    }
+  ]
+}

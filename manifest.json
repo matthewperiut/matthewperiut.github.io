@@ -2,6 +2,33 @@
   "jars": [
     {
       "group": "com.periut",
+      "artifact": "accessory-api",
+      "version": "0.8.0+gen2",
+      "path": "repository/com/periut/accessory-api/0.8.0+gen2/accessory-api-0.8.0+gen2.jar",
+      "repo": "matthewperiut/accessory-api",
+      "branch": "master",
+      "commit": "71e95c3"
+    },
+    {
+      "group": "com.periut.cryonicconfig",
+      "artifact": "cryonicconfig-ornithe",
+      "version": "1.0.0+gen2+mcb1.7.3",
+      "path": "repository/com/periut/cryonicconfig/cryonicconfig-ornithe/1.0.0+gen2+mcb1.7.3/cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3.jar",
+      "repo": "matthewperiut/cryonicconfig",
+      "branch": "master",
+      "commit": "3b964a0"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "retrocommands",
+      "version": "0.6.0+gen2",
+      "path": "repository/com/periut/retrocommands/0.6.0+gen2/retrocommands-0.6.0+gen2.jar",
+      "repo": "matthewperiut/retrocommands",
+      "branch": "master",
+      "commit": "74f1245"
+    },
+    {
+      "group": "com.periut",
       "artifact": "starac",
       "version": "1.2.1+mcb1.7.3+gen2",
       "path": "repository/com/periut/starac/1.2.1+mcb1.7.3+gen2/starac-1.2.1+mcb1.7.3+gen2.jar",

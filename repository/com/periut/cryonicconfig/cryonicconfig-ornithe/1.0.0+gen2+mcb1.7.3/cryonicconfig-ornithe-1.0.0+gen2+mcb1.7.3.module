@@ -1,0 +1,186 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut.cryonicconfig",
+    "module": "cryonicconfig-ornithe",
+    "version": "1.0.0+gen2+mcb1.7.3",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3.jar",
+          "url": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3.jar",
+          "size": 20257,
+          "sha512": "f4862ab0923da6fc4223675a4346a682a52a64bc8370d4c66ebb1e5178ac12f1e65f1e2097032e1925dd38ada18383ef87dfe2af62ee718b90bbd6f648ca5da6",
+          "sha256": "7c867a04d79feea0d099a43259ad9a2bdba510ed9b9de865616621871b006ba1",
+          "sha1": "88da7f1f0adddc07bff56367ea547bdfb989069e",
+          "md5": "e0840e8a5de4628d6df3fcbb13850806"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-core",
+          "version": {
+            "requires": "2.17.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "1.8.0-beta4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-slf4j18-impl",
+          "version": {
+            "requires": "2.17.1"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.jetbrains",
+          "module": "annotations",
+          "version": {
+            "requires": "23.0.0"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.2.1-jre"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.9.0"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.18.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "starac",
+          "version": {
+            "requires": "1.2.1+mcb1.7.3+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3.jar",
+          "url": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3.jar",
+          "size": 20257,
+          "sha512": "f4862ab0923da6fc4223675a4346a682a52a64bc8370d4c66ebb1e5178ac12f1e65f1e2097032e1925dd38ada18383ef87dfe2af62ee718b90bbd6f648ca5da6",
+          "sha256": "7c867a04d79feea0d099a43259ad9a2bdba510ed9b9de865616621871b006ba1",
+          "sha1": "88da7f1f0adddc07bff56367ea547bdfb989069e",
+          "md5": "e0840e8a5de4628d6df3fcbb13850806"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3-sources.jar",
+          "url": "cryonicconfig-ornithe-1.0.0+gen2+mcb1.7.3-sources.jar",
+          "size": 14914,
+          "sha512": "71980e14b995a8e79da26436e81a481ddf6fc0b13b36579c56924d4ed90a2cfafb7b7ccce0536e64315c5614576526c63e9858e279714bf18c8e3879a3e40d12",
+          "sha256": "1197de1815aec681485bd4c4ced609f241d60db5356521e626cc050feb8b3251",
+          "sha1": "f7b4f7c2384589c081d4f7f392829fdc02ee0a71",
+          "md5": "93b69e9a5b9556c8c004dc59c6e88936"
+        }
+      ]
+    }
+  ]
+}
