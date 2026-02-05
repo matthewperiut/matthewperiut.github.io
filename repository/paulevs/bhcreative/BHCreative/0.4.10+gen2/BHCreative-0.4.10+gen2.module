@@ -1,0 +1,160 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "paulevs.bhcreative",
+    "module": "BHCreative",
+    "version": "0.4.10+gen2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "BHCreative-0.4.10+gen2.jar",
+          "url": "BHCreative-0.4.10+gen2.jar",
+          "size": 102075,
+          "sha512": "bcf5b83330006158f6611bb19c254d2551c570dba4deb1dbd31ecaa58965064de050c37e944a07dcbdc9b73b486e0a23437932c682af60e178be0788fcb40130",
+          "sha256": "4e69a0f133fe03ab3f1d81c3a5e4d3f132b72f55e68083543cae9923ca53a1b4",
+          "sha1": "b0a3bdd478e5fa8add1820144730bb3b30f81440",
+          "md5": "43334d6107b1fbe15013c5c24d8aecca"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "1.8.0-beta4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-slf4j18-impl",
+          "version": {
+            "requires": "2.17.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "blue.endless",
+          "module": "jankson",
+          "version": {
+            "requires": "1.2.1"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.16.9"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.modificationstation",
+          "module": "StationAPI",
+          "version": {
+            "requires": "2.0.0-alpha.5.4+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "starac",
+          "version": {
+            "requires": "1.2.1+mcb1.7.3+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "BHCreative-0.4.10+gen2.jar",
+          "url": "BHCreative-0.4.10+gen2.jar",
+          "size": 102075,
+          "sha512": "bcf5b83330006158f6611bb19c254d2551c570dba4deb1dbd31ecaa58965064de050c37e944a07dcbdc9b73b486e0a23437932c682af60e178be0788fcb40130",
+          "sha256": "4e69a0f133fe03ab3f1d81c3a5e4d3f132b72f55e68083543cae9923ca53a1b4",
+          "sha1": "b0a3bdd478e5fa8add1820144730bb3b30f81440",
+          "md5": "43334d6107b1fbe15013c5c24d8aecca"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "BHCreative-0.4.10+gen2-sources.jar",
+          "url": "BHCreative-0.4.10+gen2-sources.jar",
+          "size": 71969,
+          "sha512": "878f6f01990c931671055de49a676d333341d59c8d02e87fbabb6d53f4d4d71514af6cbab6a13cf9544e0d499f8622eccfadb83f9eaeae719c2e24c0b2107f6c",
+          "sha256": "de9d0d9d27c57e3c591fe1f801e119bd233ab7c255043ee2c3bd70384ca51455",
+          "sha1": "740baa02a42d6cabaf2f160a4aed3ade93bea220",
+          "md5": "ad510715579731a857715094bf669e1b"
+        }
+      ]
+    }
+  ]
+}

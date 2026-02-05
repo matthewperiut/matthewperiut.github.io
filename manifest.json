@@ -53,6 +53,15 @@
       "repo": "matthewperiut/StationAPI",
       "branch": "ornithe-starac-support-prep",
       "commit": "b0f4085"
+    },
+    {
+      "group": "paulevs.bhcreative",
+      "artifact": "BHCreative",
+      "version": "0.4.10+gen2",
+      "path": "repository/paulevs/bhcreative/BHCreative/0.4.10+gen2/BHCreative-0.4.10+gen2.jar",
+      "repo": "matthewperiut/BHCreative",
+      "branch": "ornithe",
+      "commit": "48c0f66"
     }
   ]
 }

@@ -9,7 +9,7 @@
             font-family: system-ui, sans-serif;
             max-width: 1000px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 50px 20px 20px;
             text-align: center;
             background: #e8e8e8;
         }
@@ -39,6 +39,28 @@
         .maven-link {
             font-size: 0.9em;
         }
+        .top-banner {
+            background: #ff6600;
+            color: #fff;
+            padding: 10px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            font-size: 0.95em;
+        }
+        .top-banner a {
+            color: #fff;
+            font-weight: bold;
+            margin-left: 6px;
+            text-decoration: underline;
+        }
+        .top-banner code {
+            background: rgba(0,0,0,0.15);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
         .download-btn {
             display: inline-block;
             padding: 10px 20px;
@@ -67,6 +89,10 @@
     </style>
 </head>
 <body>
+    <div class="top-banner">
+        Migrate your mod to Ornithe! Run <code>babric2ornithe</code> in your mod dir and you're 99% of the way there!<a href="/babric2ornithe/index.html">Get it here</a>
+    </div>
+
     <div class="section maven-link">
         Looking for the maven repository? <a href="maven.html">Browse here</a>
     </div>

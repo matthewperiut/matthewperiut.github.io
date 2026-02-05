@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>babric2ornithe v0.1.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .version {
+            font-size: 1rem;
+            color: #7ee787;
+            margin-bottom: 2rem;
+            font-weight: normal;
+        }
+        .desc {
+            color: #8b949e;
+            margin-bottom: 2.5rem;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.6;
+        }
+        .install-section { margin-bottom: 2rem; width: 100%; max-width: 780px; }
+        .install-section h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #8b949e;
+            margin-bottom: 0.5rem;
+        }
+        .cmd-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.85rem 1.25rem;
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 0.9rem;
+            position: relative;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .cmd-box:hover { border-color: #58a6ff; background: #1c2129; }
+        .cmd-box:active { background: #22272e; }
+        .cmd-box .prompt {
+            color: #484f58;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .cmd-box .cmd-text {
+            flex: 1;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            scrollbar-color: #30363d transparent;
+        }
+        .cmd-box .cmd-text::-webkit-scrollbar { height: 4px; }
+        .cmd-box .cmd-text::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+        .cmd-box .copy-btn {
+            flex-shrink: 0;
+            color: #484f58;
+            transition: color 0.2s;
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+        .cmd-box:hover .copy-btn { color: #8b949e; }
+        .cmd-box.copied .copy-btn { color: #7ee787; }
+        .platforms {
+            margin-top: 2.5rem;
+            text-align: center;
+            color: #484f58;
+            font-size: 0.8rem;
+        }
+        .platforms span { margin: 0 0.5rem; }
+    </style>
+</head>
+<body>
+    <h1>babric2ornithe</h1>
+    <p class="version">v0.1.0</p>
+    <p class="desc">Migrate Babric-based Minecraft mod projects to Ornithe. Handles mapping migration, build.gradle transformation, dependency management, and more.</p>
+
+    <div class="install-section">
+        <h2>macOS / Linux</h2>
+        <div class="cmd-box" onclick="copyCmd(this)">
+            <span class="prompt">$</span>
+            <span class="cmd-text">curl -fsSL https://matthewperiut.github.io/babric2ornithe/install.sh | sh</span>
+            <span class="copy-btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg></span>
+        </div>
+    </div>
+
+    <div class="install-section">
+        <h2>Windows (PowerShell)</h2>
+        <div class="cmd-box" onclick="copyCmd(this)">
+            <span class="prompt">&gt;</span>
+            <span class="cmd-text">irm https://matthewperiut.github.io/babric2ornithe/install.ps1 | iex</span>
+            <span class="copy-btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg></span>
+        </div>
+    </div>
+
+    <div class="platforms">
+        <span>macOS x86_64</span>
+        <span>macOS arm64</span>
+        <span>Linux x86_64</span>
+        <span>Linux arm64</span>
+        <span>Windows x86_64</span>
+        <span>Windows arm64</span>
+    </div>
+
+    <script>
+        function copyCmd(el) {
+            const text = el.querySelector('.cmd-text').textContent.trim();
+            navigator.clipboard.writeText(text);
+            el.classList.add("copied");
+            setTimeout(() => el.classList.remove("copied"), 1500);
+        }
+    </script>
+</body>
+</html>
