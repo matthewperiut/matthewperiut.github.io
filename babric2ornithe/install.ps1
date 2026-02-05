@@ -5,9 +5,9 @@ $BaseUrl = "https://matthewperiut.github.io/babric2ornithe"
 
 Write-Host "Installing babric2ornithe v$Version..."
 
-$Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture) {
-    "X64"  { "x86_64" }
-    "Arm64" { "arm64" }
+$Arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+    "AMD64" { "x86_64" }
+    "ARM64" { "arm64" }
     default {
         Write-Error "Unsupported architecture: $_. babric2ornithe is available for x86_64 and arm64."
         exit 1
