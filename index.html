@@ -134,7 +134,14 @@
                     return;
                 }
 
-                tbody.innerHTML = data.jars.map(jar => {
+                // Deduplicate: keep only the latest version per group:artifact
+                const latest = new Map();
+                for (const jar of data.jars) {
+                    latest.set(`${jar.group}:${jar.artifact}`, jar);
+                }
+                const jars = [...latest.values()];
+
+                tbody.innerHTML = jars.map(jar => {
                     const filename = jar.path.split('/').pop();
                     const repoUrl = jar.repo ? `https://github.com/${jar.repo}` : '';
                     const repoLink = jar.repo ? `<a href="${repoUrl}">${jar.repo}</a>` : '-';

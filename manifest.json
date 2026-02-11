@@ -55,6 +55,15 @@
       "commit": "b0f4085"
     },
     {
+      "group": "net.modificationstation",
+      "artifact": "StationAPI",
+      "version": "2.0.0-alpha.5.4.1+gen2",
+      "path": "repository/net/modificationstation/StationAPI/2.0.0-alpha.5.4.1+gen2/StationAPI-2.0.0-alpha.5.4.1+gen2.jar",
+      "repo": "matthewperiut/stationapi",
+      "branch": "ornithe-starac-support-prep",
+      "commit": "5efaf55"
+    },
+    {
       "group": "paulevs.bhcreative",
       "artifact": "BHCreative",
       "version": "0.4.10+gen2",
