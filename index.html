@@ -5,123 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ornithe Gen2 Mods</title>
     <style>
-        :root {
-            --accent: #ff6600;
-            --accent-dark: #e25500;
-            --bg: #e8e8e8;
-            --card: #ffffff;
-            --border: #dddddd;
-            --muted: #6b7280;
-            --link: #0066cc;
-        }
-        * { box-sizing: border-box; }
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 1040px;
+            font-family: system-ui, sans-serif;
+            max-width: 1000px;
             margin: 0 auto;
-            padding: 64px 20px 40px;
-            background: var(--bg);
-            color: #1f2328;
+            padding: 50px 20px 20px;
+            text-align: center;
+            background: #e8e8e8;
         }
-        h1, h2 { font-weight: 600; margin: 0 0 14px; }
-        a { color: var(--link); }
-
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        table {
+            margin: 15px auto 0;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+        }
+        a {
+            color: #0066cc;
+        }
+        .maven-link {
+            font-size: 0.9em;
+        }
         .top-banner {
-            background: var(--accent);
+            background: #ff6600;
             color: #fff;
             padding: 10px 20px;
             position: fixed;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             z-index: 100;
             font-size: 0.95em;
-            text-align: center;
         }
-        .top-banner a { color: #fff; font-weight: bold; margin-left: 6px; }
-        .top-banner code { background: rgba(0,0,0,0.15); padding: 2px 5px; border-radius: 3px; }
-
-        .section {
-            margin: 20px 0;
-            padding: 22px;
-            background: var(--card);
-            border-radius: 10px;
-            border: 1px solid var(--border);
+        .top-banner a {
+            color: #fff;
+            font-weight: bold;
+            margin-left: 6px;
+            text-decoration: underline;
         }
-        .section.center { text-align: center; }
-        .row-between {
-            display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 10px;
+        .top-banner code {
+            background: rgba(0,0,0,0.15);
+            padding: 2px 5px;
+            border-radius: 3px;
         }
-        .muted { color: var(--muted); font-size: 0.9em; }
-
         .download-btn {
             display: inline-block;
             padding: 10px 20px;
             background: #4a9eff;
-            color: #fff;
+            color: white;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
+            border-radius: 4px;
         }
-        .download-btn:hover { background: #3a8eef; }
-
-        /* Mod grid */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
-            margin-top: 18px;
+        .download-btn:hover {
+            background: #3a8eef;
         }
-        .card {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            background: #fff;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        h1, h2 {
+            font-weight: normal;
+            margin: 0 0 15px;
         }
-        .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-        .card-head h3 { margin: 0; font-size: 1.1em; word-break: break-word; }
-        .badge {
-            background: #eef6ff;
-            color: #0b62c4;
-            border: 1px solid #cfe4ff;
-            border-radius: 999px;
-            padding: 2px 10px;
-            font-size: 0.8em;
-            white-space: nowrap;
-            font-variant-numeric: tabular-nums;
-        }
-        .coord {
-            display: flex; align-items: center; gap: 6px;
-            background: #f6f8fa;
-            border: 1px solid #e4e8ec;
-            border-radius: 6px;
-            padding: 6px 8px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 0.82em;
-        }
-        .coord code { overflow-x: auto; white-space: nowrap; flex: 1; }
-        .copy-btn {
-            border: 1px solid var(--border);
-            background: #fff;
-            border-radius: 5px;
-            padding: 3px 8px;
-            cursor: pointer;
+        .toggle-link {
             font-size: 0.85em;
-            white-space: nowrap;
+            cursor: pointer;
         }
-        .copy-btn:hover { background: #f0f0f0; }
-        .copy-btn.copied { background: #e7f7ec; border-color: #b6e2c4; color: #1a7f37; }
-
-        .card-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: auto; }
-        .src { font-size: 0.82em; color: var(--muted); }
-        .src a { color: var(--link); text-decoration: none; }
-        .src a:hover { text-decoration: underline; }
-        .older { font-size: 0.82em; }
-
-        .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-        .controls label { font-size: 0.9em; color: var(--muted); cursor: pointer; }
+        .source-col {
+            display: none;
+        }
+        .show-source .source-col {
+            display: table-cell;
+        }
     </style>
 </head>
 <body>
@@ -129,34 +93,38 @@
         Migrate your mod to Ornithe! Run <code>babric2ornithe</code> in your mod dir and you're 99% of the way there!<a href="/babric2ornithe/index.html">Get it here</a>
     </div>
 
-    <div class="section center">
-        <h1>Ornithe Gen 2 Prism Instance</h1>
-        <p class="muted">One-click modded Beta 1.7.3 instance for the babric&nbsp;→&nbsp;Ornithe migration ecosystem.</p>
+    <div class="section maven-link">
+        Looking for the maven repository? <a href="maven.html">Browse here</a>
+    </div>
+
+    <div class="section">
+        <h1>Ornithe Gen 2 Prism Instance Download</h1>
         <a class="download-btn" href="ornithe-prism-instance.zip" download>Download Prism Instance</a>
     </div>
 
     <div class="section">
-        <div class="row-between">
-            <h2>Ornithe (gen2) Mods</h2>
-            <div class="controls">
-                <span class="muted">Latest builds only.</span>
-                <a class="muted" href="maven.html">Browse full maven repo →</a>
-            </div>
-        </div>
-        <p class="muted" style="margin:0 0 4px">
-            Add the repository <code>https://matthewperiut.github.io/repository</code> to your build, then use the coordinate on each card.
-            Older versions remain published in the maven repo.
-        </p>
-        <div class="grid" id="mod-grid">
-            <p class="muted">Loading…</p>
-        </div>
+        <h2>Ornithe (gen2) Prod Mods for Babric migration ecosystem</h2>
+        <a href="#" id="toggle-source" class="toggle-link">Show source location</a>
+        <table>
+        <thead>
+            <tr>
+                <th>Mod</th>
+                <th>Version</th>
+                <th>Download</th>
+                <th class="source-col">Repo</th>
+                <th class="source-col">Branch</th>
+                <th class="source-col">Commit</th>
+            </tr>
+        </thead>
+        <tbody id="mod-list">
+            <tr><td colspan="6">Loading...</td></tr>
+        </tbody>
+    </table>
     </div>
 
     <script>
-        // ---- Version comparison (numeric-aware, semver-ish) ----------------
-        // Splits "2.0.0-alpha.6.2+gen2" into release / prerelease / build, and
-        // compares each segment numerically when both sides are numbers, so
-        // 0.8.10 > 0.8.3 (which a plain string sort gets wrong).
+        // Compare versions numerically (so 0.8.10 > 0.8.3, which a plain string
+        // sort gets wrong). Handles "2.0.0-alpha.6.2+gen2"-style versions.
         function splitVer(v) {
             const plus = v.indexOf('+');
             const core = plus === -1 ? v : v.slice(0, plus);
@@ -191,88 +159,65 @@
             const A = splitVer(a), B = splitVer(b);
             let c = cmpSegments(A.release, B.release);
             if (c) return c;
-            // a real release outranks a prerelease of the same numbers
             if (A.pre === '' && B.pre !== '') return 1;
             if (A.pre !== '' && B.pre === '') return -1;
             c = cmpSegments(A.pre, B.pre);
             if (c) return c;
-            // tie-break on build metadata so e.g. 5.4+gen2 is shown over plain 5.4
             if (A.build === '' && B.build !== '') return -1;
             if (A.build !== '' && B.build === '') return 1;
             return cmpSegments(A.build.replace(/\+/g, '.'), B.build.replace(/\+/g, '.'));
         }
 
-        // group:artifact path within the maven repo, for the "older versions" link
-        function artifactDir(jar) {
-            // jar.path = repository/<group/as/path>/<artifact>/<version>/<file>.jar
-            const parts = jar.path.replace(/^repository\//, '').split('/');
-            return parts.slice(0, -2).join('/'); // drop <version>/<file>
-        }
-
-        function esc(s) {
-            return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-        }
-
         async function loadMods() {
-            const grid = document.getElementById('mod-grid');
             try {
-                const data = await (await fetch('manifest.json')).json();
-                if (!data.jars || data.jars.length === 0) {
-                    grid.innerHTML = '<p class="muted">No mods found.</p>';
+                const response = await fetch('manifest.json');
+                const data = await response.json();
+                const tbody = document.getElementById('mod-list');
+
+                if (data.jars.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6">No mods found</td></tr>';
                     return;
                 }
 
-                // Keep only the latest version per group:artifact.
+                // Deduplicate: keep only the latest version per group:artifact
                 const latest = new Map();
                 for (const jar of data.jars) {
                     const key = `${jar.group}:${jar.artifact}`;
                     const cur = latest.get(key);
                     if (!cur || cmpVersion(jar.version, cur.version) > 0) latest.set(key, jar);
                 }
+                const jars = [...latest.values()];
 
-                const jars = [...latest.values()].sort((a, b) => a.artifact.localeCompare(b.artifact));
-
-                grid.innerHTML = jars.map(jar => {
-                    const file = jar.path.split('/').pop();
-                    const coord = `${jar.group}:${jar.artifact}:${jar.version}`;
+                tbody.innerHTML = jars.map(jar => {
+                    const filename = jar.path.split('/').pop();
                     const repoUrl = jar.repo ? `https://github.com/${jar.repo}` : '';
-                    const src = [];
-                    if (jar.repo) src.push(`<a href="${esc(repoUrl)}">${esc(jar.repo)}</a>`);
-                    if (jar.repo && jar.branch) src.push(`<a href="${esc(repoUrl)}/tree/${esc(jar.branch)}">${esc(jar.branch)}</a>`);
-                    if (jar.repo && jar.commit) src.push(`<a href="${esc(repoUrl)}/commit/${esc(jar.commit)}">${esc(jar.commit.substring(0, 7))}</a>`);
-                    const dir = artifactDir(jar);
-                    return `<div class="card">
-                        <div class="card-head">
-                            <h3>${esc(jar.artifact)}</h3>
-                            <span class="badge">${esc(jar.version)}</span>
-                        </div>
-                        <div class="coord">
-                            <code>${esc(coord)}</code>
-                            <button class="copy-btn" data-coord="${esc(coord)}">Copy</button>
-                        </div>
-                        <div class="card-actions">
-                            <a class="download-btn" href="${esc(jar.path)}" download="${esc(file)}">Download</a>
-                            <a class="older" href="maven.html#${esc(dir)}">All versions →</a>
-                        </div>
-                        ${src.length ? `<div class="src">source: ${src.join(' · ')}</div>` : ''}
-                    </div>`;
+                    const repoLink = jar.repo ? `<a href="${repoUrl}">${jar.repo}</a>` : '-';
+                    const branchLink = jar.repo && jar.branch ? `<a href="${repoUrl}/tree/${jar.branch}">${jar.branch}</a>` : '-';
+                    const commitLink = jar.repo && jar.commit ? `<a href="${repoUrl}/commit/${jar.commit}">${jar.commit.substring(0, 7)}</a>` : '-';
+                    return `<tr>
+                        <td>${jar.artifact}</td>
+                        <td>${jar.version}</td>
+                        <td><a href="${jar.path}" download="${filename}">Download</a></td>
+                        <td class="source-col">${repoLink}</td>
+                        <td class="source-col">${branchLink}</td>
+                        <td class="source-col">${commitLink}</td>
+                    </tr>`;
                 }).join('');
-
-                grid.querySelectorAll('.copy-btn').forEach(btn => {
-                    btn.addEventListener('click', async () => {
-                        try {
-                            await navigator.clipboard.writeText(btn.dataset.coord);
-                            btn.textContent = 'Copied!';
-                            btn.classList.add('copied');
-                            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1200);
-                        } catch (_) { /* clipboard blocked; ignore */ }
-                    });
-                });
             } catch (e) {
-                grid.innerHTML = '<p class="muted">Error loading manifest. Run <code>sync-m2.py</code> first.</p>';
+                document.getElementById('mod-list').innerHTML =
+                    '<tr><td colspan="6">Error loading manifest. Run sync-m2.sh first.</td></tr>';
             }
         }
         loadMods();
+
+        document.getElementById('toggle-source').addEventListener('click', function(e) {
+            e.preventDefault();
+            const table = document.querySelector('table');
+            table.classList.toggle('show-source');
+            this.textContent = table.classList.contains('show-source')
+                ? 'Hide source location'
+                : 'Show source location';
+        });
     </script>
 </body>
 </html>

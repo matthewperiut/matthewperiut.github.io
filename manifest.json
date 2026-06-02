@@ -14,8 +14,8 @@
       "artifact": "accessory-api",
       "version": "0.8.3+gen2",
       "path": "repository/com/periut/accessory-api/0.8.3+gen2/accessory-api-0.8.3+gen2.jar",
-      "repo": "https://github.com/matthewperiut/accessory-api",
-      "branch": "matthewperiut/accessory-api",
+      "repo": "matthewperiut/accessory-api",
+      "branch": "ornithe",
       "commit": "791349f"
     },
     {
