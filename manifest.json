@@ -10,6 +10,15 @@
       "commit": "71e95c3"
     },
     {
+      "group": "com.periut",
+      "artifact": "accessory-api",
+      "version": "0.8.3+gen2",
+      "path": "repository/com/periut/accessory-api/0.8.3+gen2/accessory-api-0.8.3+gen2.jar",
+      "repo": "https://github.com/matthewperiut/accessory-api",
+      "branch": "matthewperiut/accessory-api",
+      "commit": "791349f"
+    },
+    {
       "group": "com.periut.cryonicconfig",
       "artifact": "cryonicconfig-ornithe",
       "version": "1.0.0+gen2+mcb1.7.3",
@@ -62,6 +71,15 @@
       "repo": "matthewperiut/StationAPI",
       "branch": "ornithe-starac-support-prep",
       "commit": "b0f4085"
+    },
+    {
+      "group": "net.modificationstation",
+      "artifact": "StationAPI",
+      "version": "2.0.0-alpha.6.2+gen2",
+      "path": "repository/net/modificationstation/StationAPI/2.0.0-alpha.6.2+gen2/StationAPI-2.0.0-alpha.6.2+gen2.jar",
+      "repo": "matthewperiut/StationAPI",
+      "branch": "ornithe-a6.2",
+      "commit": "6d51bf2"
     },
     {
       "group": "paulevs.bhcreative",
