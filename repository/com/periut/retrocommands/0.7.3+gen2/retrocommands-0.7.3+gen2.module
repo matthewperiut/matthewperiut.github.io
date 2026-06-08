@@ -3,7 +3,7 @@
   "component": {
     "group": "com.periut",
     "module": "retrocommands",
-    "version": "0.7.2+gen2",
+    "version": "0.7.3+gen2",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -41,7 +41,7 @@
           "group": "com.periut",
           "module": "retroapi",
           "version": {
-            "requires": "1.1.0"
+            "requires": "0.1.3"
           },
           "excludes": [
             {
@@ -53,13 +53,13 @@
       ],
       "files": [
         {
-          "name": "retrocommands-0.7.2+gen2.jar",
-          "url": "retrocommands-0.7.2+gen2.jar",
-          "size": 127542,
-          "sha512": "acf363ae4079ef48d3996f5ef616b67dbd3179a380c86a144791040c4e2233fcb526ef29c73d6d346ee6752da50547463c8f92abaf94b6e118603fc33dd219d6",
-          "sha256": "d6a935dac5ec22ade5ee4875865c99fe7fcbe0400ccd9a54e7eb4dd7c2acce65",
-          "sha1": "8f81e22e73bce70f2427c43d84a26020670871c5",
-          "md5": "8e2d3efc8de6e59a0c91e2bdb83a6303"
+          "name": "retrocommands-0.7.3+gen2.jar",
+          "url": "retrocommands-0.7.3+gen2.jar",
+          "size": 127540,
+          "sha512": "f8e528be9544b1d4d428fab5ef0c5b2489dcd000a5a8ac38b78946fc156f997f644d600b27a4e0393bb8dcc6896d50bbc5752ecfeb188033c76f2e73e7f18535",
+          "sha256": "d32275c41ff4b3ad95c3b92e95c89dfb84bca40041b472a9cc0ca6c4121c41d3",
+          "sha1": "7c1b21706e0f3166450516794d2290799cba5ae5",
+          "md5": "c5936fb9a04b3cd54db7aa4f610aed37"
         }
       ]
     },
@@ -336,13 +336,13 @@
       ],
       "files": [
         {
-          "name": "retrocommands-0.7.2+gen2.jar",
-          "url": "retrocommands-0.7.2+gen2.jar",
-          "size": 127542,
-          "sha512": "acf363ae4079ef48d3996f5ef616b67dbd3179a380c86a144791040c4e2233fcb526ef29c73d6d346ee6752da50547463c8f92abaf94b6e118603fc33dd219d6",
-          "sha256": "d6a935dac5ec22ade5ee4875865c99fe7fcbe0400ccd9a54e7eb4dd7c2acce65",
-          "sha1": "8f81e22e73bce70f2427c43d84a26020670871c5",
-          "md5": "8e2d3efc8de6e59a0c91e2bdb83a6303"
+          "name": "retrocommands-0.7.3+gen2.jar",
+          "url": "retrocommands-0.7.3+gen2.jar",
+          "size": 127540,
+          "sha512": "f8e528be9544b1d4d428fab5ef0c5b2489dcd000a5a8ac38b78946fc156f997f644d600b27a4e0393bb8dcc6896d50bbc5752ecfeb188033c76f2e73e7f18535",
+          "sha256": "d32275c41ff4b3ad95c3b92e95c89dfb84bca40041b472a9cc0ca6c4121c41d3",
+          "sha1": "7c1b21706e0f3166450516794d2290799cba5ae5",
+          "md5": "c5936fb9a04b3cd54db7aa4f610aed37"
         }
       ]
     },
@@ -356,13 +356,13 @@
       },
       "files": [
         {
-          "name": "retrocommands-0.7.2+gen2-sources.jar",
-          "url": "retrocommands-0.7.2+gen2-sources.jar",
-          "size": 67286,
-          "sha512": "590de56219924aee3ae9c348ec0708cd7cf23c2331008f34ee6428193558903f051b67e70fd0247cbfe5836b1a122cdf0a6802a5436634142c1df0209b588e16",
-          "sha256": "d1bfd700ba99b1230904d728ec8acca37059984669140d03c37f85ce139b3ffd",
-          "sha1": "db9d86ff38f2921412abcd9bd6dd793d5823f332",
-          "md5": "a68535fe7edd12086346c90d78fa0ce9"
+          "name": "retrocommands-0.7.3+gen2-sources.jar",
+          "url": "retrocommands-0.7.3+gen2-sources.jar",
+          "size": 67287,
+          "sha512": "3f19e08a50401c71564aa0502110a4a03ee0318a332b546ea760ce395fd7b2cf37501ae227778681773e9ac2e3a425f230b87772fd371a6bd5abc57f5f20ba73",
+          "sha256": "32e7317ad6a3f99deba2e5b48861b78bdcfebf12d3c892f2122f9ed3121b4f73",
+          "sha1": "51eae51513b28bef7b39779a8ff6f9749860f0f1",
+          "md5": "9c726c3de401e455fcd4012a14ed9213"
         }
       ]
     }
