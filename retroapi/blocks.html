@@ -36,7 +36,15 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <span class="c">//   .sprite(Block.GLASS.getTexture(0)), reuse a vanilla texture instead</span>
 <span class="c">//   .alwaysDrops() / .alwaysEffectiveTool() / .effectiveTool(PickaxeItem.class)</span></code></pre></div>
 
-<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 10</a>; its texture and lang name were <a href="assets.html">Chapter 3</a>.)</p>
+<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 10</a>; its lang display name is <a href="assets.html">Chapter 3</a>.)</p>
+
+<p>That <code>.texture(id("example_block"))</code> needs an actual image. RetroAPI loads it by name from your mod's block-texture folder, so save a 16x16 PNG at this exact path (<code>example_mod</code> is your mod id, and the file name matches the <code>id(...)</code> you passed to <code>.texture</code>):</p>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/example_block.png</code></p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/example_block.png" width="64" height="64" alt="example_block"><div class="asset-name">example_block.png</div><a href="assets/example_block.png" download>download</a></div>
+</div>
 
 <h3>The whole builder, in one table</h3>
 <p>These are all the builder methods. Chain any of them before <code>register</code>; each returns the builder so they fit on one line. This is the complete list, there are no others.</p>

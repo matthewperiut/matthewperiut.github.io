@@ -475,6 +475,38 @@ pre .t { color: #7fd1c0; }                        /* type name */
     margin-bottom: 0;
 }
 
+/* The auto-injected id() helper note near the top of each chapter that uses id(). */
+.id-helper {
+    background: var(--note-bg);
+    border: 1px solid var(--note-border);
+    border-radius: 6px;
+    padding: 12px 16px 16px;
+    margin: 16px 0 26px;
+    font-size: 0.95em;
+}
+
+.id-helper > p:first-child {
+    margin-top: 0;
+}
+
+.id-helper .codeblock {
+    margin-bottom: 2px;
+}
+
+/* A "save the file here" path callout, e.g. next to a block's .texture(...). */
+.filepath {
+    margin: 4px 0 14px;
+}
+
+.filepath code {
+    background: var(--note-bg);
+    border: 1px solid var(--note-border);
+    border-radius: 4px;
+    padding: 5px 11px;
+    display: inline-block;
+    font-size: 0.9em;
+}
+
 /* --------------------------------------------------------------- assets -- */
 
 .asset-row {

@@ -205,10 +205,40 @@
         }
     }
 
+    // Most chapters call id("name"), the mod's own one-line helper that turns a bare name
+    // into a namespaced id. Rather than repeat its definition on every page (or leave a
+    // reader wondering where it comes from), inject it once near the top of any page that
+    // actually uses it. Runs before buildCopyButtons so the injected snippet gets a copy
+    // button like any other.
+    function buildIdHelper() {
+        var content = document.querySelector('.content');
+        if (!content) { return; }
+        var codes = content.querySelectorAll('pre code');
+        var usesId = false;
+        for (var i = 0; i < codes.length; i++) {
+            if (/\bid\(\s*["']/.test(codes[i].textContent)) { usesId = true; break; }
+        }
+        if (!usesId) { return; }
+        var anchor = content.querySelector('.chapter-sub') || content.querySelector('h1');
+        if (!anchor) { return; }
+        var note = document.createElement('div');
+        note.className = 'id-helper';
+        note.innerHTML = '<p><strong>A note on <code>id(...)</code>:</strong> every chapter uses '
+            + '<code>id("name")</code>, this mod\'s own one-line helper that turns a bare name into a '
+            + 'namespaced id. It is not part of RetroAPI; you define it once in your mod class (here '
+            + '<code>MOD_ID</code> is <code>"example_mod"</code>):</p>'
+            + '<div class="codeblock"><span class="code-title">in your mod class</span><pre><code>'
+            + '<span class="k">public static</span> NamespacedIdentifier id(<span class="k">String</span> name) {\n'
+            + '    <span class="k">return</span> NamespacedIdentifiers.from(MOD_ID, name);\n'
+            + '}</code></pre></div>';
+        anchor.parentNode.insertBefore(note, anchor.nextSibling);
+    }
+
     function init() {
         buildSidebar();
         buildHeader();
         buildPager();
+        buildIdHelper();
         buildCopyButtons();
         buildAssetDownloads();
     }
