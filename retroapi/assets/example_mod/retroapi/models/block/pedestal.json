@@ -1,0 +1,45 @@
+{
+  "textures": {
+    "particle": "example_mod:block/pedestal",
+    "stone": "example_mod:block/pedestal",
+    "gem": "example_mod:block/gem"
+  },
+  "elements": [
+    {
+      "from": [1, 0, 1],
+      "to": [15, 4, 15],
+      "faces": {
+        "down": { "texture": "#stone", "cullface": "down" },
+        "up": { "texture": "#stone" },
+        "north": { "texture": "#stone", "uv": [1, 12, 15, 16] },
+        "south": { "texture": "#stone", "uv": [1, 12, 15, 16] },
+        "west": { "texture": "#stone", "uv": [1, 12, 15, 16] },
+        "east": { "texture": "#stone", "uv": [1, 12, 15, 16] }
+      }
+    },
+    {
+      "from": [5, 4, 5],
+      "to": [11, 12, 11],
+      "faces": {
+        "north": { "texture": "#stone", "uv": [5, 4, 11, 12] },
+        "south": { "texture": "#stone", "uv": [5, 4, 11, 12] },
+        "west": { "texture": "#stone", "uv": [5, 4, 11, 12] },
+        "east": { "texture": "#stone", "uv": [5, 4, 11, 12] }
+      }
+    },
+    {
+      "from": [5.5, 11, 5.5],
+      "to": [10.5, 16, 10.5],
+      "rotation": { "origin": [8, 13.5, 8], "axis": "y", "angle": 45, "rescale": false },
+      "shade": false,
+      "faces": {
+        "down": { "texture": "#gem", "tintindex": 0 },
+        "up": { "texture": "#gem", "tintindex": 0 },
+        "north": { "texture": "#gem", "tintindex": 0 },
+        "south": { "texture": "#gem", "tintindex": 0 },
+        "west": { "texture": "#gem", "tintindex": 0 },
+        "east": { "texture": "#gem", "tintindex": 0 }
+      }
+    }
+  ]
+}

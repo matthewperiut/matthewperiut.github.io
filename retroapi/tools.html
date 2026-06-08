@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 17: The Toolbelt, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 17, The Toolbelt</h1>
+<p class="chapter-sub">A pickaxe that is really a tagged stone, a sword that is really a sword, food that bites back, and a full set of violet armor borrowed from the Aether.</p>
+
+<p>Tools, food, and armor are the three things players reach for first, and in beta each is handled differently. A tool is sometimes just an item wearing a tag and sometimes a real vanilla tool class. Food is a <em>property</em> you bolt onto any item, not a subclass. Armor is a genuine <code>ArmorItem</code> that happens to wear your art. This chapter walks all three using the showcase's own gear, and every line of code below is lifted byte-for-byte from <code>ExampleMod.java</code>.</p>
+
+<h2>Tools</h2>
+<p>There are two honest ways to make a tool, and the showcase ships one of each. The split is the same one you met with items in <a href="items.html">Chapter 5</a>: the tiny builder for the easy case, plain subclassing for the rest.</p>
+
+<h3>The tag way: the Ruby Pick</h3>
+<p>The Ruby Pick is not a <code>ToolItem</code> at all. It is a perfectly plain <code>Item</code> that has been <em>told</em> it counts as an iron-tier pickaxe, through the same mineable-tag and tool-tier system you wired up for blocks back in <a href="blocks.html">Chapter 4</a>. Two chained calls do it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem</span>
+<span class="c">// subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it</span>
+<span class="c">// harvests anything in mineable/pickaxe up through needs_iron_tool, including</span>
+<span class="c">// the ruby ore above. Vanilla tools never need this, they infer kind from</span>
+<span class="c">// their class and tier from their material. The handheld item model</span>
+<span class="c">// (retroapi/models/item/ruby_pick.json) gives it the diagonal in-hand pose.</span>
+RUBY_PICK = (Item) RetroItemAccess.create()
+	.maxStackSize(<span class="n">1</span>)
+	.tool(com.periut.retroapi.tag.RetroTool.PICKAXE)
+	.tier(com.periut.retroapi.tag.RetroToolTier.IRON)
+	.register(id(<span class="s">"ruby_pick"</span>));</code></pre></div>
+
+<p><code>.tool(RetroTool.PICKAXE)</code> declares the <em>kind</em>, this item harvests anything in the <code>mineable/pickaxe</code> tag, and <code>.tier(RetroToolTier.IRON)</code> declares <em>how good</em> it is, so it satisfies <code>needs_iron_tool</code> gating. Both feed the exact same harvest hook the ruby ore uses, so the pick mines the ruby ore it was meant to mine. Vanilla tool classes never call these, they infer the kind from their class and the tier from their <code>ToolMaterial</code>; the two declarations exist precisely for the case where there is no tool class, just an item you want to behave like one. The full tier ladder, the tag JSON, and the harvest rules all live in the tool-tiers section of <a href="blocks.html">Chapter 4</a>; this is the same Ruby Pick seen from the item side.</p>
+
+<p>The diagonal through-the-fist pose comes free here because the showcase ships a handheld item model at <code>retroapi/models/item/ruby_pick.json</code>; an item without such a model would opt in with <code>.handheld()</code>, the same one-call trick the Jump Stick used in <a href="items.html">Chapter 5</a>.</p>
+
+<h3>The vanilla way: the Zanite Sword</h3>
+<p>When a real vanilla tool class already exists, use it. A sword is the cleanest example: <code>SwordItem</code> takes a <code>ToolMaterial</code> and hands you attack damage, durability, and block-breaking speed for nothing. You construct it yourself and wrap it with <code>RetroItemAccess.of(...)</code>, exactly like any custom item class:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A custom TOOL the vanilla way: a SwordItem subclass. Unlike the ruby pick (which is</span>
+<span class="c">// a plain item TAGGED as a pickaxe), a sword is a real vanilla tool class, so it comes</span>
+<span class="c">// with attack damage, durability, and the block-breaking speed of its ToolMaterial</span>
+<span class="c">// (IRON tier here) built in. Texture is the Aether's zanite sword art.</span>
+ZANITE_SWORD = (Item) RetroItemAccess.of(
+		<span class="k">new</span> net.minecraft.item.SwordItem(RetroItemAccess.allocateId(), net.minecraft.item.ToolMaterial.IRON))
+	.maxStackSize(<span class="n">1</span>)
+	.handheld()
+	.texture(id(<span class="s">"zanite_sword"</span>))
+	.register(id(<span class="s">"zanite_sword"</span>));</code></pre></div>
+
+<p>Notice what is <em>not</em> here: no <code>.tool(...)</code>, no <code>.tier(...)</code>. A real <code>SwordItem</code> already knows it is a sword and already knows its material is iron, so the tag system reads both off the class. The constructor takes its numeric id from <code>RetroItemAccess.allocateId()</code> (same id story as any subclassed item), the <code>ToolMaterial.IRON</code> sets durability and damage, <code>.handheld()</code> gives it the in-hand tool angle, and <code>.texture(...)</code> points it at the Aether's zanite sword sprite. That is the whole difference between the two approaches: tag a plain item when no tool class fits, subclass the real one when it does.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/zanite_sword.png" width="64" height="64" alt="zanite_sword"><div class="asset-name">zanite_sword.png</div><a href="assets/zanite_sword.png" download>download</a></div>
+</div>
+
+<h2>Food</h2>
+<p>Food in RetroAPI is a <strong>property, not a subclass</strong>. You do not write a <code>FoodItem</code>; you chain <code>.food(...)</code> onto whatever item builder you already have, the same way modern Minecraft attaches a <code>FoodComponent</code>. The registry behind it is small enough to read in one sitting:</p>
+
+<div class="codeblock"><span class="code-title">RetroAPI/src/main/java/com/periut/retroapi/register/item/RetroFood.java, the heart of it</span><pre><code><span class="c">/** Runs the instant a food is eaten, after the heal. Use it for effects beyond healing. */</span>
+<span class="k">@FunctionalInterface</span>
+<span class="k">public interface</span> <span class="t">OnEaten</span> {
+	<span class="k">void</span> onEaten(ItemStack stack, World world, PlayerEntity player);
+}
+
+<span class="c">/** Eats one from the stack: heal, then run the effect. Called by the use hook in ItemMixin. */</span>
+<span class="k">public static</span> ItemStack eat(ItemStack stack, World world, PlayerEntity player) {
+	Props props = FOODS.get(stack.getItem());
+	<span class="k">if</span> (props == <span class="k">null</span>) {
+		<span class="k">return</span> stack;
+	}
+	stack.count--;
+	player.heal(props.health);
+	<span class="k">if</span> (props.onEaten != <span class="k">null</span>) {
+		props.onEaten.onEaten(stack, world, player);
+	}
+	<span class="k">return</span> stack;
+}</code></pre></div>
+
+<p>Read that closely, because it tells you what beta food can and cannot do. Beta 1.7.3 predates the hunger bar, so <code>player.heal(props.health)</code> restores <strong>health points directly</strong>, two points to a heart. There is no saturation, no nutrition, just hearts. And beta predates status effects too, so the only thing fancier than healing rides the <code>OnEaten</code> callback that fires right after the heal. That callback is the entire reason this API exists: it lets a food do something other than heal.</p>
+
+<h3>The simple case: the Candied Apple</h3>
+<p>One call, one number. The Candied Apple is edible and heals four points, two hearts, and that is all it does:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CANDIED_APPLE = RetroItemAccess.create()
+	.maxStackSize(<span class="n">16</span>)
+	.food(<span class="n">4</span>)                       <span class="c">// eat to heal 4 (two hearts)</span>
+	.register(id(<span class="s">"candied_apple"</span>));</code></pre></div>
+
+<p>That is the whole food declaration. Right-click to eat, lose one from the stack, gain two hearts. The candied apple also happens to be a layered texture stacked over vanilla's apple sprite, which is the texture trick from <a href="items.html">Chapter 5</a> rather than anything to do with food; here we care only about the one-word <code>.food(4)</code>.</p>
+
+<h3>The interesting case: the Poisonous Apple</h3>
+<p>Now use the second overload, <code>.food(health, onEaten)</code>, and pass a lambda. The Poisonous Apple heals a single point, then turns around and hurts you:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A food with a CUSTOM ON-EAT EFFECT: the Poisonous Apple heals a little, then bites</span>
+<span class="c">// back. The .food(health, onEaten) overload runs our callback the instant it is eaten;</span>
+<span class="c">// beta has no poison effect, so we just deal damage for a net-harmful bite. The</span>
+<span class="c">// callback is the whole reason the food API exists: food that does more than heal.</span>
+POISONOUS_APPLE = RetroItemAccess.create()
+	.maxStackSize(<span class="n">16</span>)
+	.texture(id(<span class="s">"poisonous_apple"</span>))
+	.food(<span class="n">1</span>, (stack, world, player) -&gt; player.damage(<span class="k">null</span>, <span class="n">6</span>))
+	.register(id(<span class="s">"poisonous_apple"</span>));</code></pre></div>
+
+<p>Trace it against the <code>eat</code> method above. The player heals <code>1</code>, then the lambda runs and calls <code>player.damage(null, 6)</code>, so the net result is a six-point hit softened by a one-point heal. Because beta has no poison status effect to apply, raw damage <em>is</em> the poison. The order matters and is fixed by the registry: heal first, callback second. Anything you can express in that lambda, a hit, a buff you simulate by hand, a teleport, becomes a food effect. That is the payoff of food being a property with a hook rather than a rigid subclass.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/poisonous_apple.png" width="64" height="64" alt="poisonous_apple"><div class="asset-name">poisonous_apple.png</div><a href="assets/poisonous_apple.png" download>download</a></div>
+</div>
+
+<table>
+<tr><th>Method</th><th>What it does</th></tr>
+<tr><td><code>.food(int health)</code></td><td>edible, heals <code>health</code> points (two per heart), no effect</td></tr>
+<tr><td><code>.food(int health, OnEaten)</code></td><td>edible, heals, then runs your callback (the interesting one)</td></tr>
+<tr><td><code>.food(int health, boolean meat, OnEaten)</code></td><td>full control, including whether it counts as meat</td></tr>
+</table>
+
+<h2>Armor</h2>
+<p>A full armor set is the showcase's most involved item, and yet the code is short, because <code>RetroArmor</code> does the heavy lifting. It is a real vanilla <code>ArmorItem</code>, so it equips into the armor slots, soaks up damage, and takes durability exactly like iron or diamond. What makes it modded is that it also implements <code>RetroArmorTexture</code>, so the renderer draws <em>your</em> art on the player instead of a vanilla material's. The showcase's set is Zanite, ported from <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">aether-fabric-b1.7.3</a>.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Custom ARMOR: a full zanite set, ported from aether-fabric-b1.7.3. RetroArmor is a</span>
+<span class="c">// vanilla ArmorItem (material 2 = iron-tier protection and durability) that draws OUR</span>
+<span class="c">// worn texture on the player through RetroArmorTexture; the inventory icons are the</span>
+<span class="c">// vanilla armor sprites tinted zanite violet, so the set needs only the two worn</span>
+<span class="c">// sheets, textures/armor/zanite_1.png (body + feet) and _2.png (legs). Slots are</span>
+<span class="c">// 0 helmet, 1 chestplate, 2 leggings, 3 boots.</span>
+String zaniteTex = <span class="s">"/assets/example_mod/textures/armor/zanite"</span>;
+<span class="k">int</span> zaniteTint = <span class="n">0x711EE8</span>;
+ZANITE_HELMET = (Item) RetroItemAccess.of(
+	<span class="k">new</span> com.periut.retroapi.register.item.RetroArmor(<span class="n">2</span>, <span class="n">0</span>, zaniteTex, zaniteTint)).register(id(<span class="s">"zanite_helmet"</span>));
+ZANITE_CHESTPLATE = (Item) RetroItemAccess.of(
+	<span class="k">new</span> com.periut.retroapi.register.item.RetroArmor(<span class="n">2</span>, <span class="n">1</span>, zaniteTex, zaniteTint)).register(id(<span class="s">"zanite_chestplate"</span>));
+ZANITE_LEGGINGS = (Item) RetroItemAccess.of(
+	<span class="k">new</span> com.periut.retroapi.register.item.RetroArmor(<span class="n">2</span>, <span class="n">2</span>, zaniteTex, zaniteTint)).register(id(<span class="s">"zanite_leggings"</span>));
+ZANITE_BOOTS = (Item) RetroItemAccess.of(
+	<span class="k">new</span> com.periut.retroapi.register.item.RetroArmor(<span class="n">2</span>, <span class="n">3</span>, zaniteTex, zaniteTint)).register(id(<span class="s">"zanite_boots"</span>));</code></pre></div>
+
+<p>Four pieces, four constructor calls, and the four arguments are the whole story. <code>RetroArmor(material, slot, wornTextureBase, tint)</code>:</p>
+
+<table>
+<tr><th>Argument</th><th>Meaning</th></tr>
+<tr><td><code>material</code></td><td>protection and durability tier: 0 leather, 1 chain, 2 iron, 3 diamond, 4 gold. The set is iron-tier.</td></tr>
+<tr><td><code>slot</code></td><td>0 helmet, 1 chestplate, 2 leggings, 3 boots</td></tr>
+<tr><td><code>wornTextureBase</code></td><td>resource path without the <code>_1/_2.png</code> suffix, here <code>/assets/example_mod/textures/armor/zanite</code></td></tr>
+<tr><td><code>tint</code></td><td>color the vanilla inventory icon is dyed, here <code>0x711EE8</code>, zanite violet</td></tr>
+</table>
+
+<h3>Why a set needs only two textures</h3>
+<p>This is the clever part, and it is worth understanding so you do not ship art you do not need. The <strong>inventory icon</strong> for each piece is not a PNG you draw. <code>RetroArmor</code> reuses the vanilla <em>iron</em> armor sprite for that slot and tints it to your set color through <code>getColorMultiplier</code>, the same leather-dye trick the game already does. So the helmet, chestplate, leggings, and boots icons all come free from vanilla, recolored violet.</p>
+
+<p>The <strong>worn texture</strong>, the armor drawn on the player's body, is the part you actually supply, through the <code>RetroArmorTexture</code> interface:</p>
+
+<div class="codeblock"><span class="code-title">RetroAPI/src/main/java/com/periut/retroapi/register/item/RetroArmor.java</span><pre><code><span class="k">@Override</span>
+<span class="k">public</span> String getArmorTexture(<span class="k">int</span> layer) {
+	<span class="k">return</span> <span class="k">this</span>.wornTextureBase + <span class="s">"_"</span> + (layer == <span class="n">2</span> ? <span class="n">2</span> : <span class="n">1</span>) + <span class="s">".png"</span>;
+}</code></pre></div>
+
+<p>Beta draws armor on the body in two layers, and that is why there are exactly two sheets. Layer 1 is the body-and-feet sheet, <code>zanite_1.png</code>, covering helmet, chestplate, and boots. Layer 2 is the legs sheet, <code>zanite_2.png</code>. RetroAPI's <code>PlayerArmorTextureMixin</code> consumes <code>getArmorTexture(layer)</code> when the renderer binds the armor, swapping beta's fixed material path for yours. So a complete four-piece set, with custom worn art on the player, needs only those two PNG files plus tinted vanilla icons. That is the whole trick the Aether's zanite armor used, and it is the whole trick you inherit.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/zanite_1.png" width="64" height="64" alt="zanite_1"><div class="asset-name">zanite_1.png</div><a href="assets/zanite_1.png" download>download</a></div>
+<div class="asset-card"><img src="assets/zanite_2.png" width="64" height="64" alt="zanite_2"><div class="asset-name">zanite_2.png</div><a href="assets/zanite_2.png" download>download</a></div>
+</div>
+
+<div class="note"><p>The two-arg constructor <code>RetroArmor(material, slot, wornTextureBase)</code> exists too, defaulting the tint to white (<code>0xFFFFFF</code>), in case you would rather the inventory icon show vanilla iron's own gray. Most sets want a color, so the four-arg form is the one you will reach for.</p></div>
+
+<p>Tools that mine, food that heals or bites, armor that wears your colors: the toolbelt is full. Next we hand the world an ear, sound effects, streaming music, and a jukebox record of your own, in <a href="sounds.html">Chapter 18, The Soundtrack</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "example_mod:item/ruby",
+    "layer1": "example_mod:item/ruby_sparkle"
+  }
+}

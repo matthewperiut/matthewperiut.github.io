@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 8: Achievements, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 8, Achievements</h1>
+<p class="chapter-sub">A toast pops, an icon un-greys, and a little tree of accomplishment grows on a page that's all yours.</p>
+
+<p>Achievements are the cheapest dopamine in game design and the easiest thing to add with RetroAPI. They're really two halves: a <em>definition</em> (an icon, a position, a parent, two lines of text) and a <em>grant</em> (the moment in gameplay where you award it). We'll define three, give them a home page, and then wire each one to a different gameplay trigger so you can see the whole spectrum of ways to award them.</p>
+
+<h2>Defining them</h2>
+<p>Everything lives in one small class, called from <code>init()</code> after your blocks and items exist, because an achievement's icon is often a block or item you registered earlier.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleAchievements.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.periut.retroapi.achievement.AchievementPage;
+<span class="k">import</span> com.periut.retroapi.achievement.RetroAchievements;
+
+<span class="k">import</span> net.minecraft.achievement.Achievement;
+<span class="k">import</span> net.minecraft.item.Item;
+
+<span class="k">public final class</span> <span class="t">ExampleAchievements</span> {
+	<span class="k">private</span> ExampleAchievements() {}
+
+	<span class="c">/** Granted on join (ExamplePlayerSetup); lives on the VANILLA page. */</span>
+	<span class="k">public static</span> <span class="t">Achievement</span> GETTING_STARTED;
+	<span class="c">/** Granted on first jump (LivingEntityJumpMixin); root of the mod's own page. */</span>
+	<span class="k">public static</span> <span class="t">Achievement</span> JUMP_FOR_JOY;
+	<span class="c">/** Granted by walking into the portal (ExamplePortalBlock); child of JUMP_FOR_JOY. */</span>
+	<span class="k">public static</span> <span class="t">Achievement</span> DIMENSIONAL_TRAVELER;
+
+	<span class="k">public static void</span> register() {
+		<span class="c">// A root achievement (parent == null). Icon is an Item here; Block and</span>
+		<span class="c">// ItemStack overloads exist too. The two ints are the column/row position</span>
+		<span class="c">// on the achievements screen. Not added to a page below, so it appears on</span>
+		<span class="c">// the vanilla page.</span>
+		GETTING_STARTED = <span class="t">RetroAchievements</span>.register(
+			<span class="t">ExampleMod</span>.id(<span class="s">"getting_started"</span>),
+			<span class="s">"example_mod.getting_started"</span>,
+			-<span class="n">2</span>, -<span class="n">2</span>,
+			<span class="t">ExampleMod</span>.SUSPICIOUS_SUBSTANCE,
+			<span class="k">null</span>
+		);
+
+		<span class="c">// Root of our own page.</span>
+		JUMP_FOR_JOY = <span class="t">RetroAchievements</span>.register(
+			<span class="t">ExampleMod</span>.id(<span class="s">"jump_for_joy"</span>),
+			<span class="s">"example_mod.jump_for_joy"</span>,
+			<span class="n">0</span>, <span class="n">0</span>,
+			<span class="t">Item</span>.FEATHER,
+			<span class="k">null</span>
+		);
+
+		<span class="c">// A child achievement: pass the parent as the last argument and the</span>
+		<span class="c">// achievements screen draws the connecting line from it.</span>
+		DIMENSIONAL_TRAVELER = <span class="t">RetroAchievements</span>.register(
+			<span class="t">ExampleMod</span>.id(<span class="s">"dimensional_traveler"</span>),
+			<span class="s">"example_mod.dimensional_traveler"</span>,
+			<span class="n">2</span>, <span class="n">1</span>,
+			<span class="t">ExampleMod</span>.EXAMPLE_PORTAL,
+			JUMP_FOR_JOY
+		);
+
+		<span class="c">// Give the mod its own page on the achievements screen (the < > buttons).</span>
+		<span class="c">// Page title lang key: gui.retroapi.achievementPage.example_mod.example_page</span>
+		<span class="t">AchievementPage</span> page = <span class="k">new</span> <span class="t">AchievementPage</span>(<span class="t">ExampleMod</span>.id(<span class="s">"example_page"</span>));
+		page.addAchievements(JUMP_FOR_JOY, DIMENSIONAL_TRAVELER);
+	}
+}</code></pre></div>
+
+<h3>Reading register(...)</h3>
+<p>The signature is <code>register(id, name, column, row, icon, parent)</code>. Each argument earns its place:</p>
+<table>
+<tr><th>Argument</th><th>What it is</th></tr>
+<tr><td><code>id</code></td><td>a <code>NamespacedIdentifier</code>, RetroAPI's stable handle for this achievement</td></tr>
+<tr><td><code>name</code></td><td>the lang-key stem; <code>"example_mod.getting_started"</code> becomes the title and description keys</td></tr>
+<tr><td><code>column</code>, <code>row</code></td><td>where the icon sits on the achievements screen, a coordinate grid, not a list</td></tr>
+<tr><td><code>icon</code></td><td>a <code>Block</code>, an <code>Item</code>, or an <code>ItemStack</code>, three overloads, pick whichever you have</td></tr>
+<tr><td><code>parent</code></td><td>the achievement this one branches from, or <code>null</code> for a root</td></tr>
+</table>
+
+<p>The icon overloads are why this call reads cleanly: <code>GETTING_STARTED</code> uses the Suspicious Substance, <code>JUMP_FOR_JOY</code> uses a vanilla feather, and <code>DIMENSIONAL_TRAVELER</code> uses the portal block, and each just passes the object it has, no wrapping required. Pass <code>null</code> for the parent and the achievement is a root, the start of a branch. Pass an existing achievement and the screen draws a connecting line from parent to child, building the familiar tree.</p>
+
+<div class="note"><p>There's also a family of <code>register(int fixedId, …)</code> overloads that take an explicit numeric id as the first argument, for the three icon types. You'd reach for these when you need a StationAPI-stable id, a fixed number that never shifts as you add or remove achievements. The auto-allocating overloads shown above are the right default; the fixed-id ones are there when stability across versions matters.</p></div>
+
+<h2>The words</h2>
+<p>Each achievement needs two lang lines: a title and a description, keyed off the <code>name</code> stem. The title key is <code>achievement.&lt;name&gt;</code> and the description is <code>achievement.&lt;name&gt;.desc</code>. Here's the achievements section of the lang file:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/lang/en_US.lang</span><pre><code><span class="c"># Achievements: achievement.&lt;name&gt; is the title, achievement.&lt;name&gt;.desc the</span>
+<span class="c"># description, where &lt;name&gt; is the string passed to RetroAchievements.register.</span>
+achievement.example_mod.getting_started=Getting Started
+achievement.example_mod.getting_started.desc=Join a world with the example mod installed.
+achievement.example_mod.jump_for_joy=Jump for Joy
+achievement.example_mod.jump_for_joy.desc=Jump!
+achievement.example_mod.dimensional_traveler=Dimensional Traveler
+achievement.example_mod.dimensional_traveler.desc=Step through the example portal.
+
+<span class="c"># Title of the mod's own achievement page (the &lt; &gt; buttons on the achievements screen).</span>
+gui.retroapi.achievementPage.example_mod.example_page=Example Mod</code></pre></div>
+
+<p>That last line names the <em>page</em>, with the key <code>gui.retroapi.achievementPage.example_mod.example_page</code>, built from the page id you'll see in a moment. (As <a href="assets.html">Chapter 3</a> covered, anything you forget to translate falls back to an auto-generated name, so a missing line is a cosmetic blemish, never a crash.)</p>
+
+<h2>Pages</h2>
+<p>The achievements screen in Beta 1.7.3 is a scrollable map, and mods can add their own maps reachable with the <code>&lt;</code> <code>&gt;</code> arrows at the top. There's exactly one rule that decides where an achievement lands, and it's worth saying clearly:</p>
+
+<div class="note"><p>An achievement you do <strong>not</strong> add to a page appears on the <strong>vanilla</strong> page, mixed in with Minecraft's own. Add it to a custom <code>AchievementPage</code> and it lives there instead.</p></div>
+
+<p>That's why <code>GETTING_STARTED</code> shows up alongside vanilla's achievements, it's never added to a page, on purpose. It's the "you installed the mod, welcome" badge, and the vanilla page is exactly where a new player will see it first.</p>
+
+<p>The other two get a home of their own. Creating the page auto-registers it; you then claim achievements onto it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleAchievements.java, register()</span><pre><code><span class="t">AchievementPage</span> page = <span class="k">new</span> <span class="t">AchievementPage</span>(<span class="t">ExampleMod</span>.id(<span class="s">"example_page"</span>));
+page.addAchievements(JUMP_FOR_JOY, DIMENSIONAL_TRAVELER);</code></pre></div>
+
+<p>Constructing <code>new AchievementPage(id)</code> registers it for you, no separate "add page" call, and the <code>&lt;</code> <code>&gt;</code> buttons appear on the screen the moment any custom page exists. Then <code>page.addAchievements(…)</code> claims them. The result is a tidy little tree: <code>JUMP_FOR_JOY</code> sits at the root (the feather), and <code>DIMENSIONAL_TRAVELER</code> hangs off it as a child, drawn with a connecting line, because we passed <code>JUMP_FOR_JOY</code> as its parent back in the definition. Two achievements, one branch, one page titled "Example Mod."</p>
+
+<h2>Granting from gameplay</h2>
+<p>Defining an achievement makes it <em>exist</em>, greyed out, waiting. Granting it is the gameplay moment that lights it up. The call is always the same one line, <code>RetroAchievements.grant(achievement, player)</code>, but <em>where</em> you put it is the interesting part. The showcase grants its three achievements from three completely different places.</p>
+
+<h3>1. On join, straight from setup code</h3>
+<p>The simplest grant is a plain function call at the right moment. When a player joins, the per-player setup hands out a starter kit and, while it's at it, grants the welcome achievement:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExamplePlayerSetup.java, run()</span><pre><code><span class="c">// Grant the join achievement, the toast pops and it un-greys on the screen.</span>
+<span class="t">RetroAchievements</span>.grant(<span class="t">ExampleAchievements</span>.GETTING_STARTED, player);</code></pre></div>
+
+<h3>2. On a portal touch, from a block's collision handler</h3>
+<p>The portal block grants <code>DIMENSIONAL_TRAVELER</code> the instant the player steps into it, right inside <code>onEntityCollision</code>. Note the guard, <code>!world.isRemote</code>, which keeps the grant on the authoritative side:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExamplePortalBlock.java, onEntityCollision()</span><pre><code><span class="c">// A gameplay-triggered achievement grant (see ExampleAchievements).</span>
+<span class="k">if</span> (!world.isRemote) {
+	<span class="t">RetroAchievements</span>.grant(<span class="t">ExampleAchievements</span>.DIMENSIONAL_TRAVELER, player);
+}</code></pre></div>
+
+<p>This is the portal we'll build in full in <a href="dimensions.html">Chapter 9</a>, but it's a nice glimpse of how an achievement grant slots naturally into any block behavior you write.</p>
+
+<h3>3. On first jump, from a mixin</h3>
+<p>Sometimes the moment you want to reward lives deep in vanilla code you can't call into directly. There's no "on jump" hook, jumping is a private method on <code>LivingEntity</code>. So we reach in with a mixin and grant on the way through, gated by a boolean so it only fires once:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/LivingEntityJumpMixin.java</span><pre><code><span class="k">package</span> com.example.example_mod.mixin;
+
+<span class="k">import</span> org.spongepowered.asm.mixin.Mixin;
+<span class="k">import</span> org.spongepowered.asm.mixin.injection.At;
+<span class="k">import</span> org.spongepowered.asm.mixin.injection.Inject;
+<span class="k">import</span> org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+<span class="k">import</span> com.example.example_mod.ExampleAchievements;
+<span class="k">import</span> com.periut.retroapi.achievement.RetroAchievements;
+
+<span class="k">import</span> net.minecraft.entity.LivingEntity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+
+<span class="k">@Mixin</span>(<span class="t">LivingEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">LivingEntityJumpMixin</span> {
+
+	<span class="c">/** Jumping happens a lot, gate the grant so it only ever runs once per session. */</span>
+	<span class="k">private static boolean</span> example_mod$jumpGranted = <span class="k">false</span>;
+
+	<span class="k">@Inject</span>(method = <span class="s">"jump"</span>, at = <span class="k">@At</span>(<span class="s">"HEAD"</span>))
+	<span class="k">private void</span> example_mod$onJump(<span class="t">CallbackInfo</span> ci) {
+		<span class="k">if</span> (example_mod$jumpGranted) {
+			<span class="k">return</span>;
+		}
+		<span class="t">LivingEntity</span> self = (<span class="t">LivingEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+		<span class="k">if</span> (self <span class="k">instanceof</span> <span class="t">PlayerEntity</span> &amp;&amp; !self.world.isRemote) {
+			example_mod$jumpGranted = <span class="k">true</span>;
+			<span class="t">RetroAchievements</span>.grant(<span class="t">ExampleAchievements</span>.JUMP_FOR_JOY, (<span class="t">PlayerEntity</span>) self);
+		}
+	}
+}</code></pre></div>
+
+<p>Two details make this mixin correct. First, it targets <code>LivingEntity</code>, the class that <em>declares</em> <code>jump()</code>, not <code>PlayerEntity</code>, which only inherits it; mixins must target the declaring class, so we check <code>instanceof PlayerEntity</code> at runtime instead. Second, the <code>example_mod$jumpGranted</code> boolean gates the whole thing: jumping fires constantly, and without the gate you'd re-grant on every hop. The full mechanics of mixins, why beta modding leans on them, how to cut safely, are the subject of <a href="mixins.html">Chapter 12</a>; here, just notice that a grant fits inside one as comfortably as it fits anywhere else.</p>
+
+<div class="note"><p><code>grant()</code> works identically in singleplayer and multiplayer. Under the hood it's a vanilla stat increment: singleplayer awards it immediately, and a dedicated server sends the vanilla stat packet so the client's toast pops and the icon un-greys. Achievements are per-player, just like vanilla's, one player earning "Jump for Joy" doesn't grant it to anyone else.</p></div>
+
+<p>That's the whole loop: define an achievement with an icon and a place on the tree, write its two lines of text, decide whether it sits on the vanilla page or a page of your own, and grant it from wherever in your code the moment happens. A toast, an un-greying icon, a small thread of progress, for one method call.</p>
+
+<p>One of our achievements is earned by stepping through a portal into a world that doesn't exist yet. Let's build that world, and the doorway into it.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

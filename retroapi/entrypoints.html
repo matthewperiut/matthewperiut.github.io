@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 2: Three Doors In, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 2, Three Doors In</h1>
+<p class="chapter-sub">Three entrypoints, one rule about which classes meet which side, and why your textures are safe everywhere.</p>
+
+<p>When the game starts, the loader knocks on up to three doors in your mod and walks through whichever ones it finds. Each door opens onto a different side of the game. Get them straight now and the rest of the guide reads like a list of things you do <em>behind the first door</em>.</p>
+
+<p>You already met the entrypoints block in <a href="setup.html">Chapter 1</a>'s <code>fabric.mod.json</code>. Here it is again, all three doors wired up:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/fabric.mod.json</span><pre><code>	<span class="t">"entrypoints"</span>: {
+		<span class="s">"init"</span>: [
+			<span class="s">"com.example.example_mod.ExampleMod"</span>
+		],
+		<span class="s">"client-init"</span>: [
+			<span class="s">"com.example.example_mod.ExampleModClient"</span>
+		],
+		<span class="s">"server-init"</span>: [
+			<span class="s">"com.example.example_mod.ExampleModServer"</span>
+		]
+	},</code></pre></div>
+
+<table>
+<tr><th>Entrypoint</th><th>Class &amp; method</th><th>Runs on…</th></tr>
+<tr><td><code>init</code></td><td><code>ExampleMod.init()</code></td><td>both sides, client <em>and</em> dedicated server</td></tr>
+<tr><td><code>client-init</code></td><td><code>ExampleModClient.initClient()</code></td><td>the client only</td></tr>
+<tr><td><code>server-init</code></td><td><code>ExampleModServer.initServer()</code></td><td>a dedicated server only</td></tr>
+</table>
+
+<p>Each entrypoint is an OSL interface with exactly one method to implement. The three are <code>ModInitializer.init()</code>, <code>ClientModInitializer.initClient()</code>, and <code>ServerModInitializer.initServer()</code>. You may list <em>several</em> classes under one entrypoint, the loader calls each in turn, but one of each is plenty to start, and that's how the showcase is built.</p>
+
+<h2>The skeletons</h2>
+<p>Three small classes, each implementing one interface. This is the whole shape of them; the bodies come later.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.ModInitializer;
+
+<span class="k">public class</span> <span class="t">ExampleMod</span> <span class="k">implements</span> <span class="t">ModInitializer</span> {
+	<span class="k">public static final</span> String MOD_ID = <span class="s">"example_mod"</span>;
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> init() {
+		LOGGER.info(<span class="s">"initializing example mod!"</span>);
+		<span class="c">// … register everything here (see below) …</span>
+	}
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.client.ClientModInitializer;
+
+<span class="k">public class</span> <span class="t">ExampleModClient</span> <span class="k">implements</span> <span class="t">ClientModInitializer</span> {
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> initClient() {
+		<span class="c">// renderers, GUI screens, client packet listeners …</span>
+	}
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.server.ServerModInitializer;
+
+<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> initServer() {
+		<span class="c">// server packet listeners, dedicated-server-only logic …</span>
+	}
+}</code></pre></div>
+
+<h2>The big idea: register everything in <code>init()</code></h2>
+<p>Here is the rule that shapes every later chapter: <strong>your content is registered in the common <code>init()</code>, on both sides.</strong> Blocks, items, block entities, the dimension, the mob, achievements, recipes, network channels, all of it goes through the one door both sides walk through, so both sides agree on what exists.</p>
+
+<p>That makes <code>ExampleMod.init()</code> the table of contents for the whole mod. Read it top to bottom and you've read the syllabus:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init(), trimmed</span><pre><code><span class="k">public void</span> init() {
+	LOGGER.info(<span class="s">"initializing example mod!"</span>);
+
+	<span class="c">// blocks, Chapter 4</span>
+	EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
+		.strength(<span class="n">1.5f</span>, <span class="n">10.0f</span>).texture(id(<span class="s">"example_block"</span>)).register(id(<span class="s">"example_block"</span>));
+	<span class="c">// … SIDED_BLOCK, PIPE_BLOCK …</span>
+
+	<span class="c">// block entities, Chapter 6</span>
+	RetroBlockEntities.register(id(<span class="s">"counter"</span>), ExampleCounterBlockEntity.class);
+	<span class="c">// … COUNTER_BLOCK, CRATE_BLOCK, FREEZER_BLOCK …</span>
+
+	<span class="c">// items, Chapter 5</span>
+	SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
+		.maxStackSize(<span class="n">64</span>).texture(id(<span class="s">"suspicious_substance"</span>)).register(id(<span class="s">"suspicious_substance"</span>));
+	<span class="c">// … JUMP_STICK …</span>
+
+	<span class="c">// dimension, Chapter 9</span>
+	EXAMPLE_DIMENSION = RetroDimensions.register(id(<span class="s">"example_dim"</span>), ExampleDimension::new);
+	<span class="c">// … EXAMPLE_PORTAL …</span>
+
+	<span class="c">// entities, Chapter 7</span>
+	EXAMPLE_MOB = RetroEntities.register(ExampleEntity.ID, ExampleEntity.class)
+		.factory((MobFactory) ExampleEntity::new);
+
+	<span class="c">// recipes, Chapter 10</span>
+	RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);
+
+	<span class="c">// achievements, Chapter 8</span>
+	ExampleAchievements.register();
+
+	<span class="c">// networking, Chapter 11</span>
+	ExampleNetworking.registerChannels();
+}</code></pre></div>
+
+<p>Every line above is one of the next chapters. <a href="blocks.html">Chapter 4</a> takes the blocks, <a href="items.html">Chapter 5</a> the items, <a href="blockentities.html">Chapter 6</a> the block entities, <a href="entities.html">Chapter 7</a> the mob, <a href="achievements.html">Chapter 8</a> the achievements, <a href="dimensions.html">Chapter 9</a> the dimension and portal, <a href="recipes.html">Chapter 10</a> the recipes, <a href="networking.html">Chapter 11</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
+
+<div class="note"><p>Two registrations are deferred behind events rather than run inline. Recipes go through <code>RecipeRegistrationCallback</code> so they land <em>after</em> vanilla's recipe list exists; network <em>channels</em> are opened in <code>init()</code> (both sides must agree they exist), while the <em>listeners</em> that use them are wired up per side. More on both in their chapters.</p></div>
+
+<h2>The thing about Beta 1.7.3: there is no integrated server</h2>
+<p>Modern Minecraft runs a hidden "integrated server" inside singleplayer, a real server thread the client talks to over an in-memory connection. Beta 1.7.3 has no such thing. Singleplayer is just the client, simulating the world directly, by itself.</p>
+
+<p>This single fact reshapes how you think about sides:</p>
+
+<ul>
+<li><strong>Singleplayer is the client.</strong> The world ticks, mobs spawn, blocks save, all inside the client process. So <code>client-init</code> runs in singleplayer, and <code>server-init</code> does <em>not</em>.</li>
+<li><strong>"Server" means a dedicated server</strong>, a separate, headless process with no window, launched with <code>runServer</code> or a server jar. That's the only place <code>initServer()</code> ever fires.</li>
+<li><strong><code>world.isRemote</code> tells you "am I a remote multiplayer client?"</strong> In singleplayer it is <code>false</code>, you are the authority, the same way a server is. It's <code>true</code> only on a client connected to a remote server, where the world is a shadow of the server's.</li>
+</ul>
+
+<div class="warn"><p>If you're coming from modern Fabric/Forge, retrain this reflex: <strong>"client-side" and "logical server-side" are not two threads in singleplayer here, they're the same code.</strong> Gameplay logic guarded by <code>if (!world.isRemote)</code> runs in singleplayer (good, it's the authority) and on a dedicated server, but is skipped on a remote multiplayer client.</p></div>
+
+<h2>Why your textures are safe on a server (the question everyone asks)</h2>
+<p>Look back at the <code>init()</code> table of contents: it calls <code>.texture(id("example_block"))</code> and, in <a href="blocks.html">Chapter 4</a>'s sided block, <code>RetroTextures.addBlockTexture(...)</code>. Those run on a dedicated server too, there's no window there, no GPU, no atlas. Does the server try to decode a PNG and fall over?</p>
+
+<p>No. And this is by design. <strong>A texture call in common <code>init()</code> is pure bookkeeping.</strong> It records a <code>RetroTexture</code> handle and reserves a sprite slot (a number ≥ 256), that's all. No file is opened, no pixels are read. The actual PNG decoding and atlas compositing happen <em>client-side only</em>, much later, when the texture atlas is being built for rendering.</p>
+
+<p>That's exactly why texture registration does <em>not</em> need to move into <code>client-init</code>. The bookkeeping has to happen on both sides anyway, so that both sides assign the same sprite slots and stay in sync. The server keeps the ledger; only the client ever paints from it.</p>
+
+<div class="note"><p><strong>The shape of a <code>RetroTexture</code>:</strong> it carries a <code>NamespacedIdentifier</code> and a public <code>int id</code> (the reserved sprite index). On a server that <code>id</code> is a number nobody ever draws. On a client it's the live index into the atlas. Same object, same number, harmless either way. Full story in <a href="assets.html">Chapter 3</a>.</p></div>
+
+<h2>Classloading discipline: the rule that prevents crashes</h2>
+<p>Here is the one rule that, if you keep it, you'll almost never see a sided crash:</p>
+
+<div class="danger"><p><strong>Never reference a client-only class from code that loads on a server, and never reference a server-only class from code that loads on a client.</strong></p></div>
+
+<p>"Client-only" means anything under <code>net.minecraft.client.*</code>, screens, renderers, models, the <code>Minecraft</code> class itself, plus client networking like <code>ClientPlayNetworking</code>. "Server-only" means <code>ServerPlayerEntity</code>, <code>ServerPlayNetworking</code>, <code>MinecraftServer</code>, and friends. A dedicated server jar simply does not contain the client classes; touching one from server-loaded code throws <code>NoClassDefFoundError</code> the instant the JVM tries to <em>load</em> the referencing class, often before your method even runs.</p>
+
+<p>The fix isn't to scatter <code>if</code> checks. It's to keep dangerous classes <em>physically out of reach</em> of the wrong side, by which class mentions which. The showcase does this cleanly.</p>
+
+<h3>Client-only stays behind the client door</h3>
+<p><code>ExampleCrateScreen</code> extends a <code>net.minecraft.client</code> class, so it must never be classloaded on a server. It isn't, it's only ever <em>named</em> inside a lambda registered in <code>ExampleModClient</code>, and lambdas don't load their bodies' classes until they actually run (which, on a server, is never):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient(), trimmed</span><pre><code>RetroGuiRegistry.register(ExampleMod.id(<span class="s">"crate"</span>), <span class="k">new</span> RetroGuiHandler(
+	(player, inventory) -> <span class="k">new</span> ExampleCrateScreen(player.inventory, (ExampleCrateBlockEntity) inventory),
+	ExampleCrateBlockEntity::new));</code></pre></div>
+
+<p>The common <code>init()</code> never types the word <code>ExampleCrateScreen</code>. A server loads <code>ExampleMod</code> happily, because nothing in it points at a client class.</p>
+
+<h3>Server-only stays behind the server door</h3>
+<p>Symmetrically, <code>ServerPlayerEntity</code> appears only in <code>ExampleModServer</code> and in a mixin listed under <code>"server"</code> (its <code>ServerPlayerTickMixin</code>). The client never loads either:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java, trimmed</span><pre><code><span class="k">import</span> net.minecraft.entity.player.ServerPlayerEntity;
+<span class="k">import</span> net.ornithemc.osl.networking.api.server.ServerPlayNetworking;
+
+<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
+	<span class="k">public static void</span> welcomeOnceReady(ServerPlayerEntity player) {
+		<span class="c">// … server-only types live here, and only here …</span>
+		ServerPlayNetworking.send(player, ExampleNetworking.WELCOME, buf ->
+			buf.writeString(<span class="s">"Welcome to the server, "</span> + player.name + <span class="s">"!"</span>));
+	}
+}</code></pre></div>
+
+<h3>Mixins obey the same rule</h3>
+<p>A mixin is just another class that gets loaded onto whatever side it's listed under, so the mixin config splits its entries into three lists for exactly this reason. A client-only mixin (one that <code>@Mixin</code>-targets a client class) goes under <code>"client"</code>; a server-only one under <code>"server"</code>; everything common under <code>"mixins"</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/example_mod.mixins.json</span><pre><code>{
+	<span class="t">"required"</span>: <span class="k">true</span>,
+	<span class="t">"minVersion"</span>: <span class="s">"0.8"</span>,
+	<span class="t">"package"</span>: <span class="s">"com.example.example_mod.mixin"</span>,
+	<span class="t">"compatibilityLevel"</span>: <span class="s">"JAVA_8"</span>,
+	<span class="t">"mixins"</span>: [
+		<span class="s">"LivingEntityJumpMixin"</span>,
+		<span class="c">// … common mixins, loaded on both sides …</span>
+	],
+	<span class="t">"client"</span>: [
+		<span class="s">"PlayerTickMixin"</span>,
+		<span class="c">// … client-only mixins …</span>
+	],
+	<span class="t">"server"</span>: [
+		<span class="s">"ServerPlayerTickMixin"</span>
+	],
+	<span class="t">"injectors"</span>: {
+		<span class="t">"defaultRequire"</span>: <span class="n">1</span>
+	}
+}</code></pre></div>
+
+<p>Put a mixin that touches a client class in the <code>"client"</code> list and a dedicated server never tries to load it. Same idea as the entrypoints, same payoff: the wrong class never reaches the wrong side. The full mixin tour, all twelve graded examples, is <a href="mixins.html">Chapter 12</a>.</p>
+
+<div class="note"><p><strong>Rule of thumb.</strong> Common code may freely mention shared classes (<code>Block</code>, <code>Item</code>, <code>World</code>, <code>PlayerEntity</code>, your own block/item classes). The moment a type is named <code>...client...</code> or is a <code>Server*</code>, ask "which door does this belong behind?" and put the <em>class that mentions it</em> there.</p></div>
+
+<p>Three doors, one ledger shared between them. Next we walk through the first door's quietest job: turning PNGs and text files into sprites, names, and sounds.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

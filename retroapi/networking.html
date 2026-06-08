@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 11: Wires, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 11, Wires</h1>
+<p class="chapter-sub">A welcome message, a reply, and a careful handshake, custom packets with OSL networking.</p>
+
+<p>Most of what your mod needs to sync, RetroAPI already syncs (we'll list it at the end of this chapter). But sometimes you have a genuinely custom message to send across the wire, a greeting on join, a button press, a bit of machine state vanilla never imagined. That's a custom packet, and OSL's networking layer makes them small and safe.</p>
+
+<p>We'll build the simplest possible round trip: server says hello, client says thanks. It touches every piece you need for anything bigger.</p>
+
+<h2>The plan</h2>
+<p>The showcase spells out the whole exchange in a comment at the top of <code>ExampleNetworking.java</code>, read it before the code, it's the map for the rest of the chapter:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleNetworking.java</span><pre><code><span class="c">/**
+ * Custom packets via OSL networking (osl-networking), a tiny welcome/ping round trip:
+ *
+ *   1. When a player joins a dedicated server, the server sends a WELCOME packet
+ *      (sent from ExampleModServer.welcomeOnceReady, driven by ServerPlayerTickMixin).
+ *   2. The client listener (in ExampleModClient) logs it and replies with a PING.
+ *   3. The server listener (in ExampleModServer) logs the reply.
+ *
+ * Only the channel ids live here, because this class must be loadable on BOTH sides:
+ * client-only code (ClientPlayNetworking) stays in ExampleModClient and server-only
+ * code (ServerPlayNetworking) stays in ExampleModServer.
+ *
+ * Note: Beta 1.7.3 has no integrated server, so custom packets only flow when playing
+ * on a dedicated server, in singleplayer these channels simply stay quiet.
+ */</span></code></pre></div>
+
+<div class="note"><p><strong>Beta 1.7.3 has no integrated server.</strong> In modern Minecraft, singleplayer runs a hidden local server and your packets flow between it and your client. Not here, singleplayer in beta runs entirely inside the client (<a href="entrypoints.html">Chapter 2</a>), with no second side to talk to. So these channels stay completely quiet in singleplayer; <strong>custom packets only matter on a dedicated server.</strong> <a href="testing.html">Chapter 21</a> shows how to actually stand one up and test this.</p></div>
+
+<h2>Step 1, declare the channels (both sides)</h2>
+<p>A channel is a named pipe with a direction. Both the client and the server must agree the channel exists, so the channel <em>ids</em> live in a class that loads on both sides, the common <code>ExampleNetworking</code>. Crucially, <strong>only the ids live here</strong>: the moment you reference <code>ClientPlayNetworking</code> or <code>ServerPlayNetworking</code> in this class, it would fail to load on the side that lacks those classes. Keep it neutral.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleNetworking.java</span><pre><code><span class="k">public final class</span> <span class="t">ExampleNetworking</span> {
+    <span class="k">private</span> ExampleNetworking() {}
+
+    <span class="c">// register(id, serverToClient, clientToServer), directions a channel allows.</span>
+    <span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> WELCOME = ChannelRegistry.register(
+        ChannelIdentifiers.from(ExampleMod.MOD_ID, <span class="s">"welcome"</span>), <span class="k">true</span>, <span class="k">false</span>);
+
+    <span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> PING = ChannelRegistry.register(
+        ChannelIdentifiers.from(ExampleMod.MOD_ID, <span class="s">"ping"</span>), <span class="k">false</span>, <span class="k">true</span>);
+
+    <span class="c">/**
+     * The channels above are registered by this class's static initializer; calling
+     * this from ExampleMod.init() just forces that to happen at a predictable time.
+     */</span>
+    <span class="k">public static void</span> registerChannels() {
+    }
+}</code></pre></div>
+
+<p>Read the two boolean flags: <code>WELCOME</code> is <code>(true, false)</code>, server-to-client only. <code>PING</code> is <code>(false, true)</code>, client-to-server only. The directions you declare are the directions OSL will allow; a channel that only flows one way can't be misused the other.</p>
+
+<p>The registrations happen in the class's static initializer. The empty <code>registerChannels()</code> method exists only so <code>ExampleMod.init()</code> can call it and <em>force</em> the class to load at a predictable moment, touching the class triggers its static block:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="c">// -------------------------------------------------------------- networking --</span>
+<span class="c">// Channels must be registered on both sides, so this happens here in the</span>
+<span class="c">// common entrypoint. The client listener lives in ExampleModClient, the server</span>
+<span class="c">// listener in ExampleModServer.</span>
+ExampleNetworking.registerChannels();</code></pre></div>
+
+<h2>Step 2, the client side</h2>
+<p>The client registers a listener for <code>WELCOME</code> and, when it arrives, replies on <code>PING</code>. Both live in <code>ExampleModClient</code>, the client entrypoint, because <code>ClientPlayNetworking</code> only exists on the client. The listener lambda receives a <code>Context</code> and a <code>PacketBuffer</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java</span><pre><code><span class="c">// Listen for the server's WELCOME packet (see ExampleNetworking for the plan).</span>
+<span class="c">// The lambda gets a Context (ctx.minecraft(), ctx.ensureOnMainThread(), ...)</span>
+<span class="c">// and a PacketBuffer with read/write methods for all the usual types.</span>
+ClientPlayNetworking.registerListener(ExampleNetworking.WELCOME, (ctx, buf) -> {
+    <span class="t">String</span> message = buf.readString();
+    ExampleMod.LOGGER.info(<span class="s">"[client] the server says: {}"</span>, message);
+
+    <span class="c">// Reply on our client-&gt;server channel.</span>
+    ClientPlayNetworking.send(ExampleNetworking.PING, reply ->
+        reply.writeString(<span class="s">"Thanks for the welcome!"</span>));
+});</code></pre></div>
+
+<p>Two objects do all the work here:</p>
+<ul>
+<li><strong><code>Context</code></strong> (<code>ctx</code>), your handle on the client: <code>ctx.minecraft()</code> gives the Minecraft instance, and <code>ctx.ensureOnMainThread()</code> hops you onto the render thread when you need to touch the world or GUI safely. Packets arrive on the network thread; anything that mutates game state should go through <code>ensureOnMainThread</code>.</li>
+<li><strong><code>PacketBuffer</code></strong> (<code>buf</code>), the wire format. It has matched read/write pairs for every common type: <code>readString</code>/<code>writeString</code>, <code>readInt</code>/<code>writeInt</code>, <code>readVarInt</code>/<code>writeVarInt</code> (compact ints, prefer these for small numbers), <code>readBoolean</code>, <code>readByteArray</code>, and more. <strong>Read in the same order you wrote.</strong></li>
+</ul>
+
+<p>Sending client-to-server is one call: <code>ClientPlayNetworking.send(channel, writerLambda)</code>, you get a fresh buffer to fill, OSL ships it on the channel you named.</p>
+
+<h2>Step 3, the server side</h2>
+<p>The server has two jobs: send the welcome (once, at the right moment) and listen for the reply. Both live in <code>ExampleModServer</code>, the dedicated-server entrypoint, because <code>ServerPlayNetworking</code> and <code>ServerPlayerEntity</code> only exist there. Here's the whole class:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
+
+    <span class="c">/** Players we've already welcomed (weak so it empties itself on logout). */</span>
+    <span class="k">private static final</span> <span class="t">Set</span>&lt;<span class="t">ServerPlayerEntity</span>&gt; WELCOMED =
+        Collections.newSetFromMap(<span class="k">new</span> <span class="t">WeakHashMap</span>&lt;<span class="t">ServerPlayerEntity</span>, <span class="t">Boolean</span>&gt;());
+
+    <span class="k">@Override</span>
+    <span class="k">public void</span> initServer() {
+        <span class="c">// Listen for the client's PING reply (see ExampleNetworking for the plan).</span>
+        <span class="c">// ctx gives you the sending player, the server, and the network handler.</span>
+        ServerPlayNetworking.registerListener(ExampleNetworking.PING, (ctx, buf) -> {
+            <span class="t">String</span> note = buf.readString();
+            ExampleMod.LOGGER.info(<span class="s">"[server] ping from {}: {}"</span>, ctx.player().name, note);
+        });
+    }
+
+    <span class="c">/**
+     * Sends the WELCOME packet to a player exactly once per login. Called every
+     * server tick from ServerPlayerTickMixin; we wait until OSL's channel handshake
+     * with this client is done (isPlayReady) before sending, then remember them.
+     */</span>
+    <span class="k">public static void</span> welcomeOnceReady(<span class="t">ServerPlayerEntity</span> player) {
+        <span class="k">if</span> (WELCOMED.contains(player)) {
+            <span class="k">return</span>;
+        }
+        <span class="k">if</span> (!ServerPlayNetworking.isPlayReady(player, ExampleNetworking.WELCOME)) {
+            <span class="k">return</span>; <span class="c">// handshake not finished yet (or the client doesn't have the mod)</span>
+        }
+        WELCOMED.add(player);
+        ServerPlayNetworking.send(player, ExampleNetworking.WELCOME, buf -&gt;
+            buf.writeString(<span class="s">"Welcome to the server, "</span> + player.name + <span class="s">"!"</span>));
+    }
+}</code></pre></div>
+
+<p>On the server, the <code>Context</code> gives you the other end of the conversation: <code>ctx.player()</code> is the <code>ServerPlayerEntity</code> who sent the packet, and <code>ctx.server()</code> is the <code>MinecraftServer</code> itself. Sending server-to-client takes the target player as its first argument: <code>ServerPlayNetworking.send(player, channel, writerLambda)</code>.</p>
+
+<h3>The handshake gate, <code>isPlayReady</code></h3>
+<p>You can't fire a packet at a player the instant they appear. OSL runs its own channel handshake after a client connects, and until it finishes the client isn't listening on your channel yet. <code>welcomeOnceReady</code> guards on exactly that:</p>
+
+<div class="warn"><p><code>ServerPlayNetworking.isPlayReady(player, channel)</code> returns <code>true</code> only once the handshake for that channel has completed. It <strong>also returns <code>false</code> when the client simply doesn't have your mod</strong>, a vanilla client never registers your channel, so it never becomes ready. That's by design: <strong>you cannot send a custom packet to a vanilla client.</strong> The send is silently impossible, and the once-guard never fires for them. Your server stays compatible with vanilla clients for free.</p></div>
+
+<p>Because the channel might not be ready on the first tick (or the fifth), <code>welcomeOnceReady</code> is called <em>every</em> tick and gates itself: skip if already welcomed, skip if not ready, otherwise send and remember. The <code>WeakHashMap</code>-backed set is the once-guard, weak references so a player who logs out drops out of the set automatically, and gets welcomed again on their next login.</p>
+
+<h3>What drives the send</h3>
+<p>That per-tick call comes from a server-side tick mixin. <code>ServerPlayerEntity.tick()</code> runs every tick for every logged-in player, which makes it a reliable "this player is in the world" hook:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/ServerPlayerTickMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">ServerPlayerEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">ServerPlayerTickMixin</span> {
+
+    <span class="k">@Inject</span>(method = <span class="s">"tick"</span>, at = <span class="k">@At</span>(<span class="s">"HEAD"</span>))
+    <span class="k">private void</span> example_mod$onTick(<span class="t">CallbackInfo</span> ci) {
+        <span class="t">ServerPlayerEntity</span> self = (<span class="t">ServerPlayerEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+        ExamplePlayerSetup.run((<span class="t">PlayerEntity</span>) self);
+        ExampleModServer.welcomeOnceReady(self);
+    }
+}</code></pre></div>
+
+<p>Mixins are <a href="mixins.html">Chapter 12</a>'s whole subject, for now, notice that this one lives in the <code>"server"</code> list of the mixin config so it never loads on a client, where <code>ServerPlayerEntity</code> doesn't exist. That sided-loading discipline is the recurring theme of networking code.</p>
+
+<h2>What RetroAPI already syncs for you</h2>
+<p>Before you reach for a custom packet, check whether RetroAPI is already handling it. A huge amount of the multiplayer plumbing that would otherwise be your problem is done:</p>
+
+<table>
+<tr><th>Channel</th><th>What it syncs</th></tr>
+<tr><td><code>id_sync</code></td><td>Block ids, so the server's remapped block ids match the client's.</td></tr>
+<tr><td><code>dim_sync</code></td><td>Dimensions, your registered dimension reaches the client (<a href="dimensions.html">Chapter 9</a>).</td></tr>
+<tr><td><code>chunk_ext</code></td><td>Extended block data per chunk, beta's block array is small; this carries the overflow.</td></tr>
+<tr><td><code>entity_spawn</code> / <code>entity_mob</code></td><td>Custom entity spawns, so your mob appears on every client (<a href="entities.html">Chapter 7</a>).</td></tr>
+<tr><td><code>open_gui</code></td><td>Container GUIs, opening your crate or freezer on a remote client.</td></tr>
+<tr><td>container properties</td><td>The vanilla property mechanism, the freezer's progress bars ride this (<a href="blockentities.html">Chapter 6</a>).</td></tr>
+</table>
+
+<p>The lesson: <strong>you usually only need a custom packet for genuinely custom mechanics</strong>, a thing the game has no concept of. Blocks, items, entities, dimensions, GUIs, machine progress: all synced already. Reach for <code>ChannelRegistry</code> only when you've confirmed nothing above covers you.</p>
+
+<p>Packets are the careful way mods talk. Next we open the toolbox that lets a mod change <em>anything</em> the game does, and learn to do it without breaking every other mod in the pack.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

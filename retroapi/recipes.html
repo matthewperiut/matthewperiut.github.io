@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 10: Recipes, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 10, Recipes</h1>
+<p class="chapter-sub">Four little tables, shaped, shapeless, smelting, fuel, and one rule about wildcards that saves you a debugging afternoon.</p>
+
+<p>You've built blocks, items, a mob, a dimension. Now we close the loop: let players <em>make</em> the things you registered. Recipes in RetroAPI are four one-line calls, and the only subtle part is <em>when</em> you call them, so we'll start there.</p>
+
+<h2>Register through the callback, not in init()</h2>
+<p>Vanilla's recipe list doesn't exist yet when your <code>init()</code> runs. If you called <code>RetroRecipes.addShaped(...)</code> directly from <code>init()</code> you'd be appending to a list that the game is about to build and sort around you. So RetroAPI gives you an event that fires <strong>after</strong> vanilla's recipes exist, and re-sorts the whole list afterwards so your recipes land in the right priority order:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="c">// ----------------------------------------------------------------- recipes --</span>
+<span class="c">// Recipes are registered through a callback that fires after vanilla's recipes</span>
+<span class="c">// exist (the recipe list is re-sorted afterwards), so modded recipes always</span>
+<span class="c">// take priority correctly.</span>
+RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);</code></pre></div>
+
+<p>That one line goes in <code>init()</code> alongside your block and item registration. The actual recipes live in the method it points at. Here is <code>registerRecipes()</code> in full, all four recipe APIs in eleven lines:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="k">private static void</span> registerRecipes() {
+    <span class="c">// Shaped recipe: four cobblestone in a 2x2 square craft one Example Block.</span>
+    <span class="c">// Bare Block/Item ingredients match ANY metadata; pass an ItemStack with a</span>
+    <span class="c">// damage value (e.g. new ItemStack(Block.WOOL, 1, 14)) for exact-meta matching.</span>
+    RetroRecipes.addShaped(<span class="k">new</span> <span class="t">ItemStack</span>(EXAMPLE_BLOCK),
+        <span class="s">"CC"</span>,
+        <span class="s">"CC"</span>,
+        <span class="s">'C'</span>, Block.COBBLESTONE);
+
+    <span class="c">// Shapeless recipe: one Example Block anywhere in the grid gives four Suspicious Substances.</span>
+    RetroRecipes.addShapeless(<span class="k">new</span> <span class="t">ItemStack</span>(SUSPICIOUS_SUBSTANCE, <span class="n">4</span>), EXAMPLE_BLOCK);
+
+    <span class="c">// Smelting: cook an Example Block back into an Suspicious Substance.</span>
+    RetroRecipes.addSmelting(EXAMPLE_BLOCK.id, <span class="k">new</span> <span class="t">ItemStack</span>(SUSPICIOUS_SUBSTANCE));
+
+    <span class="c">// Fuel: Suspicious Substances burn in a furnace for 1600 ticks (= 8 smelted items).</span>
+    RetroRecipes.addFuel(SUSPICIOUS_SUBSTANCE.id, <span class="n">1600</span>);
+}</code></pre></div>
+
+<div class="note"><p>The callback is also where you'd register recipes that depend on <em>other</em> mods' items existing, by the time it fires, the whole registry has settled.</p></div>
+
+<h2>The four APIs</h2>
+
+<h3>addShaped, position matters</h3>
+<p><code>addShaped(output, "CC", "CC", 'C', ingredient…)</code> reads like the crafting grid does: each string is a row, each character is a slot, and the trailing pairs map a character to an ingredient. The shape is anchored but movable, a 2&times;2 pattern crafts anywhere in the 3&times;3 grid. Spaces in the strings mean "this slot must be empty."</p>
+
+<h3>addShapeless, any arrangement</h3>
+<p><code>addShapeless(output, ingredients…)</code> ignores position entirely: drop the listed ingredients anywhere and you get the output. Our example takes a single Example Block and returns four Suspicious Substances, handy for "uncrafting" a block back into its parts.</p>
+
+<h3>addSmelting, the furnace</h3>
+<p><code>addSmelting(inputId, output)</code> takes a numeric <em>item id</em> as input (note <code>EXAMPLE_BLOCK.id</code>, not the block itself) and any <code>ItemStack</code> as output. Put the input on top of a lit furnace and it cooks into the output.</p>
+
+<h3>addFuel, burn time in ticks</h3>
+<p><code>addFuel(itemId, burnTicks)</code> teaches the furnace that an item is fuel. The unit is ticks, and the conversion is the one number worth memorizing: <strong>200 ticks smelts exactly one item</strong>. The showcase uses <code>1600</code>, so one Suspicious Substance smelts eight things, twice as good as a piece of coal (1600 vs. coal's 1600… actually equal to coal here, which is the joke: your scrap item is as good as coal).</p>
+
+<table>
+<tr><th>Burn time</th><th>Items smelted</th><th>Vanilla equivalent</th></tr>
+<tr><td>200</td><td>1</td><td>a stick is 100 (half an item)</td></tr>
+<tr><td>1600</td><td>8</td><td>one piece of coal</td></tr>
+<tr><td>20000</td><td>100</td><td>one lava bucket</td></tr>
+</table>
+
+<h2>The wildcard rule (read this one)</h2>
+<p>This is the part that bites people, so RetroAPI standardizes it deliberately, StationAPI, the other big beta library, is inconsistent here and you can't predict its behavior. RetroAPI's rule is simple and total:</p>
+
+<div class="warn"><p><strong>A bare <code>Block</code> or <code>Item</code> ingredient matches ANY metadata.</strong> Under the hood it's stored with damage <code>-1</code>, the wildcard value. So <code>'C', Block.WOOL</code> accepts wool of <em>any</em> color. If you need an exact color, say, red wool only, pass a fully-specified <code>ItemStack</code> instead:</p>
+<div class="codeblock"><span class="code-title">exact-metadata matching</span><pre><code><span class="c">// any wool color works:</span>
+RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"</span>, <span class="s">'C'</span>, Block.WOOL);
+
+<span class="c">// ONLY damage 14 (red) wool works:</span>
+RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"</span>, <span class="s">'C'</span>, <span class="k">new</span> <span class="t">ItemStack</span>(Block.WOOL, <span class="n">1</span>, <span class="n">14</span>));</code></pre></div>
+<p>The third <code>ItemStack</code> argument is the damage/metadata value. The moment you write the <code>ItemStack</code> form, matching becomes exact.</p></div>
+
+<h2>The full fuel table, for your own machines</h2>
+<p>The furnace knows what burns. So does anyone who registered fuel with <code>addFuel</code>. But what if <em>you</em> build a machine, a freezer, a smelter, a generator, and want it to "burn whatever a furnace burns"? You don't want to hand-maintain a list of coal, wood, sticks, lava buckets, and every mod's fuel item.</p>
+
+<p>RetroAPI gives you the whole table in one call. As of <strong>RetroAPI ≥ 1.0.22</strong>, <code>getTotalFuelTime(ItemStack)</code> returns the burn time for a stack across the <em>entire</em> furnace fuel table, vanilla fuels plus every <code>addFuel</code> entry, or <code>0</code> if it isn't fuel. The showcase's freezer is exactly one line because of it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlockEntity.java</span><pre><code><span class="c">/** Burn ticks for a stack: vanilla fuels + RetroRecipes.addFuel fuels, 0 if not fuel. */</span>
+<span class="k">public static int</span> fuelTime(<span class="t">ItemStack</span> stack) {
+    <span class="k">return</span> RetroRecipes.getTotalFuelTime(stack);
+}</code></pre></div>
+
+<p>That's how the freezer in <a href="blockentities.html">Chapter 6</a> accepts coal, wood, lava buckets, <em>and</em> your own Suspicious Substances, the moment you call <code>addFuel</code> on them. One source of truth, no copy-pasting.</p>
+
+<div class="note"><p><strong>Two narrower siblings</strong> exist when you want them: <code>getFuelTime(int itemId)</code> returns burn time for <em>modded-only</em> entries (the ones registered via <code>addFuel</code>, ignoring vanilla), and <code>isFuel(int itemId)</code> is a quick boolean check. For most machines you want <code>getTotalFuelTime</code>, it's the "act exactly like a furnace" answer.</p></div>
+
+<h2>Advanced: removing and re-sorting</h2>
+<p>Two more tools for the cases that need them. <code>removeRecipe(ItemStack output)</code> strips an existing recipe by what it produces, useful for disabling a vanilla recipe you want to replace. And <code>sortCraftingRecipes()</code> re-runs the priority sort by hand; the registration callback already calls it for you, so you only need it if you've been adding recipes outside the callback for some reason.</p>
+
+<h2>Try it in game</h2>
+<p>With the starter kit in your inventory (<a href="testing.html">Chapter 21</a> covers the dev launch), every one of these is one craft or one smelt away:</p>
+<table>
+<tr><th>Do this</th><th>Get this</th><th>Which API</th></tr>
+<tr><td>4 cobblestone in a 2&times;2</td><td>1 Example Block</td><td><code>addShaped</code></td></tr>
+<tr><td>1 Example Block anywhere in the grid</td><td>4 Suspicious Substances</td><td><code>addShapeless</code></td></tr>
+<tr><td>Smelt an Example Block</td><td>1 Suspicious Substance</td><td><code>addSmelting</code></td></tr>
+<tr><td>Use Suspicious Substances as furnace fuel</td><td>8 items smelted each</td><td><code>addFuel</code></td></tr>
+</table>
+<p>Mine cobble, square it into a block, smelt it back, then feed the leftovers into the furnace as fuel, the whole loop in one playtest.</p>
+
+<p>Crafting is players making things on their own bench. Next we let your code and the server talk directly, across the wire.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

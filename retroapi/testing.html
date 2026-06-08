@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 21: Proving Grounds, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 21, Proving Grounds</h1>
+<p class="chapter-sub">Two launch commands, one mandatory server flag, and the short list of mistakes that compile fine and explode at runtime.</p>
+
+<p>You've built the whole mod. This last chapter is about running it, really running it, both halves, and reading what the game tells you. There's exactly one non-obvious setup step (the offline-mode flag) and a short checklist of sided-code traps. Learn both and you can test anything in this book.</p>
+
+<h2>runClient, singleplayer, where almost everything lives</h2>
+<p>The everyday command:</p>
+<div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew runClient</code></pre></div>
+
+<p>This launches Beta 1.7.3 with your mod loaded. Because beta singleplayer runs the world entirely inside the client (<a href="entrypoints.html">Chapter 2</a>), <strong>everything is testable here except custom packets and dedicated-server-only paths.</strong> Blocks, items, recipes, the mob, achievements, the dimension, every one of the twelve mixins, all of it works in <code>runClient</code>.</p>
+
+<p>And you don't have to go hunting for your content. The showcase's <code>ExamplePlayerSetup</code> hands you a starter kit on your first tick in the world, every block, the Jump Stick, water buckets and coal for the freezer, the join achievement, and a spawned example mob at your feet. Walk in and it's all in your hotbar.</p>
+
+<div class="note"><p><strong>The game writes its world into <code>run/</code>.</strong> Your dev world, options, screenshots, and logs all land in the <code>run/</code> folder beside your build files. Delete <code>run/saves/</code> to start fresh; delete <code>run/</code> entirely to reset everything. It's git-ignored by the template, it's scratch space.</p></div>
+
+<h2>runServer, the dedicated server, and the trap</h2>
+<p>To exercise the parts that only exist on a real server, the welcome packet, id sync, mob spawn packets, you launch a dedicated server:</p>
+<div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew runServer</code></pre></div>
+
+<p>It starts, prepares the spawn region, and prints <code>Done</code>. Then you connect from a <code>runClient</code> instance via Multiplayer → Direct Connect → <code>localhost</code>. And the first time you try, you get kicked at the door:</p>
+
+<div class="warn">
+<p><strong>The trap every beta modder hits once.</strong> A dev client isn't logged into minecraft.net's session servers, so a fresh dev server can't verify it and kicks the join immediately. The log looks exactly like this:</p>
+<div class="codeblock"><span class="code-title">run/server.log</span><pre><code>[INFO] Disconnecting ExampleProbe [/127.0.0.1:56768]: Failed to verify username!
+       [internal error java.lang.NullPointerException: Cannot invoke
+       "String.equals(Object)" because "string6" is null]</code></pre></div>
+<p>This is not a bug in your mod. A dev (offline-session) client <em>cannot</em> pass online-mode verification, there's no session to check. <strong>The fix is mandatory for dev,</strong> and it's one line.</p>
+</div>
+
+<p>The server writes <code>run/server.properties</code> after its first start. Open it and flip one property:</p>
+<div class="codeblock"><span class="code-title">run/server.properties</span><pre><code>online-mode=false</code></pre></div>
+
+<p>Restart the server. It now prints the offline-mode warnings on boot (<code>SERVER IS RUNNING IN OFFLINE/INSECURE MODE!</code>, expected and fine for dev), and your client connects cleanly:</p>
+<div class="codeblock"><span class="code-title">run/server.log</span><pre><code>[INFO] ExampleProbe [/127.0.0.1:52262] logged in with entity id 2781 at (113.5, 78.6, -236.5)</code></pre></div>
+
+<p>This is not optional and not a workaround, it's the required setup for a local dev server. Leave online-mode on and no dev client will ever get in.</p>
+
+<h2>The test matrix</h2>
+<p>Where each feature can actually be tested, singleplayer is enough for most of it, a dedicated server is required for anything that crosses the wire:</p>
+
+<table>
+<tr><th>Feature</th><th>Singleplayer (runClient)</th><th>Dedicated (runServer)</th></tr>
+<tr><td>Blocks, items, recipes</td><td>✓ fully</td><td>✓</td></tr>
+<tr><td>Achievements</td><td>✓ fully</td><td>✓</td></tr>
+<tr><td>The dimension &amp; portal</td><td>✓ fully</td><td>✓</td></tr>
+<tr><td>The twelve mixins</td><td>✓ fully</td><td>✓ (sided ones on their side)</td></tr>
+<tr><td>Welcome / ping packets</td><td>✗ channels stay quiet</td><td>✓ only here</td></tr>
+<tr><td><code>id_sync</code> block id sync</td><td>n/a (one side)</td><td>✓ only here</td></tr>
+<tr><td>Mob spawn packets</td><td>n/a (one side)</td><td>✓ only here</td></tr>
+<tr><td><code>open_gui</code> container opening</td><td>local, no packet</td><td>✓ exercised over the wire</td></tr>
+<tr><td>The freezer's synced properties</td><td>visible (bars animate)</td><td>only here are they sent over the wire</td></tr>
+</table>
+
+<p>That last row is the subtle one: the freezer's progress bars <em>display</em> in singleplayer because the block entity and the GUI share memory, but the synchronization code that ships those properties to a remote client is only <em>exercised</em> when there's a wire to ship them over. To prove the sync works, you need the server.</p>
+
+<h2>Sided-code gotchas</h2>
+<p>These all compile cleanly and then explode at runtime, because the compiler sees one merged classpath while the running game has two separate sides. The checklist:</p>
+
+<ul>
+<li><strong>Referencing <code>net.minecraft.client.*</code> from a server-loaded class.</strong> <code>NoClassDefFoundError</code> on the dedicated server, those classes simply aren't there. This is why renderers and screens live in <code>ExampleModClient</code> (<a href="entrypoints.html">Chapter 2</a>).</li>
+<li><strong>Referencing <code>ServerPlayerEntity</code> from client-loaded code.</strong> The mirror image, it doesn't exist on the client. Keep server-only types in <code>ExampleModServer</code> and the <code>"server"</code> mixin list.</li>
+<li><strong>Mixins in the wrong list.</strong> A client-only mixin in the common <code>"mixins"</code> list crashes a dedicated server at load; a server-only one in the common list crashes the client. Match the list to the target class's side (<a href="mixins.html">Chapter 12</a>).</li>
+<li><strong>Sending packets before <code>ServerPlayNetworking.isPlayReady</code>.</strong> Fire too early and the client isn't listening on your channel yet, so the packet vanishes. Gate every send on the handshake (<a href="networking.html">Chapter 11</a>).</li>
+<li><strong>Forgetting <code>world.isRemote</code> guards.</strong> Game logic, spawning, damage, inventory changes, granting achievements, belongs behind <code>!world.isRemote</code>. Beware the beta surprise: in <em>singleplayer</em> <code>world.isRemote</code> is <code>false</code> (the local world is authoritative), so the guard reads as "only run where the world is real," which is exactly where your logic belongs.</li>
+</ul>
+
+<h2>Reading the log</h2>
+<p>The console is your best testing tool. A few things to look for:</p>
+
+<ul>
+<li><strong>A bad mixin target is a loud crash at class-load.</strong> With <code>defaultRequire: 1</code> (<a href="mixins.html">Chapter 12</a>), a typo'd method or field name stops the game at launch with a clear message instead of failing silently. When you see it, you have a name to fix, that's the system working.</li>
+<li><strong>RetroAPI logs every registration at startup.</strong> Blocks, items, entities, dimensions, achievement ids, each prints as it registers. Skim those lines to confirm your <code>init()</code> actually ran and your content reached the registry. The showcase even logs its dimension's serial id and "gave &lt;player&gt; the example starter kit", concrete proof the path executed.</li>
+<li><strong>The StationAPI <code>FlattenedWorldStorage</code> mixin warning is NORMAL.</strong> When StationAPI isn't present, RetroAPI logs a warning that its optional StationAPI-compat mixin couldn't apply. This is expected, it's an optional-compatibility mixin, and its absence means nothing is wrong. Don't panic, and don't go hunting for a missing dependency.</li>
+</ul>
+
+<h2>The send-off</h2>
+<p>That's the whole book. Thirteen chapters ago you had an empty folder; now you've pointed modern tooling at 2011 and built a mod with custom blocks, items, machines with synced GUIs, a mob, an achievement page, a walk-in dimension, crafting and smelting recipes, a custom packet round-trip, and a twelve-step mixin course, all of it persisting across saves, surviving a vanilla client, and syncing over multiplayer because RetroAPI quietly handled the dangerous parts.</p>
+
+<p>You have the full toolbox now: the <strong>bare template</strong> to start clean, the <strong>feature showcase</strong> to steal from, and these thirteen chapters to come back to whenever a detail slips. The grass is still that particular green, the world is still quiet, go make something for it.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

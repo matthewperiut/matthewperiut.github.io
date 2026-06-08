@@ -1,0 +1,639 @@
+/* RetroAPI guide, themed superset of the site root's look (index.html).
+   Light mode matches the root page; dark mode via [data-theme="dark"] on <html>,
+   chosen by wiki.js (localStorage, falling back to prefers-color-scheme). */
+
+:root {
+    --bg: #e8e8e8;
+    --panel: #ffffff;
+    --panel-border: #dddddd;
+    --text: #1c1c1c;
+    --muted: #777777;
+    --link: #0066cc;
+    --accent: #4a9eff;
+    --accent-hover: #3a8eef;
+    --accent-text: #ffffff;
+    --code-bg: #f5f5f5;
+    --code-border: #eeeeee;
+    --pre-bg: #2d2d2d;
+    --pre-text: #e8e8e8;
+    --note-bg: #f0f6ff;
+    --note-border: #cfe3ff;
+    --warn-bg: #fff6ec;
+    --warn-border: #ffd9ad;
+    --danger-bg: #ffefef;
+    --danger-border: #ffc2c2;
+    --table-head: #f5f5f5;
+    --nav-hover: #f0f6ff;
+    --kbd-shadow: rgba(0, 0, 0, 0.18);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.26);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+[data-theme="dark"] {
+    --bg: #16181c;
+    --panel: #1f2228;
+    --panel-border: #32363e;
+    --text: #e4e6ea;
+    --muted: #9aa0aa;
+    --link: #6ab4ff;
+    --accent: #2f7fd6;
+    --accent-hover: #4a9eff;
+    --accent-text: #ffffff;
+    --code-bg: #2a2e36;
+    --code-border: #3a3f49;
+    --pre-bg: #14161a;
+    --pre-text: #dfe2e8;
+    --note-bg: #1b2735;
+    --note-border: #2a4565;
+    --warn-bg: #332817;
+    --warn-border: #5c4422;
+    --danger-bg: #391d1d;
+    --danger-border: #6b3030;
+    --table-head: #262a31;
+    --nav-hover: #262f3d;
+    --kbd-shadow: rgba(0, 0, 0, 0.6);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    /* Firefox: thin, themed scrollbars instead of the native white track. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* --------------------------------------------------------- scrollbars -- */
+/* WebKit/Chromium: track stays transparent so it blends into whatever
+   panel it sits in; the thumb uses theme-aware translucent neutrals. */
+
+::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* ------------------------------------------------------------- layout -- */
+
+.layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.sidebar {
+    flex: 0 0 240px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.sidebar .home-link {
+    display: block;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text);
+    padding: 4px 8px 10px;
+    font-size: 1.02em;
+}
+
+.sidebar h3 {
+    font-weight: 600;
+    margin: 14px 0 4px;
+    padding: 0 8px;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.sidebar ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar li {
+    margin: 1px 0;
+}
+
+.sidebar a {
+    display: block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--link);
+    text-decoration: none;
+    font-size: 0.92em;
+}
+
+.sidebar a:hover {
+    background: var(--nav-hover);
+}
+
+.sidebar a.active {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+.sidebar .chapter-num {
+    display: inline-block;
+    width: 1.5em;
+    color: var(--muted);
+    font-size: 0.85em;
+}
+
+.sidebar a.active .chapter-num {
+    color: var(--accent-text);
+    opacity: 0.8;
+}
+
+/* Chapter name sits on the first line; the blurb is the plain-language subtitle below it. */
+.sidebar .chapter-name {
+    font-weight: 500;
+}
+
+.sidebar .chapter-blurb {
+    display: block;
+    margin-left: 1.5em;
+    margin-top: 1px;
+    font-size: 0.8em;
+    line-height: 1.25;
+    color: var(--muted);
+}
+
+.sidebar a.active .chapter-blurb {
+    color: var(--accent-text);
+    opacity: 0.85;
+}
+
+/* Expandable subsection links, shown under the active chapter. */
+.sidebar .subsections {
+    margin: 2px 0 6px 1.5em;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+}
+
+.sidebar .subsections li {
+    margin: 0;
+}
+
+.sidebar .subsections a {
+    padding: 2px 8px;
+    font-size: 0.84em;
+    color: var(--muted);
+}
+
+.sidebar .subsections a:hover {
+    color: var(--link);
+    background: var(--nav-hover);
+}
+
+.content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* -------------------------------------------------------------- header -- */
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 20px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+}
+
+.page-header .crumbs {
+    font-size: 0.9em;
+    margin: 0;
+}
+
+.theme-toggle {
+    border: 1px solid var(--panel-border);
+    background: var(--code-bg);
+    color: var(--text);
+    border-radius: 20px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.88em;
+    white-space: nowrap;
+}
+
+.theme-toggle:hover {
+    border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------ sections -- */
+
+.section {
+    margin: 0 0 20px;
+    padding: 22px 26px;
+    background: var(--panel);
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+}
+
+h1 {
+    font-weight: normal;
+    margin: 0 0 6px;
+    font-size: 1.7em;
+}
+
+.chapter-sub {
+    color: var(--muted);
+    margin: 0 0 18px;
+    font-size: 1.0em;
+}
+
+h2 {
+    font-weight: normal;
+    font-size: 1.3em;
+    margin: 28px 0 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--code-border);
+}
+
+.section > h2:first-child,
+h1 + h2 {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+}
+
+h3 {
+    font-weight: 600;
+    margin: 22px 0 8px;
+    font-size: 1.02em;
+}
+
+a {
+    color: var(--link);
+}
+
+p, li {
+    line-height: 1.6;
+}
+
+/* -------------------------------------------------------------- tables -- */
+
+table {
+    margin: 15px 0;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.95em;
+}
+
+th, td {
+    border: 1px solid var(--panel-border);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+th {
+    background: var(--table-head);
+}
+
+/* ---------------------------------------------------------------- code -- */
+
+code {
+    font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 0.88em;
+}
+
+.codeblock {
+    position: relative;
+    margin: 14px 0;
+}
+
+.codeblock .code-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.72em;
+    padding: 3px 10px;
+    border-radius: 6px 0 6px 0;
+    opacity: 0.92;
+}
+
+/* Download link appended to a code-title when it quotes a real asset file. */
+.codeblock .code-title .code-download {
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 1px solid var(--accent-text);
+    color: var(--accent-text);
+    text-decoration: none;
+    opacity: 0.85;
+}
+
+.codeblock .code-title .code-download:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+pre {
+    background: var(--pre-bg);
+    color: var(--pre-text);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    line-height: 1.45;
+    font-size: 0.86em;
+    margin: 0;
+    /* pre is always dark in both themes, so its scrollbar needs a light thumb. */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.codeblock .code-title + pre {
+    padding-top: 28px;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: 1em;
+}
+
+/* syntax accents (hand-tagged) */
+pre .c { color: #8a939f; font-style: italic; }   /* comment */
+pre .k { color: #6fb3ff; }                        /* keyword */
+pre .s { color: #c2e088; }                        /* string */
+pre .n { color: #f0c674; }                        /* number/constant */
+pre .t { color: #7fd1c0; }                        /* type name */
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 1px solid var(--code-border);
+    background: rgba(128, 128, 128, 0.28);
+    color: var(--pre-text);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font: inherit;
+    font-size: 0.78em;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+}
+
+.codeblock:hover .copy-btn {
+    opacity: 1;
+}
+
+.copy-btn:hover {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+/* ------------------------------------------------------------- callouts -- */
+
+.note, .warn, .danger {
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 15px 0;
+}
+
+.note {
+    background: var(--note-bg);
+    border: 1px solid var(--note-border);
+}
+
+.warn {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+}
+
+.danger {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+}
+
+.note > :first-child, .warn > :first-child, .danger > :first-child {
+    margin-top: 0;
+}
+
+.note > :last-child, .warn > :last-child, .danger > :last-child {
+    margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------- assets -- */
+
+.asset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 15px 0;
+}
+
+.asset-card {
+    text-align: center;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.85em;
+}
+
+.asset-card img {
+    image-rendering: pixelated;
+    display: block;
+    margin: 0 auto 8px;
+    background:
+        repeating-conic-gradient(rgba(128,128,128,0.25) 0% 25%, transparent 0% 50%)
+        0 0 / 16px 16px;
+    border-radius: 4px;
+}
+
+.asset-card .asset-name {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.asset-card a {
+    font-size: 0.92em;
+}
+
+/* -------------------------------------------------------------- buttons -- */
+
+.download-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: var(--accent-text);
+    text-decoration: none;
+    border-radius: 4px;
+    margin: 4px 8px 4px 0;
+}
+
+.download-btn:hover {
+    background: var(--accent-hover);
+}
+
+.download-btn.secondary {
+    background: transparent;
+    color: var(--link);
+    border: 1px solid var(--accent);
+}
+
+.download-btn small {
+    opacity: 0.85;
+    font-weight: normal;
+}
+
+/* ---------------------------------------------------------------- pager -- */
+
+.pager {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.pager a {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    text-decoration: none;
+    color: var(--link);
+}
+
+.pager a:hover {
+    border-color: var(--accent);
+}
+
+.pager .pager-label {
+    display: block;
+    font-size: 0.78em;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+
+.pager a.next {
+    text-align: right;
+}
+
+/* ------------------------------------------------------------- misc -- */
+
+kbd {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    border: 1px solid var(--panel-border);
+    border-bottom-width: 2px;
+    box-shadow: inset 0 -1px 0 var(--kbd-shadow);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.85em;
+}
+
+.chapter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 15px 0;
+}
+
+.chapter-card {
+    display: block;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.chapter-card:hover {
+    border-color: var(--accent);
+}
+
+.chapter-card .num {
+    color: var(--muted);
+    font-size: 0.8em;
+}
+
+.chapter-card .title {
+    display: block;
+    color: var(--link);
+    font-weight: 600;
+    margin: 2px 0 4px;
+}
+
+.chapter-card .desc {
+    font-size: 0.86em;
+    color: var(--muted);
+}
+
+@media (max-width: 860px) {
+    .layout {
+        flex-direction: column;
+    }
+    .sidebar {
+        position: static;
+        flex: none;
+        width: 100%;
+        max-height: none;
+    }
+}

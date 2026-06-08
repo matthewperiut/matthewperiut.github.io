@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 5: Items, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 5, Items</h1>
+<p class="chapter-sub">A one-line item, then the Jump Stick, where the small builder ends and plain old subclassing takes over.</p>
+
+<p>Items are the deliberately-thin sibling of blocks. RetroAPI's item builder is tiny on purpose: there are very few things <em>every</em> item needs, and everything interesting, right-click behavior, durability, sub-items, comes from subclassing vanilla's <code>Item</code>, exactly as it always did. So this chapter is two halves: the whole builder in a breath, then a real custom item.</p>
+
+<h2>The simplest item</h2>
+<p>Here is <code>SUSPICIOUS_SUBSTANCE</code> from <code>init()</code>, three lines, the same shape as a block:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The simplest possible item. Texture: assets/example_mod/textures/item/suspicious_substance.png</span>
+<span class="c">// Display name: "item.@.suspicious_substance.name" in the lang file.</span>
+SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
+	.maxStackSize(<span class="n">64</span>)
+	.texture(id(<span class="s">"suspicious_substance"</span>))
+	.register(id(<span class="s">"suspicious_substance"</span>));</code></pre></div>
+
+<p><code>create</code> a plain item, set its stack size, point it at a texture, <code>register</code> it. Done. It loads <code>textures/item/suspicious_substance.png</code> and reads its name from <code>item.@.suspicious_substance.name</code> in the lang file, both covered in <a href="assets.html">Chapter 3</a>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/suspicious_substance.png" width="64" height="64" alt="suspicious_substance"><div class="asset-name">suspicious_substance.png</div><a href="assets/suspicious_substance.png" download>download</a></div>
+</div>
+
+<h3>The whole item builder</h3>
+<p>This is the entire item builder, and we mean entire. There is no <code>.durability()</code>, no <code>.food()</code>, no behavior hooks. If you want any of that, you subclass <code>Item</code> (next section). Being honest about this saves you hunting for methods that don't exist.</p>
+
+<table>
+<tr><th>Method</th><th>What it does</th></tr>
+<tr><td><code>RetroItemAccess.create()</code></td><td>start a builder for a plain <code>Item</code></td></tr>
+<tr><td><code>RetroItemAccess.of(Item)</code></td><td>wrap a <code>Item</code> subclass instance you constructed yourself</td></tr>
+<tr><td><code>RetroItemAccess.allocateId()</code></td><td>get a fresh numeric id to pass into your subclass constructor</td></tr>
+<tr><td><code>maxStackSize(int)</code></td><td>how many stack (64 for most, 1 for tools)</td></tr>
+<tr><td><code>texture(NamespacedIdentifier)</code></td><td>load <code>textures/item/&lt;name&gt;.png</code> as the icon</td></tr>
+<tr><td><code>tool(RetroTool)</code></td><td>declare the tool KIND for the <code>mineable/&lt;tool&gt;</code> tag system (vanilla tool classes infer this)</td></tr>
+<tr><td><code>tier(RetroToolTier)</code></td><td>declare the tool TIER for <code>needs_&lt;tier&gt;_tool</code> gating (vanilla tools infer from their material)</td></tr>
+<tr><td><code>handheld()</code></td><td>hold the item like a tool, the diagonal through-the-fist pose (vanilla tools and sticks have it; flat sprite pose otherwise)</td></tr>
+<tr><td><code>register(NamespacedIdentifier)</code></td><td>finalize and register; returns the <code>Item</code></td></tr>
+</table>
+
+<p>The two tool rows feed the tag system from <a href="blocks.html">Chapter 4</a>: a plain <code>Item</code> chained through <code>.tool(RetroTool.PICKAXE).tier(RetroToolTier.IRON)</code> harvests everything an iron pickaxe would, no <code>ToolItem</code> subclass required. The showcase's Ruby Pick is exactly that, see the tool-tiers section of the blocks chapter.</p>
+
+<p>Same id story as blocks: numeric item ids are allocated above vanilla's range, remapped per-world, and kept safe in vanilla saves, you only ever touch <code>NamespacedIdentifier</code>s. (The full id mechanics are in <a href="blocks.html">Chapter 4</a>.)</p>
+
+<h2>The Jump Stick, a custom item class</h2>
+<p>For anything with behavior, you write an <code>Item</code> subclass and hand it to <code>RetroItemAccess.of(...)</code>. The Jump Stick is the smallest interesting example: right-click it and you hop. Here's the whole class:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/JumpStickItem.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.example.example_mod.mixin.examples.Example06JumpInvoker;
+
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.item.Item;
+<span class="k">import</span> net.minecraft.item.ItemStack;
+<span class="k">import</span> net.minecraft.world.World;
+
+<span class="c">/**
+ * A custom Item CLASS: the Jump Stick, right-click to hop.
+ *
+ * Two things this demonstrates:
+ *   - Items with behavior: override use(stack, world, player) for right-click
+ *     (useOnBlock / useOnEntity exist for targeted clicks). Return the stack
+ *     (possibly shrunk/damaged) when you're done.
+ *   - Mixin example 6 in action: LivingEntity.jump() is protected, so normal
+ *     code can't call it, the @Invoker interface in
+ *     mixin/examples/Example06JumpInvoker makes it callable from outside.
+ *
+ * Like custom blocks, custom items allocate their id with allocateId() and are
+ * wrapped with RetroItemAccess.of(...) in ExampleMod.init().
+ *
+ * No texture file: overriding getTextureId lets it reuse vanilla's stick sprite.
+ */</span>
+<span class="k">public class</span> <span class="t">JumpStickItem</span> <span class="k">extends</span> <span class="t">Item</span> {
+
+	<span class="k">public</span> JumpStickItem(<span class="k">int</span> id) {
+		<span class="k">super</span>(id);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getTextureId(<span class="k">int</span> damage) {
+		<span class="k">return</span> Item.STICK.getTextureId(<span class="n">0</span>); <span class="c">// borrow the vanilla stick's sprite</span>
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> ItemStack use(ItemStack stack, World world, PlayerEntity player) {
+		<span class="c">// The whole trick: call the protected jump() through the invoker bridge.</span>
+		((Example06JumpInvoker) player).example_mod$jump();
+		<span class="k">return</span> stack;
+	}
+}</code></pre></div>
+
+<p>And its registration in <code>init()</code>, <code>of(...)</code> around a <code>new JumpStickItem(allocateId())</code>, just like a custom block:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>JUMP_STICK = RetroItemAccess.of(<span class="k">new</span> JumpStickItem(RetroItemAccess.allocateId()))
+	.maxStackSize(<span class="n">1</span>)
+	<span class="c">// Hold it like a tool: the diagonal through-the-fist pose vanilla sticks</span>
+	<span class="c">// get. Items with an item/handheld model JSON (the Ruby Pick below) get</span>
+	<span class="c">// this automatically; everything else opts in with one chained call.</span>
+	.handheld()
+	.register(id(<span class="s">"jump_stick"</span>));</code></pre></div>
+
+<p>Three details earn a closer look.</p>
+
+<h3>1. Right-click behavior: <code>use(...)</code></h3>
+<p><code>use(stack, world, player)</code> fires when the player right-clicks holding the item in open air. You return the stack you want them left holding, unchanged here, but you might shrink or damage it. Two siblings handle <em>targeted</em> clicks, and both are real methods you can override on <code>Item</code>:</p>
+<ul>
+<li><code>useOnBlock(...)</code>, right-clicking a block (placing, activating, tilling).</li>
+<li><code>useOnEntity(...)</code>, right-clicking another entity (shears, name tags, saddles).</li>
+</ul>
+
+<h3>2. Borrowing a sprite: <code>getTextureId(damage)</code></h3>
+<p>Overriding <code>getTextureId(damage)</code> returns the item's sprite index directly, and here it returns <code>Item.STICK.getTextureId(0)</code>, vanilla's stick. So the Jump Stick ships <strong>no PNG of its own</strong> and just wears the stick icon. (This is the item-side trick from <a href="assets.html">Chapter 3</a>; the <code>damage</code> argument would let you vary the icon by metadata if you wanted.)</p>
+
+<h3>3. The invoker bridge</h3>
+<p>The actual hop is <code>((Example06JumpInvoker) player).example_mod$jump()</code>. The catch: <code>LivingEntity.jump()</code> is <code>protected</code>, so ordinary code can't call it. <code>Example06JumpInvoker</code> is an <code>@Invoker</code> mixin, an interface mixin makes <code>LivingEntity</code> implement it, turning the protected method into a callable public bridge. Cast the player to the interface, call the bridge, done. How that works mechanically, and why a reusable bridge sometimes belongs in the shared library instead, is <a href="mixins.html">Chapter 12, example 6</a>.</p>
+
+<h2>ItemStacks</h2>
+<p>Once items exist, you move them around as <code>ItemStack</code>s. Beta exposes most of the stack's state as <strong>public fields</strong> rather than getters, which feels blunt but is just how the era worked:</p>
+
+<table>
+<tr><th>Expression</th><th>Meaning</th></tr>
+<tr><td><code>new ItemStack(item, count)</code></td><td>a stack of an item</td></tr>
+<tr><td><code>new ItemStack(block, count)</code></td><td>a stack of a block's item form</td></tr>
+<tr><td><code>stack.itemId</code></td><td>the numeric item id (public field)</td></tr>
+<tr><td><code>stack.count</code></td><td>how many are in the stack (public field)</td></tr>
+<tr><td><code>stack.getDamage()</code></td><td>the metadata / damage value</td></tr>
+</table>
+
+<p>You can build a stack from a <code>Block</code> or an <code>Item</code> reference interchangeably, RetroAPI guarantees every registered block has a valid item form, so <code>new ItemStack(EXAMPLE_BLOCK, 64)</code> just works.</p>
+
+<h2>Items in the world</h2>
+<p>An item nobody can obtain isn't much fun. The showcase hands you everything at once through <code>ExamplePlayerSetup</code>, a one-shot per-player starter kit (demo scaffolding you'd delete in a real mod). It builds stacks straight from the block and item references and drops them in the inventory:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExamplePlayerSetup.java, trimmed</span><pre><code>PlayerInventory inventory = player.inventory;
+inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.EXAMPLE_BLOCK, <span class="n">64</span>));
+inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.SUSPICIOUS_SUBSTANCE, <span class="n">16</span>));
+inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.JUMP_STICK, <span class="n">1</span>));
+<span class="c">// … plus the blocks, buckets, and coal so the freezer can run right away …</span></code></pre></div>
+
+<p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Chapter 10</a>.</p>
+
+<p>Items done. Next we give blocks a memory: block entities that store data, tick, and open GUIs.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

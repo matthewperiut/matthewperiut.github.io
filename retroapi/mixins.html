@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 12: The Scalpel, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 12, The Scalpel</h1>
+<p class="chapter-sub">Beta Minecraft has no events and no hooks. The only way to change anything is to cut into the game itself, so let's learn to cut cleanly.</p>
+
+<p>Every chapter before this one used RetroAPI's friendly front door: <code>RetroBlockAccess</code>, <code>RetroRecipes</code>, <code>RetroEntities</code>. But those APIs exist because someone wrote the mixins underneath them. When you need to change something RetroAPI doesn't wrap, pigs' sounds, fall damage, the color of grass, there is no API. There is only the mixin.</p>
+
+<p>A mixin is a class you write that the loader <strong>merges into a vanilla class at launch</strong>. Your method becomes part of <code>PlayerEntity</code>; your field becomes a field on <code>ItemEntity</code>. Modern Minecraft has events and Fabric API hooks to spare you most of this. Beta has none of that, there never was an API, so beta modding is <strong>extremely</strong> mixin-heavy. Nearly every interesting thing your mod does, it does by mixin.</p>
+
+<p>And that has a consequence that defines the whole craft. When every mod in a pack is rewriting the same small 2011 codebase, two mods reaching for the same method is not a freak accident, it's the <em>expected case</em>. Collisions are the norm. So the core skill of beta modding isn't writing a mixin that works; it's writing a mixin that works <em>alongside everyone else's</em>. That discipline is what this chapter teaches, through twelve graded examples shipped in the showcase.</p>
+
+<p>Here are the principles. Read them once now; they'll make sense in your hands by example twelve.</p>
+
+<ol>
+<li><strong>Prefer additive over exclusive.</strong> <code>@Inject</code> adds your code beside vanilla's; <code>@Redirect</code> and <code>@Overwrite</code> replace it. Additive injections from many mods coexist. Exclusive ones fight.</li>
+<li><strong>Cancel conditionally, never unconditionally.</strong> An unconditional <code>ci.cancel()</code> deletes a vanilla behavior for the entire game and silently breaks every other mod hooking it.</li>
+<li><strong>Mixins into base classes run for everything.</strong> Hook <code>Entity</code> or <code>LivingEntity</code> and your code fires for pigs, arrows, and players alike, always check your target instance first.</li>
+<li><strong>One mixin = one job, self-contained.</strong> Each file does exactly one thing; delete the file and you lose exactly that feature, nothing else.</li>
+<li><strong>Prefix everything with your mod id.</strong> Handler methods, <code>@Unique</code> fields, all named <code>yourmodid$whatever</code>. Two mods adding a plain <code>mana</code> field collide; prefixed ones never do.</li>
+<li><strong>Sided mixins go in the right list.</strong> Client-only mixins belong in the <code>"client"</code> list of your mixins config, put one in the common list and a dedicated server crashes loading a class that doesn't exist there.</li>
+<li><strong>When a tool is exclusive, reach for MixinExtras.</strong> It ships with this stack and turns every exclusive operation into a chainable one. More on that next.</li>
+</ol>
+
+<div class="danger">
+<p><strong>⚠ <code>@Redirect</code> and <code>@Overwrite</code> are LAST RESORTS.</strong> They are <em>exclusive</em>: if two mods <code>@Redirect</code> the same call (or <code>@Overwrite</code> the same method), the game <strong>crashes at launch</strong>, Mixin refuses to apply the second one. In a mixin-heavy ecosystem like beta, "my mod plus any other mod touching this method" is not rare. It is the expected case.</p>
+<p><strong>Use MixinExtras instead.</strong> It's already on the classpath here, just <code>import com.llamalad7.mixinextras.*</code>. The replacements:</p>
+<ul>
+<li><code>@WrapOperation</code> replaces <code>@Redirect</code>, chainable, and you can still call the original.</li>
+<li><code>@WrapMethod</code> (or <code>@Inject</code> + <code>ci.cancel()</code>) replaces <code>@Overwrite</code>.</li>
+<li><code>@ModifyReturnValue</code> replaces <code>@Inject</code>-at-RETURN + <code>setReturnValue</code>.</li>
+</ul>
+<p>Where exclusive tools fight, these nest like onion layers, every mod's handler runs. Docs: <a href="https://github.com/LlamaLad7/MixinExtras/wiki">MixinExtras wiki</a>, and specifically <a href="https://github.com/LlamaLad7/MixinExtras/wiki/WrapOperation">WrapOperation</a>, <a href="https://github.com/LlamaLad7/MixinExtras/wiki/WrapMethod">WrapMethod</a>, and <a href="https://github.com/LlamaLad7/MixinExtras/wiki/ModifyReturnValue">ModifyReturnValue</a>.</p>
+</div>
+
+<h2>The configuration: three lists</h2>
+<p>Before the examples, the file that wires them all up. Every mixin must be listed in your mixins config, and <em>which list</em> decides where it loads. Here is the showcase's config in full:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/example_mod.mixins.json</span><pre><code>{
+    <span class="s">"required"</span>: <span class="k">true</span>,
+    <span class="s">"minVersion"</span>: <span class="s">"0.8"</span>,
+    <span class="s">"package"</span>: <span class="s">"com.example.example_mod.mixin"</span>,
+    <span class="s">"compatibilityLevel"</span>: <span class="s">"JAVA_8"</span>,
+    <span class="s">"mixins"</span>: [
+        <span class="s">"LivingEntityJumpMixin"</span>,
+        <span class="s">"examples.Example02ItemPopMixin"</span>,
+        <span class="s">"examples.Example03NoSneakFallDamageMixin"</span>,
+        <span class="s">"examples.Example04PigSoundMixin"</span>,
+        <span class="s">"examples.Example06JumpInvoker"</span>,
+        <span class="s">"examples.Example09FastTntMixin"</span>,
+        <span class="s">"examples.Example10PlayerManaMixin"</span>,
+        <span class="s">"examples.Example12ModifyReturnValueMixin"</span>
+    ],
+    <span class="s">"client"</span>: [
+        <span class="s">"PlayerTickMixin"</span>,
+        <span class="s">"examples.Example01TitleScreenLogMixin"</span>,
+        <span class="s">"examples.Example05HudTextMixin"</span>,
+        <span class="s">"examples.Example07TorchFlameMixin"</span>,
+        <span class="s">"examples.Example08PurpleGrassMixin"</span>,
+        <span class="s">"examples.Example11WrapOperationMixin"</span>
+    ],
+    <span class="s">"server"</span>: [
+        <span class="s">"ServerPlayerTickMixin"</span>
+    ],
+    <span class="s">"injectors"</span>: {
+        <span class="s">"defaultRequire"</span>: <span class="n">1</span>
+    }
+}</code></pre></div>
+
+<p>The three lists are the whole sided-loading system:</p>
+<ul>
+<li><strong><code>"mixins"</code></strong>, common: loaded on both the client and the dedicated server. Only mixins whose target class exists on both sides go here.</li>
+<li><strong><code>"client"</code></strong>, loaded only on the client. Anything touching <code>TitleScreen</code>, <code>InGameHud</code>, rendering, or other client-only classes lives here.</li>
+<li><strong><code>"server"</code></strong>, loaded only on the dedicated server. <code>ServerPlayerEntity</code> hooks go here.</li>
+</ul>
+<p>The paths are relative to <code>"package"</code>, so <code>examples.Example01TitleScreenLogMixin</code> is the class in the <code>mixin.examples</code> sub-package. And <code>defaultRequire: 1</code> at the bottom means every injector <em>must</em> find its target, if a name is wrong, you crash at launch instead of silently doing nothing. That's a feature; more on it in the practical notes.</p>
+
+<h2>The twelve-example course</h2>
+<p>The showcase ships a graded course at <code>src/main/java/com/example/example_mod/mixin/examples/</code>. Each file teaches one tool, does one visible thing in game, and is fully self-contained, delete any file and you lose only its feature. We'll walk all twelve in order.</p>
+
+<h3>1. <code>@Inject</code> at HEAD, observe without changing</h3>
+<p><strong>In game:</strong> a log line prints when the title screen opens. <strong>Teaches:</strong> the gentlest mixin, run your code when a method runs, change nothing.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example01TitleScreenLogMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">TitleScreen</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example01TitleScreenLogMixin</span> {
+
+    <span class="k">@Inject</span>(method = <span class="s">"init"</span>, at = <span class="k">@At</span>(<span class="s">"HEAD"</span>))
+    <span class="k">private void</span> example_mod$onInit(<span class="t">CallbackInfo</span> ci) {
+        ExampleMod.LOGGER.info(<span class="s">"[mixin example 1] the title screen is opening!"</span>);
+    }
+}</code></pre></div>
+
+<p>Three coordinates define every injection: <code>@Mixin(TitleScreen.class)</code> says which vanilla class to merge into, <code>method = "init"</code> says which method to hook, and <code>at = @At("HEAD")</code> says where, HEAD is the very top. Every <code>@Inject</code> handler takes a <code>CallbackInfo</code>. <code>TitleScreen</code> is client-only, so this mixin lives in the <code>"client"</code> list, a common-list placement would crash a dedicated server.</p>
+
+<h3>2. <code>@Inject</code> into a constructor, and the <code>this</code> idiom</h3>
+<p><strong>In game:</strong> dropped items pop upward with a little flourish. <strong>Teaches:</strong> injecting into a constructor, and getting a usable reference to the instance.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example02ItemPopMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">ItemEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example02ItemPopMixin</span> {
+
+    <span class="k">@Inject</span>(
+        method = <span class="s">"&lt;init&gt;(Lnet/minecraft/world/World;DDDLnet/minecraft/item/ItemStack;)V"</span>,
+        at = <span class="k">@At</span>(<span class="s">"TAIL"</span>)
+    )
+    <span class="k">private void</span> example_mod$pop(<span class="t">World</span> world, <span class="k">double</span> x, <span class="k">double</span> y, <span class="k">double</span> z, <span class="t">ItemStack</span> stack, <span class="t">CallbackInfo</span> ci) {
+        <span class="t">ItemEntity</span> self = (<span class="t">ItemEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+        self.velocityY += <span class="n">0.25</span>; <span class="c">// a little extra upward kick</span>
+    }
+}</code></pre></div>
+
+<p>Two new ideas. First, <code>method = "&lt;init&gt;(...)"</code> targets a constructor, and you give the <em>full descriptor</em> to pick one overload (here the <code>World, x, y, z, ItemStack</code> one used for real drops, not the NBT-loading one). Constructor injections are only allowed at TAIL/RETURN, the object must be fully built before you touch it. Second, <code>(ItemEntity) (Object) this</code>: inside the mixin <code>this</code> is the mixin class, but at runtime the code lives inside <code>ItemEntity</code>. The double cast is the standard idiom to get a usable reference. Note the handler also receives the constructor's parameters.</p>
+
+<h3>3. Cancellable <code>@Inject</code>, and conditional-cancel discipline</h3>
+<p><strong>In game:</strong> players who are sneaking take no fall damage. <strong>Teaches:</strong> stopping vanilla from running, carefully.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example03NoSneakFallDamageMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">LivingEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example03NoSneakFallDamageMixin</span> {
+
+    <span class="k">@Inject</span>(method = <span class="s">"onLanding"</span>, at = <span class="k">@At</span>(<span class="s">"HEAD"</span>), cancellable = <span class="k">true</span>)
+    <span class="k">private void</span> example_mod$softLanding(<span class="k">float</span> fallDistance, <span class="t">CallbackInfo</span> ci) {
+        <span class="t">LivingEntity</span> self = (<span class="t">LivingEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+        <span class="k">if</span> (self <span class="k">instanceof</span> <span class="t">PlayerEntity</span> &amp;&amp; self.isSneaking()) {
+            ci.cancel(); <span class="c">// skip vanilla's fall-damage code entirely</span>
+        }
+    }
+}</code></pre></div>
+
+<p>With <code>cancellable = true</code>, the <code>CallbackInfo</code> gains <code>ci.cancel()</code>, which makes the target return immediately. This is where discipline starts to matter, and the mixin demonstrates two of our principles at once. The cancel is <strong>conditional</strong>, an unconditional cancel here would disable fall damage for every living thing in the game and break other mods. And because <code>onLanding</code> lives on <code>LivingEntity</code> and runs for <em>everything</em>, it <strong>checks <code>instanceof PlayerEntity</code></strong> first. HEAD-plus-cancel is still friendlier than <code>@Overwrite</code>: other mods' HEAD injections still run; an overwrite would silently delete them.</p>
+
+<h3>4. <code>@Inject</code> at RETURN, changing a return value</h3>
+<p><strong>In game:</strong> pigs make the counter block's custom click sound instead of oinking. <strong>Teaches:</strong> reading and replacing a method's return value with <code>CallbackInfoReturnable</code>.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example04PigSoundMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">PigEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example04PigSoundMixin</span> {
+
+    <span class="k">@Inject</span>(method = <span class="s">"getRandomSound"</span>, at = <span class="k">@At</span>(<span class="s">"RETURN"</span>), cancellable = <span class="k">true</span>)
+    <span class="k">private void</span> example_mod$clickyPigs(<span class="t">CallbackInfoReturnable</span>&lt;<span class="t">String</span>&gt; cir) {
+        <span class="c">// Sound event ids are strings in beta; modded ones are "&lt;modid&gt;:&lt;path&gt;".</span>
+        cir.setReturnValue(<span class="s">"example_mod:counter.click"</span>);
+    }
+}</code></pre></div>
+
+<p>When the target returns a value, your handler gets a <code>CallbackInfoReturnable&lt;T&gt;</code> instead of a plain <code>CallbackInfo</code>. <code>cir.setReturnValue(...)</code> both sets the value and cancels the rest of the method, no separate flag needed. Injecting at RETURN (not HEAD) means vanilla computes its answer first and you get the final word; you could read it first via <code>cir.getReturnValue()</code>. In real mods, <strong>prefer the MixinExtras version</strong> of this pattern, <code>@ModifyReturnValue</code> chains where <code>setReturnValue</code> can fight. See example 12 for the side-by-side.</p>
+
+<h3>5. <code>@Shadow</code>, using the target's private fields</h3>
+<p><strong>In game:</strong> "example mod" is drawn in the top-left of the HUD. <strong>Teaches:</strong> borrowing a private field from the target class, and casting <code>this</code> to a superclass.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example05HudTextMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">InGameHud</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example05HudTextMixin</span> {
+
+    <span class="c">// The real field is `private Minecraft minecraft` in InGameHud.</span>
+    <span class="k">@Shadow</span>
+    <span class="k">private</span> <span class="t">Minecraft</span> minecraft;
+
+    <span class="k">@Inject</span>(method = <span class="s">"render"</span>, at = <span class="k">@At</span>(<span class="s">"TAIL"</span>))
+    <span class="k">private void</span> example_mod$drawBadge(<span class="k">float</span> tickDelta, <span class="k">boolean</span> inScreen, <span class="k">int</span> mouseX, <span class="k">int</span> mouseY, <span class="t">CallbackInfo</span> ci) {
+        <span class="t">DrawContext</span> ctx = (<span class="t">DrawContext</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+        ctx.drawTextWithShadow(<span class="k">this</span>.minecraft.textRenderer, <span class="s">"example mod"</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">0x55FF55</span>);
+    }
+}</code></pre></div>
+
+<p>A <code>@Shadow</code> field is a declaration that says "this field already exists in the target, let me use it." At runtime the two are the same field, so the name must match exactly. (<code>@Shadow</code> works for methods too.) Also shown: <code>InGameHud</code> extends <code>DrawContext</code>, vanilla's drawing helper, so casting <code>this</code> to it lets you draw in any render hook. Client-only, so it's in the <code>"client"</code> list.</p>
+
+<h3>6. <code>@Invoker</code>, an interface mixin to call a hidden method</h3>
+<p><strong>In game:</strong> clicking the counter block makes you hop. <strong>Teaches:</strong> exposing a protected method as a public bridge via an interface mixin.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example06JumpInvoker.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">LivingEntity</span>.<span class="k">class</span>)
+<span class="k">public interface</span> <span class="t">Example06JumpInvoker</span> {
+
+    <span class="k">@Invoker</span>(<span class="s">"jump"</span>)
+    <span class="k">void</span> example_mod$jump();
+}</code></pre></div>
+
+<p><code>LivingEntity.jump()</code> is protected, only subclasses may call it. An <code>@Invoker</code> is an <em>interface</em> mixin: Mixin makes <code>LivingEntity</code> implement this interface, and the annotated method becomes a public bridge to the real one. Cast any living entity to the interface and call it: <code>((Example06JumpInvoker) player).example_mod$jump()</code>, which is exactly what <code>ExampleCounterBlock</code> does (the Jump Stick in <a href="items.html">Chapter 5</a> uses the same trick). Its sibling <code>@Accessor</code> does the same for fields.</p>
+
+<div class="note"><p><strong>A design lesson from this file's comment.</strong> If the private member you're exposing is API-shaped, "what's this item's furnace burn time?", the bridge belongs in the <em>shared library</em>, not copy-pasted into every mod. That's exactly why the freezer in <a href="blockentities.html">Chapter 6</a> calls <code>RetroRecipes.getTotalFuelTime(...)</code> instead of carrying its own invoker. Build the bridge once, in the library, and every mod benefits.</p></div>
+
+<h3>7. <code>@ModifyArg</code>, rewriting one argument of one call</h3>
+<p><strong>In game:</strong> torches show flame particles instead of smoke. <strong>Teaches:</strong> surgically changing a single argument passed to a call inside a method.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example07TorchFlameMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">TorchBlock</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example07TorchFlameMixin</span> {
+
+    <span class="k">@ModifyArg</span>(
+        method = <span class="s">"randomDisplayTick"</span>,
+        at = <span class="k">@At</span>(
+            value = <span class="s">"INVOKE"</span>,
+            target = <span class="s">"Lnet/minecraft/world/World;addParticle(Ljava/lang/String;DDDDDD)V"</span>
+        ),
+        index = <span class="n">0</span> <span class="c">// the first argument: the particle name</span>
+    )
+    <span class="k">private</span> <span class="t">String</span> example_mod$moreFlames(<span class="t">String</span> particle) {
+        <span class="c">// "smoke" becomes "flame"; the existing "flame" call passes through.</span>
+        <span class="k">return</span> <span class="s">"smoke"</span>.equals(particle) ? <span class="s">"flame"</span> : particle;
+    }
+}</code></pre></div>
+
+<p>Instead of hooking a whole method, <code>@ModifyArg</code> targets a <em>call</em> made inside it, the <code>target</code> selector matches the callee by its descriptor. You receive the chosen argument (here <code>index = 0</code>, the particle name) and return its replacement. This is the <em>safer</em> tool than <code>@Redirect</code> when all you want is to change a parameter: multiple mods can <code>@ModifyArg</code> the same call site, but only one mod's <code>@Redirect</code> can win. (Changing several arguments, or deciding whether the call happens at all, is <code>@WrapOperation</code> territory, example 11.) Client-only.</p>
+
+<h3>8. <code>@Redirect</code>, the cautionary tale</h3>
+<p><strong>In game:</strong> grass renders purple only inside the example dimension (walk through the example portal to see it); the overworld stays green. <strong>Teaches:</strong> the tool you are being warned away from.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example08PurpleGrassMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">GrassBlock</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example08PurpleGrassMixin</span> {
+
+    <span class="k">@Redirect</span>(
+        method = <span class="s">"getColorMultiplier"</span>,
+        at = <span class="k">@At</span>(
+            value = <span class="s">"INVOKE"</span>,
+            target = <span class="s">"Lnet/minecraft/client/color/world/GrassColors;getColor(DD)I"</span>
+        )
+    )
+    <span class="k">private int</span> example_mod$purpleGrass(<span class="k">double</span> temperature, <span class="k">double</span> humidity,
+            <span class="t">BlockView</span> view, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+        <span class="c">// GOTCHA worth knowing: during chunk rendering the BlockView is a WorldRegion</span>
+        <span class="c">// wrapper, NOT the World, so "view instanceof World" is false right when this</span>
+        <span class="c">// code matters most. RetroWorlds.unwrap sees through the wrapper.</span>
+        <span class="t">World</span> world = RetroWorlds.unwrap(view);
+        <span class="k">if</span> (world != <span class="k">null</span>
+            &amp;&amp; ExampleMod.EXAMPLE_DIMENSION != <span class="k">null</span>
+            &amp;&amp; world.dimension.id == ExampleMod.EXAMPLE_DIMENSION.getSerialId()) {
+            <span class="k">return</span> <span class="n">0x9B30FF</span>;
+        }
+        <span class="k">return</span> GrassColors.getColor(temperature, humidity);
+    }
+}</code></pre></div>
+
+<p>A <code>@Redirect</code> swaps a call out for your method entirely, you get the arguments the call would have received and return your own answer; vanilla's <code>getColor</code> is only called here because we choose to call it ourselves outside the example dimension. Two lessons hide in the handler's signature. First, a <code>@Redirect</code> handler can take the <em>enclosing method's own parameters appended after</em> the redirected call's arguments, that is exactly how this one receives <code>BlockView view, int x, int y, int z</code> on top of the <code>double temperature, double humidity</code> that <code>getColor</code> itself was passed. Second, the render-time <code>BlockView</code> is a <code>WorldRegion</code> wrapper, not the <code>World</code>, so a plain <code>view instanceof World</code> fails precisely during chunk rendering; RetroAPI's <code>com.periut.retroapi.world.RetroWorlds.unwrap(view)</code> sees through the wrapper to the real world, which is how we can gate the purple to <code>EXAMPLE_DIMENSION</code>. It works, and it's a trap. The showcase wraps this file in a giant warning box, reproduced here because it is the most important thing in the chapter:</p>
+
+<div class="danger">
+<pre><code>╔═══════════════════════════════════════════════════════════════════════╗
+║  ⚠⚠⚠  STOP: @Redirect (and @Overwrite) ARE LAST RESORTS  ⚠⚠⚠           ║
+║                                                                        ║
+║  They are EXCLUSIVE: if two mods @Redirect the same call (or           ║
+║  @Overwrite the same method), the game CRASHES AT LAUNCH, mixin        ║
+║  refuses to apply the second one. In a mixin-heavy ecosystem like      ║
+║  beta modding, "my mod + any other mod touching this method" is not    ║
+║  a rare event, it is the expected case.                                ║
+║                                                                        ║
+║  USE MIXINEXTRAS INSTEAD, it ships with this stack already:            ║
+║    instead of @Redirect   → @WrapOperation (chainable; you can even    ║
+║                             still call the original, see               ║
+║                             Example11WrapOperationMixin for this       ║
+║                             exact grass-color case done right)         ║
+║    instead of @Overwrite  → @WrapMethod, or @Inject + ci.cancel()      ║
+║    instead of @Inject(RETURN) + CIR → @ModifyReturnValue               ║
+║                             (see Example12ModifyReturnValueMixin)      ║
+║                                                                        ║
+║  Docs: https://github.com/LlamaLad7/MixinExtras/wiki                   ║
+║   - Wiki: .../wiki/WrapOperation                                       ║
+║   - Wiki: .../wiki/WrapMethod                                          ║
+║   - Wiki: .../wiki/ModifyReturnValue                                   ║
+╚═══════════════════════════════════════════════════════════════════════╝</code></pre>
+</div>
+
+<p>The <code>@Redirect</code> stays in the showcase only so you can see the tool you're avoiding. The next example does this exact grass-color job the right way.</p>
+
+<h3>9. <code>@ModifyConstant</code>, changing a hard-coded number</h3>
+<p><strong>In game:</strong> TNT explodes after 1 second instead of 4. <strong>Teaches:</strong> rewriting a literal constant baked into bytecode.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example09FastTntMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">TntEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example09FastTntMixin</span> {
+
+    <span class="k">@ModifyConstant</span>(
+        method = <span class="s">"&lt;init&gt;(Lnet/minecraft/world/World;DDD)V"</span>,
+        constant = <span class="k">@Constant</span>(intValue = <span class="n">80</span>)
+    )
+    <span class="k">private</span> <span class="k">int</span> example_mod$shortFuse(<span class="k">int</span> fuse) {
+        <span class="k">return</span> <span class="n">20</span>; <span class="c">// ticks: 20 = one second of sizzle</span>
+    }
+}</code></pre></div>
+
+<p>Vanilla constructs primed TNT with <code>this.fuse = 80</code>, a bare literal in the bytecode, no method call to redirect and no argument to modify. <code>@ModifyConstant</code> finds the constant itself and routes it through your handler. Its pitfalls, worth knowing: it matches <em>every</em> <code>80</code> in the chosen method (fine here, there's one; in bigger methods narrow it with <code>@Constant(ordinal = ...)</code> or pick another tool); the value must be a genuine compile-time constant (runtime-computed values can't be caught); and like example 2, targeting a constructor needs the full descriptor.</p>
+
+<h3>10. The capstone, <code>@Unique</code> + a duck interface + NBT persistence</h3>
+<p><strong>In game:</strong> every player gains a brand-new "mana" stat that saves with them. <strong>Teaches:</strong> the pattern real mods are built on, adding state to a vanilla class, exposing it through an interface, and persisting it. This one is two files.</p>
+
+<p>First the duck interface, which lives in the normal source tree (not the mixin package):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleManaAccess.java</span><pre><code><span class="k">public interface</span> <span class="t">ExampleManaAccess</span> {
+
+    <span class="k">int</span> example_mod$getMana();
+
+    <span class="k">void</span> example_mod$setMana(<span class="k">int</span> mana);
+}</code></pre></div>
+
+<p>Then the mixin that adds the field, implements the interface, and hooks the player's own save/load:</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example10PlayerManaMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">PlayerEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example10PlayerManaMixin</span> <span class="k">implements</span> <span class="t">ExampleManaAccess</span> {
+
+    <span class="k">@Unique</span>
+    <span class="k">private</span> <span class="k">int</span> example_mod$mana = <span class="n">0</span>;
+
+    <span class="k">@Override</span>
+    <span class="k">public</span> <span class="k">int</span> example_mod$getMana() {
+        <span class="k">return</span> <span class="k">this</span>.example_mod$mana;
+    }
+
+    <span class="k">@Override</span>
+    <span class="k">public void</span> example_mod$setMana(<span class="k">int</span> mana) {
+        <span class="k">this</span>.example_mod$mana = mana;
+    }
+
+    <span class="k">@Inject</span>(method = <span class="s">"writeNbt"</span>, at = <span class="k">@At</span>(<span class="s">"TAIL"</span>))
+    <span class="k">private void</span> example_mod$saveMana(<span class="t">NbtCompound</span> nbt, <span class="t">CallbackInfo</span> ci) {
+        nbt.putInt(<span class="s">"example_mod:mana"</span>, <span class="k">this</span>.example_mod$mana);
+    }
+
+    <span class="k">@Inject</span>(method = <span class="s">"readNbt"</span>, at = <span class="k">@At</span>(<span class="s">"TAIL"</span>))
+    <span class="k">private void</span> example_mod$loadMana(<span class="t">NbtCompound</span> nbt, <span class="t">CallbackInfo</span> ci) {
+        <span class="k">this</span>.example_mod$mana = nbt.getInt(<span class="s">"example_mod:mana"</span>);
+    }
+}</code></pre></div>
+
+<p>Three tools work together. <code>@Unique</code> adds a genuinely <em>new</em> field to <code>PlayerEntity</code>, the <code>example_mod$</code> prefix is convention and collision insurance (two mods adding plain <code>mana</code> would clash; prefixed uniques never do). <code>implements ExampleManaAccess</code> merges the interface into the target, so at runtime <em>every</em> <code>PlayerEntity</code> <em>is</em> an <code>ExampleManaAccess</code>, outside code just casts: <code>((ExampleManaAccess) player).example_mod$getMana()</code>. And two <code>@Inject</code>s piggyback on the player's own NBT save/load, so mana persists exactly as long as the player does (namespace your keys!). This is the same pattern RetroAPI itself uses to bolt fluent APIs onto vanilla classes.</p>
+
+<h3>11. MixinExtras <code>@WrapOperation</code>, <code>@Redirect</code> done right</h3>
+<p><strong>In game:</strong> tall grass and ferns get a golden autumn tint. <strong>Teaches:</strong> wrapping a call so you can still run the original, the chainable replacement for <code>@Redirect</code>.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example11WrapOperationMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">TallPlantBlock</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example11WrapOperationMixin</span> {
+
+    <span class="k">@WrapOperation</span>(
+        method = <span class="s">"getColorMultiplier"</span>,
+        at = <span class="k">@At</span>(
+            value = <span class="s">"INVOKE"</span>,
+            target = <span class="s">"Lnet/minecraft/client/color/world/GrassColors;getColor(DD)I"</span>
+        )
+    )
+    <span class="k">private</span> <span class="k">int</span> example_mod$autumnPlants(<span class="k">double</span> temperature, <span class="k">double</span> humidity, <span class="t">Operation</span>&lt;<span class="t">Integer</span>&gt; original) {
+        <span class="c">// First let vanilla (and any other mod's wrap) compute the real color...</span>
+        <span class="k">int</span> color = original.call(temperature, humidity);
+        <span class="c">// ...then blend each channel halfway toward gold (0xFFD700).</span>
+        <span class="k">int</span> r = (((color &gt;&gt; <span class="n">16</span>) &amp; <span class="n">0xFF</span>) + <span class="n">0xFF</span>) / <span class="n">2</span>;
+        <span class="k">int</span> g = (((color &gt;&gt; <span class="n">8</span>) &amp; <span class="n">0xFF</span>) + <span class="n">0xD7</span>) / <span class="n">2</span>;
+        <span class="k">int</span> b = ((color &amp; <span class="n">0xFF</span>) + <span class="n">0x00</span>) / <span class="n">2</span>;
+        <span class="k">return</span> (r &lt;&lt; <span class="n">16</span>) | (g &lt;&lt; <span class="n">8</span>) | b;
+    }
+}</code></pre></div>
+
+<p>Same vanilla pattern as example 8, a block asking <code>GrassColors</code> for its tint, but wrapped instead of redirected, and the difference is everything. You receive an <code>Operation&lt;Integer&gt;</code> handle, and <code>original.call(...)</code> runs what the call site would have done: vanilla's code <em>or the next mod's wrap</em>. A <code>@Redirect</code> erases that choice; here we <em>blend with</em> vanilla's answer instead of discarding it. And wraps from different mods <strong>nest instead of crashing</strong>, each mod's handler wraps the previous one, onion-style. Two <code>@Redirect</code>s on this call would refuse to launch; any number of <code>@WrapOperation</code>s coexist. MixinExtras is already on the classpath; just import it. Client-only.</p>
+
+<h3>12. MixinExtras <code>@ModifyReturnValue</code>, the clean return-value change</h3>
+<p><strong>In game:</strong> hurting a pig plays the counter's click sound. <strong>Teaches:</strong> the cleaner replacement for example 4's <code>@Inject</code>-at-RETURN.</p>
+
+<div class="codeblock"><span class="code-title">mixin/examples/Example12ModifyReturnValueMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">PigEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">Example12ModifyReturnValueMixin</span> {
+
+    <span class="k">@ModifyReturnValue</span>(method = <span class="s">"getHurtSound"</span>, at = <span class="k">@At</span>(<span class="s">"RETURN"</span>))
+    <span class="k">private</span> <span class="t">String</span> example_mod$clickOnHurt(<span class="t">String</span> original) {
+        <span class="k">return</span> <span class="s">"example_mod:counter.click"</span>;
+    }
+}</code></pre></div>
+
+<p>The same job as example 4, on a sibling method, written the modern way. The file's comment puts the two side by side:</p>
+
+<div class="codeblock"><span class="code-title">Example12ModifyReturnValueMixin.java, the comparison</span><pre><code>  vanilla mixin:                          mixinextras:
+  @Inject(method = "getRandomSound",      @ModifyReturnValue(
+      at = @At("RETURN"),                     method = "getHurtSound",
+      cancellable = true)                     at = @At("RETURN"))
+  void m(CallbackInfoReturnable&lt;String&gt;   String m(String original) {
+          cir) {                              return "...";
+      cir.setReturnValue("...");          }
+  }</code></pre></div>
+
+<p>The original return value arrives as a plain parameter, no <code>cir</code> juggling, no <code>cancellable</code> flag, you return the replacement, and the important part: multiple mods' <code>@ModifyReturnValue</code> handlers <strong>chain</strong>, each receiving the previous one's output. With raw <code>setReturnValue</code>, order-dependent fights are easy. Docs: <a href="https://github.com/LlamaLad7/MixinExtras/wiki/ModifyReturnValue">ModifyReturnValue</a>.</p>
+
+<h2>Mixins doing real work</h2>
+<p>The twelve above are a course. The showcase also ships three <em>feature</em> mixins that quietly power earlier chapters, the same tools, pointed at real goals:</p>
+
+<ul>
+<li><strong><code>PlayerTickMixin</code></strong> (client list), hooks <code>PlayerEntity.tick()</code> at HEAD to run the one-shot starter kit in singleplayer, where the world lives inside the client.</li>
+<li><strong><code>ServerPlayerTickMixin</code></strong> (server list), the dedicated-server twin, hooking <code>ServerPlayerEntity.tick()</code> to run the starter kit <em>and</em> drive the welcome packet from <a href="networking.html">Chapter 11</a>.</li>
+<li><strong><code>LivingEntityJumpMixin</code></strong> (common list), hooks <code>LivingEntity.jump()</code> to grant the "Jump for Joy" achievement (<a href="achievements.html">Chapter 8</a>) the first time a player jumps, with a <code>!world.isRemote</code> guard so the grant only fires where physics actually run.</li>
+</ul>
+
+<p>Look at <code>LivingEntityJumpMixin</code> if you want to see every principle in one file: it targets the declaring base class, checks <code>instanceof PlayerEntity</code>, gates on <code>world.isRemote</code>, prefixes its handler and its once-flag, and does exactly one job.</p>
+
+<h2>Practical notes</h2>
+<p>A few facts about how mixins actually resolve, so the error messages make sense:</p>
+
+<ul>
+<li><strong>Targets are matched against biny names and remapped at build time.</strong> You write <code>method = "onLanding"</code> against the mapped name; Loom rewrites it to the obfuscated name in the built jar. You never see the obfuscated names.</li>
+<li><strong>A wrong name is a crash at class-load, and that's good.</strong> With <code>defaultRequire: 1</code>, if a target method or field doesn't exist, the game fails loudly at launch instead of silently doing nothing. Fail fast, fix the name. (<a href="testing.html">Chapter 21</a> shows what that crash looks like in the log.)</li>
+<li><strong>Verify names against the mapped jar</strong> in your Gradle cache, or against the decompiled sources Loom generates. Don't guess a method name, open the class and read it.</li>
+<li><strong>Constructors are targeted as <code>&lt;init&gt;(descriptor)</code></strong> and are only TAIL-injectable, the object must be fully built before you touch it (examples 2 and 9).</li>
+<li><strong>Interface mixins add zero overhead.</strong> <code>@Invoker</code>, <code>@Accessor</code>, and duck interfaces compile down to direct field/method access, they're free.</li>
+</ul>
+
+<p>That's the scalpel. You can now change anything the game does, and, more importantly, do it in a way that survives sitting next to forty other mods. Last stop: actually running all of this, on a client and on a real server.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 3: Pixels &amp; Words, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 3, Pixels &amp; Words</h1>
+<p class="chapter-sub">Where your textures, names, and sounds come from, and the folder layout that makes it all automatic.</p>
+
+<p>Code registers <em>what</em> exists; assets decide what it looks, reads, and sounds like. The good news in this chapter is how little wiring there is: drop files in the right folders with the right names and RetroAPI finds them. The folder names are the API.</p>
+
+<h2>The assets folder, top to bottom</h2>
+<p>Everything lives under one root, and that root's name <strong>must equal your mod id</strong>, the same <code>example_mod</code> from <code>fabric.mod.json</code>. Here is the showcase's tree:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/</span><pre><code>assets/example_mod/
+├── icon.png                          <span class="c"># the mod's icon (fabric.mod.json points here)</span>
+├── lang/
+│   └── en_US.lang                    <span class="c"># display names &amp; achievement text</span>
+├── textures/
+│   ├── block/
+│   │   ├── example_block.png
+│   │   ├── sided_block_top.png
+│   │   ├── sided_block_bottom.png
+│   │   ├── sided_block_side.png
+│   │   ├── counter_block.png
+│   │   ├── crate_block.png
+│   │   └── freezer_block.png
+│   ├── item/
+│   │   └── suspicious_substance.png
+│   └── gui/
+│       ├── crategui.png
+│       └── freezer.png
+└── sounds/
+    └── sound/
+        └── counter/
+            └── click.ogg</code></pre></div>
+
+<div class="note"><p>If textures don't show up, the first thing to check is that the folder is named <em>exactly</em> your mod id. <code>assets/ExampleMod/</code> or <code>assets/example-mod/</code> will silently load nothing.</p></div>
+
+<h2>Block &amp; item textures: atlased sprites</h2>
+<p>The simplest case is the one from the elevator pitch, a single texture chained onto the builder:</p>
+
+<div class="codeblock"><span class="code-title">in ExampleMod.init()</span><pre><code>EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
+	.texture(id(<span class="s">"example_block"</span>))   <span class="c">// → textures/block/example_block.png on all 6 faces</span>
+	.register(id(<span class="s">"example_block"</span>));</code></pre></div>
+
+<p>That <code>.texture(id("example_block"))</code> loads <code>assets/example_mod/textures/block/example_block.png</code> onto all six faces of the block. Items follow the parallel path: <code>.texture(id("suspicious_substance"))</code> loads <code>textures/item/suspicious_substance.png</code>. The convention is just folder-by-kind: blocks read from <code>textures/block/</code>, items from <code>textures/item/</code>.</p>
+
+<p>These textures are <strong>atlased</strong>. Beta's renderer doesn't bind a texture per block, it draws from one big sheet (<code>terrain.png</code> for blocks, <code>gui/items.png</code> for items) and addresses each tile by a sprite index. Vanilla fills the low indices; RetroAPI assigns your sprites slots <strong>≥ 256</strong> and composites your PNGs onto the sheet client-side at load. Under StationAPI (if present) it re-resolves your sprites into StationAPI's atlas instead, via <code>RetroTextures.resolveStationAPITextures()</code>, you write the same code either way.</p>
+
+<p>The handle these calls track is a <code>RetroTexture</code>, and its public <code>int id</code> field is the live sprite index, the number the renderer hands the tessellator. You'll use it directly in the next section and in <a href="blocks.html">Chapter 4</a>'s sided block.</p>
+
+<div class="note"><p>Remember from <a href="entrypoints.html">Chapter 2</a>: reserving these slots is pure bookkeeping, so it runs on a dedicated server too. Only the client ever decodes the PNG and paints the atlas.</p></div>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/example_block.png" width="64" height="64" alt="example_block"><div class="asset-name">example_block.png</div><a href="assets/example_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/counter_block.png" width="64" height="64" alt="counter_block"><div class="asset-name">counter_block.png</div><a href="assets/counter_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/crate_block.png" width="64" height="64" alt="crate_block"><div class="asset-name">crate_block.png</div><a href="assets/crate_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_block.png" width="64" height="64" alt="freezer_block"><div class="asset-name">freezer_block.png</div><a href="assets/freezer_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/suspicious_substance.png" width="64" height="64" alt="suspicious_substance"><div class="asset-name">suspicious_substance.png</div><a href="assets/suspicious_substance.png" download>download</a></div>
+</div>
+
+<h3>Multi-texture blocks</h3>
+<p>A block with a different face per side calls <code>RetroTextures.addBlockTexture(id)</code> once per texture and overrides <code>getTexture(face)</code> to return the right sprite index. That's a whole topic, the sided block, with its three textures and the <code>RetroTexture.id</code> trick, and it gets a full walkthrough in <a href="blocks.html">Chapter 4</a>. Pointing you there rather than repeating it.</p>
+
+<h3>Reusing vanilla sprites, no PNG needed</h3>
+<p>Sometimes the texture you want already ships with the game. You can borrow a vanilla sprite index two ways:</p>
+<ul>
+<li>On a block builder, <code>.sprite(Block.GLASS.getTexture(0))</code>, the portal block in <a href="blocks.html">Chapter 4</a> does this to look like glass, shipping no texture of its own.</li>
+<li>On an item subclass, override <code>getTextureId(damage)</code> to return another item's index. The Jump Stick in <a href="items.html">Chapter 5</a> returns <code>Item.STICK.getTextureId(0)</code> and so needs no art at all.</li>
+</ul>
+
+<h3>Animated textures</h3>
+<p>Textures animate now. Drop a <code>{name}.png.mcmeta</code> next to the PNG and stack the frames as square tiles in a <strong>vertical</strong> strip (a 16×64 image is four 16×16 frames), and the ordinary <code>.texture()</code> call picks the animation up with no other change. If you'd rather drive it from code, <code>RetroTextures.addAnimatedBlockTexture(id, frameCount, ticksPerFrame)</code> and <code>addAnimatedItemTexture(id, frameCount, ticksPerFrame)</code> do the same in one line. The full schema, interpolation, and the showcase's ember block live in <a href="models.html">Chapter 15</a>.</p>
+<p>The same path works for <strong>items</strong>: the showcase's Spectre Staff is a plain <code>RetroItemAccess</code> item whose texture is a 16×208 strip (thirteen 16×16 frames) with a <code>spectre_staff.png.mcmeta</code> beside it. Its mcmeta also shows the per-frame timing form, a <code>frames</code> list of indices with one entry written as <code>{"index": 8, "time": 9}</code> to hold that frame longer, so an animated item is nothing more than the strip plus its mcmeta and a normal <code>.texture(id("spectre_staff"))</code> call:</p>
+<pre><code class="language-json" data-code-title="src/main/resources/assets/example_mod/textures/item/spectre_staff.png.mcmeta">{
+    "animation": {
+        "frametime": 3,
+        "frames": [0, 1, 2, 3, 4, 5, 6, 7, {"index": 8, "time": 9}, 9, 10, 11, 12]
+    }
+}</code></pre>
+
+<h2>GUI textures: bound directly, not atlased</h2>
+<p>Window art is different. A GUI background is too big to live in the terrain atlas, so it isn't atlased at all, you bind it straight from its classpath path through the vanilla texture manager. Here's the crate screen's background draw:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCrateScreen.java, trimmed</span><pre><code><span class="k">private static final</span> String TEXTURE = <span class="s">"/assets/example_mod/textures/gui/crategui.png"</span>;
+
+<span class="k">@Override</span>
+<span class="k">protected void</span> drawBackground(<span class="k">float</span> tickDelta) {
+	<span class="k">int</span> texture = <span class="k">this</span>.minecraft.textureManager.getTextureId(TEXTURE);
+	GL11.glColor4f(<span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);
+	<span class="k">this</span>.minecraft.textureManager.bindTexture(texture);
+	<span class="k">int</span> left = (<span class="k">this</span>.width - <span class="k">this</span>.backgroundWidth) / <span class="n">2</span>;
+	<span class="k">int</span> top = (<span class="k">this</span>.height - <span class="k">this</span>.backgroundHeight) / <span class="n">2</span>;
+	<span class="k">this</span>.drawTexture(left, top, <span class="n">0</span>, <span class="n">0</span>, <span class="k">this</span>.backgroundWidth, <span class="k">this</span>.backgroundHeight);
+}</code></pre></div>
+
+<p><code>textureManager.getTextureId(path)</code> loads the file (cached after the first call) and returns an OpenGL texture handle; <code>bindTexture</code> makes it current; <code>drawTexture</code> blits a region of it to the screen. Note the leading slash and the full <code>/assets/&lt;modid&gt;/...</code> path, this is a raw classpath lookup, so it must be exact.</p>
+
+<p>Both GUI sheets are 256×256. The crate window uses the top-left 176×222 region; the rest of the sheet is free space. The freezer reuses the vanilla furnace layout, which means it keeps its progress-bar sprites at <strong>u ≥ 176</strong>, the same column past the 176-pixel-wide window where vanilla's <code>furnace.png</code> stores the flame and arrow sprites it blits over the GUI as fuel burns. The freezer's animated bars are <a href="blockentities.html">Chapter 6</a>'s story.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/crategui.png" width="256" height="256" alt="crategui"><div class="asset-name">crategui.png</div><a href="assets/crategui.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer.png" width="256" height="256" alt="freezer"><div class="asset-name">freezer.png</div><a href="assets/freezer.png" download>download</a></div>
+</div>
+
+<h2>Lang files: names without code</h2>
+<p>RetroAPI loads <code>assets/&lt;modid&gt;/lang/en_US.lang</code> automatically (and, if StationAPI is present, also <code>assets/&lt;modid&gt;/stationapi/lang/en_US.lang</code>). Here is the showcase's, in full:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/lang/en_US.lang</span><pre><code><span class="c"># Display names for the mod's content. RetroAPI loads this file automatically</span>
+<span class="c"># (assets/&lt;modid&gt;/lang/en_US.lang). The @ is replaced with your mod id at load</span>
+<span class="c"># time, so these lines work even if you rename the mod.</span>
+<span class="c">#</span>
+<span class="c"># Anything you don't translate gets an auto-generated default from its</span>
+<span class="c"># identifier (example_block -&gt; "Example Block"), so missing lines never crash.</span>
+
+<span class="c"># Blocks: tile.&lt;modid&gt;.&lt;identifier&gt;.name</span>
+tile.@.example_block.name=Example Block
+tile.@.sided_block.name=Sided Block
+tile.@.example_pipe.name=Example Pipe
+tile.@.counter_block.name=Counter Block
+tile.@.crate_block.name=Crate
+tile.@.freezer_block.name=Freezer
+tile.@.example_portal.name=Example Portal
+
+<span class="c"># Items: item.&lt;modid&gt;.&lt;identifier&gt;.name</span>
+item.@.suspicious_substance.name=Suspicious Substance
+item.@.jump_stick.name=Jump Stick
+
+<span class="c"># Achievements: achievement.&lt;name&gt; is the title, achievement.&lt;name&gt;.desc the</span>
+<span class="c"># description, where &lt;name&gt; is the string passed to RetroAchievements.register.</span>
+achievement.example_mod.getting_started=Getting Started
+achievement.example_mod.getting_started.desc=Join a world with the example mod installed.
+achievement.example_mod.jump_for_joy=Jump for Joy
+achievement.example_mod.jump_for_joy.desc=Jump!
+achievement.example_mod.dimensional_traveler=Dimensional Traveler
+achievement.example_mod.dimensional_traveler.desc=Step through the example portal.
+
+<span class="c"># Title of the mod's own achievement page (the &lt; &gt; buttons on the achievements screen).</span>
+gui.retroapi.achievementPage.example_mod.example_page=Example Mod</code></pre></div>
+
+<p>A few things worth pinning down:</p>
+<ul>
+<li><strong>The <code>@</code> is replaced with your mod id at load time.</strong> Write <code>tile.@.example_block.name</code> and it becomes <code>tile.example_mod.example_block.name</code>. Rename the mod and the lang file follows along untouched.</li>
+<li><strong>Key formats:</strong> <code>tile.&lt;modid&gt;.&lt;identifier&gt;.name</code> for blocks, <code>item.&lt;modid&gt;.&lt;identifier&gt;.name</code> for items, <code>achievement.&lt;name&gt;</code> and <code>achievement.&lt;name&gt;.desc</code> for achievements, and <code>gui.retroapi.achievementPage.&lt;namespace&gt;.&lt;identifier&gt;</code> for a custom achievement page title.</li>
+<li><strong>Missing lines never break anything.</strong> Anything you don't translate gets an auto-generated default derived from its identifier, <code>example_block</code> becomes "Example Block", so a half-finished lang file shows readable placeholders, not raw keys.</li>
+</ul>
+
+<h2>Sounds: the autoloader</h2>
+<p>Custom sounds need no registration call at all. RetroAPI scans <code>assets/&lt;modid&gt;/sounds/&lt;channel&gt;/&lt;path&gt;.ogg</code> and derives an event id from the path. The channels are <code>sound/</code> (the usual effects), <code>music/</code>, and <code>streaming/</code>, plus a <code>stationapi/</code> root scanned the same way when StationAPI is present.</p>
+
+<p>The id derivation, step by step:</p>
+<ol>
+<li>Strip the <code>.ogg</code> extension.</li>
+<li>Turn directory slashes into dots.</li>
+<li>Lowercase the whole thing.</li>
+<li>For the <code>sound/</code> channel only, collapse a trailing digit so numbered variants share one event, <code>call1.ogg</code> and <code>call2.ogg</code> both register the event <code>call</code> and play a random one.</li>
+<li>Prefix <code>&lt;modid&gt;:</code>.</li>
+</ol>
+
+<p>The showcase ships one sound: <code>sounds/sound/counter/click.ogg</code>. Walk it through, strip the extension (<code>counter/click</code>), slashes to dots (<code>counter.click</code>), lowercase (unchanged), prefix the mod id, and you get the event id <strong><code>example_mod:counter.click</code></strong>. The counter block plays it on every right-click:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlock.java, the play line</span><pre><code>world.playSound(x + <span class="n">0.5</span>, y + <span class="n">0.5</span>, z + <span class="n">0.5</span>, <span class="s">"example_mod:counter.click"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
+
+<p>The two floats are volume and pitch. Offset by <code>+0.5</code> on each axis to play from the block's center.</p>
+
+<div class="asset-row">
+<div class="asset-card"><div class="asset-name" style="margin-top:8px">🔊 click.ogg</div><div style="color:var(--muted);font-size:0.85em;margin:4px 0">→ example_mod:counter.click</div><a href="assets/click.ogg" download>download</a></div>
+</div>
+
+<p>That's pixels, names, and sounds handled, the quiet half of every feature. Now the loud half: let's build some blocks.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

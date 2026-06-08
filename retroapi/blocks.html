@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 4: Blocks, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 4, Blocks</h1>
+<p class="chapter-sub">Three blocks, graded easy to interesting: one plain cube, one with a face per side, and a pipe that draws itself.</p>
+
+<p>Blocks are where most mods start, and RetroAPI makes the easy ones genuinely easy without hiding the hard ones. The whole surface is a small builder you chain options onto, plus a couple of static entry points. We'll meet all of it across three blocks, each a little more ambitious than the last.</p>
+
+<h2>Block #1, the plainest cube</h2>
+<p>Here is <code>EXAMPLE_BLOCK</code> exactly as it appears in <code>init()</code>, including the commented menu of other options you could have chained:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The simplest possible block: stone-like, with its own texture.</span>
+EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
+	.sounds(Block.STONE_SOUND_GROUP)   <span class="c">// mine/place/step sounds</span>
+	.strength(<span class="n">1.5f</span>, <span class="n">10.0f</span>)             <span class="c">// hardness, blast resistance</span>
+	.texture(id(<span class="s">"example_block"</span>))      <span class="c">// one texture used on all six faces</span>
+	.register(id(<span class="s">"example_block"</span>));
+<span class="c">// Other builder options you can chain before .register(...):</span>
+<span class="c">//   .light(1.0f), glow like glowstone</span>
+<span class="c">//   .opacity(0), let light pass through</span>
+<span class="c">//   .nonOpaque(), neighbours draw their touching faces</span>
+<span class="c">//   .bounds(minX,minY,minZ,maxX,maxY,maxZ), non-full-cube hitbox</span>
+<span class="c">//   .sprite(Block.GLASS.getTexture(0)), reuse a vanilla texture instead</span>
+<span class="c">//   .alwaysDrops() / .alwaysEffectiveTool() / .effectiveTool(PickaxeItem.class)</span></code></pre></div>
+
+<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 10</a>; its texture and lang name were <a href="assets.html">Chapter 3</a>.)</p>
+
+<h3>The whole builder, in one table</h3>
+<p>These are all the builder methods. Chain any of them before <code>register</code>; each returns the builder so they fit on one line. This is the complete list, there are no others.</p>
+
+<table>
+<tr><th>Method</th><th>What it does</th></tr>
+<tr><td><code>sounds(BlockSoundGroup)</code></td><td>mine / place / step sounds (e.g. <code>Block.STONE_SOUND_GROUP</code>)</td></tr>
+<tr><td><code>strength(float)</code></td><td>hardness (mining time); resistance derived from it</td></tr>
+<tr><td><code>strength(float, float)</code></td><td>hardness <em>and</em> blast resistance together</td></tr>
+<tr><td><code>resistance(float)</code></td><td>blast resistance on its own</td></tr>
+<tr><td><code>light(float)</code></td><td>emitted light, 0 to 1 (1.0 = full glowstone)</td></tr>
+<tr><td><code>opacity(int)</code></td><td>how much light it blocks (0 = transparent to light)</td></tr>
+<tr><td><code>nonOpaque()</code></td><td>not a solid cube, neighbours render the faces they share with it</td></tr>
+<tr><td><code>bounds(minX,minY,minZ,maxX,maxY,maxZ)</code></td><td>a non-full-cube hitbox/shape, in 0 to 1 block units</td></tr>
+<tr><td><code>renderType(NamespacedIdentifier)</code></td><td>use a render type (vanilla or your own) instead of a plain cube</td></tr>
+<tr><td><code>sprite(int)</code></td><td>set the default sprite index (particles + item form), often a vanilla one</td></tr>
+<tr><td><code>texture(NamespacedIdentifier)</code></td><td>load <code>textures/block/&lt;name&gt;.png</code> onto all six faces</td></tr>
+<tr><td><code>alwaysDrops()</code></td><td>always drop as an item when broken, regardless of tool</td></tr>
+<tr><td><code>alwaysEffectiveTool()</code></td><td>any tool mines it at full speed</td></tr>
+<tr><td><code>effectiveTool(Class&lt;? extends Item&gt;)</code></td><td>which tool class mines it effectively (e.g. <code>PickaxeItem.class</code>)</td></tr>
+<tr><td><code>register(NamespacedIdentifier)</code></td><td>finalize and register; returns the <code>Block</code>, auto-creates its <code>BlockItem</code></td></tr>
+<tr><td><code>register(NamespacedIdentifier, IntFunction&lt;BlockItem&gt;)</code></td><td>same, but you supply the <code>BlockItem</code> (custom item form)</td></tr>
+</table>
+
+<p>And the three static entry points that start (or feed) a builder:</p>
+<table>
+<tr><th>Static method</th><th>Use it when</th></tr>
+<tr><td><code>RetroBlockAccess.create(Material)</code></td><td>a plain <code>Block</code> of that material is enough (block #1)</td></tr>
+<tr><td><code>RetroBlockAccess.of(Block)</code></td><td>you wrote a <code>Block</code> subclass and hand in an instance (blocks #2, #3)</td></tr>
+<tr><td><code>RetroBlockAccess.allocateId()</code></td><td>get a fresh numeric id to pass into your subclass's constructor</td></tr>
+</table>
+
+<div class="note"><p>Every block gets a <code>BlockItem</code> automatically on <code>register</code>, that's the item form you hold in your hand and place. The two-argument <code>register(id, IntFunction&lt;BlockItem&gt;)</code> overload is there only when you want a <em>custom</em> item form (its own name, stack behavior, or sub-items).</p></div>
+
+<h3>About those ids</h3>
+<p>Beta 1.7.3 stores blocks by a numeric id in a fixed-size table, and the low slots are all taken by vanilla. RetroAPI's job is to make that invisible to you:</p>
+<ul>
+<li><strong>It allocates numeric ids ≥ 256</strong>, above vanilla's range, so your blocks never collide with the game's.</li>
+<li><strong>It remaps them per-world for stability.</strong> The actual number a block gets can differ between worlds; RetroAPI keeps a per-world mapping so a save always reads back the right block even if the raw number shifted.</li>
+<li><strong>It hides them from vanilla saves</strong> using sidecar files alongside the world data, so a world opened <em>without</em> your mod doesn't choke on an id it doesn't recognise, and your content reappears intact when the mod returns.</li>
+</ul>
+<p>The upshot: you never type a numeric id. You deal only in <code>NamespacedIdentifier</code>s, <code>id("example_block")</code>, and RetroAPI handles the bookkeeping that used to be the most error-prone part of beta modding.</p>
+
+<h2>Block #2, a face on every side</h2>
+<p>When one texture on all six faces isn't enough, you write a <code>Block</code> subclass. The sided block has a top, a bottom, and a shared side texture, grass-style. Here's the entire class:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleSidedBlock.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.periut.retroapi.register.block.RetroTexture;
+<span class="k">import</span> com.periut.retroapi.register.block.RetroTextures;
+
+<span class="k">import</span> net.minecraft.block.Block;
+<span class="k">import</span> net.minecraft.block.material.Material;
+
+<span class="c">/**
+ * A block with a different texture on its top, bottom and sides (think grass or
+ * a crafting table). For anything beyond "one texture on all faces" you make a
+ * Block subclass, register each texture with RetroTextures.addBlockTexture(...),
+ * and override getTexture(face).
+ *
+ * Faces: 0 = bottom, 1 = top, 2 = north, 3 = south, 4 = west, 5 = east.
+ */</span>
+<span class="k">public class</span> <span class="t">ExampleSidedBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
+
+	<span class="k">private final</span> RetroTexture bottom;
+	<span class="k">private final</span> RetroTexture top;
+	<span class="k">private final</span> RetroTexture side;
+
+	<span class="k">public</span> ExampleSidedBlock(<span class="k">int</span> id, Material material) {
+		<span class="k">super</span>(id, material);
+		<span class="c">// Each call loads assets/example_mod/textures/block/&lt;name&gt;.png into the</span>
+		<span class="c">// block atlas and returns a handle whose .id is the sprite index.</span>
+		<span class="k">this</span>.bottom = RetroTextures.addBlockTexture(ExampleMod.id(<span class="s">"sided_block_bottom"</span>));
+		<span class="k">this</span>.top = RetroTextures.addBlockTexture(ExampleMod.id(<span class="s">"sided_block_top"</span>));
+		<span class="k">this</span>.side = RetroTextures.addBlockTexture(ExampleMod.id(<span class="s">"sided_block_side"</span>));
+		<span class="c">// The default sprite (used for particles etc.) + keep the block/texture pair</span>
+		<span class="c">// tracked so the atlas can re-resolve it (e.g. when StationAPI is present).</span>
+		<span class="k">this</span>.textureId = <span class="k">this</span>.side.id;
+		RetroTextures.trackBlock(<span class="k">this</span>, <span class="k">this</span>.side);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getTexture(<span class="k">int</span> face) {
+		<span class="k">switch</span> (face) {
+			<span class="k">case</span> <span class="n">0</span>: <span class="k">return</span> <span class="k">this</span>.bottom.id;
+			<span class="k">case</span> <span class="n">1</span>: <span class="k">return</span> <span class="k">this</span>.top.id;
+			<span class="k">default</span>: <span class="k">return</span> <span class="k">this</span>.side.id;
+		}
+	}
+}</code></pre></div>
+
+<p>And its registration, note <code>RetroBlockAccess.of(...)</code> wrapping a freshly-constructed instance, with <code>allocateId()</code> supplying the constructor's id:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>SIDED_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleSidedBlock(RetroBlockAccess.allocateId(), Material.WOOD))
+	.sounds(Block.WOOD_SOUND_GROUP)
+	.strength(<span class="n">1.0f</span>)
+	.alwaysEffectiveTool()
+	.alwaysDrops()
+	.register(id(<span class="s">"sided_block"</span>));</code></pre></div>
+
+<p>Three things make this work:</p>
+<ul>
+<li><strong><code>RetroTextures.addBlockTexture(id)</code></strong> loads one PNG into the atlas and returns a <code>RetroTexture</code> whose public <code>.id</code> is its sprite index (the atlas mechanics are <a href="assets.html">Chapter 3</a>).</li>
+<li><strong><code>getTexture(face)</code></strong> is vanilla's per-face hook. The face indices are <strong>0 = bottom, 1 = top, 2 = north, 3 = south, 4 = west, 5 = east</strong>; returning a sprite index per face is all the renderer needs.</li>
+<li><strong><code>this.textureId = this.side.id</code></strong> sets the <em>default</em> sprite, used for break particles and the held-item icon, and <strong><code>RetroTextures.trackBlock(this, this.side)</code></strong> registers the block/texture pairing so the atlas can re-resolve it later (for instance, into StationAPI's atlas).</li>
+</ul>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/sided_block_top.png" width="64" height="64" alt="sided_block_top"><div class="asset-name">sided_block_top.png</div><a href="assets/sided_block_top.png" download>download</a></div>
+<div class="asset-card"><img src="assets/sided_block_bottom.png" width="64" height="64" alt="sided_block_bottom"><div class="asset-name">sided_block_bottom.png</div><a href="assets/sided_block_bottom.png" download>download</a></div>
+<div class="asset-card"><img src="assets/sided_block_side.png" width="64" height="64" alt="sided_block_side"><div class="asset-name">sided_block_side.png</div><a href="assets/sided_block_side.png" download>download</a></div>
+</div>
+
+<h2>Block #3, a pipe that draws itself</h2>
+<p>The last block isn't a cube at all. It's a small box in the center of its space, drawn by a <em>custom render type</em> rather than the default cube renderer. Two pieces: register the render type once, then point a block at it.</p>
+
+<p>The render type is registered as a static field at the top of <code>ExampleMod</code>, so it exists before <code>init()</code> runs:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, static field</span><pre><code><span class="k">public static final</span> NamespacedIdentifier PIPE_RENDER_TYPE = RenderType.register(
+	id(<span class="s">"pipe"</span>),
+	ctx -> {
+		<span class="c">// ctx is a BlockRenderContext: it knows the block, position, world, lighting,</span>
+		<span class="c">// and exposes helpers like renderFullCube(), renderLitFace(face, sprite), ...</span>
+		ctx.renderAllLitFaces(Block.COBBLESTONE.getTexture(<span class="n">0</span>));
+		<span class="k">return</span> <span class="k">true</span>;
+	}
+);</code></pre></div>
+
+<p>And the block that uses it, from <code>init()</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A non-full-cube block using the custom render type registered above.</span>
+PIPE_BLOCK = RetroBlockAccess.create(Material.STONE)
+	.sounds(Block.METAL_SOUND_GROUP)
+	.strength(<span class="n">2.0f</span>)
+	.nonOpaque()
+	.bounds(<span class="n">4</span> / <span class="n">16.0F</span>, <span class="n">4</span> / <span class="n">16.0F</span>, <span class="n">4</span> / <span class="n">16.0F</span>, <span class="n">12</span> / <span class="n">16.0F</span>, <span class="n">12</span> / <span class="n">16.0F</span>, <span class="n">12</span> / <span class="n">16.0F</span>)
+	.renderType(PIPE_RENDER_TYPE)
+	.sprite(Block.COBBLESTONE.getTexture(<span class="n">0</span>)) <span class="c">// used for particles + item form</span>
+	.register(id(<span class="s">"example_pipe"</span>));</code></pre></div>
+
+<p>The block is <code>nonOpaque()</code> (so it doesn't hide neighbours), shrunk to the middle 8&times;8&times;8 with <code>bounds(...)</code> (the <code>4/16</code> to <code>12/16</code> range), and pointed at <code>PIPE_RENDER_TYPE</code> with <code>renderType(...)</code>. Because it ships no texture of its own, <code>.sprite(Block.COBBLESTONE.getTexture(0))</code> borrows cobblestone for its particles and held-item form, and the render lambda borrows the same sprite for its faces.</p>
+
+<h3>The render context</h3>
+<p>A render type is a function from a <code>BlockRenderContext</code> to "did I draw it?" (<code>true</code> means you handled rendering; the engine won't fall back to the default cube). The context knows the block, its position, the world, and lighting, and hands you a kit of helpers:</p>
+
+<table>
+<tr><th>Helper</th><th>What it draws / gives you</th></tr>
+<tr><td><code>renderFullCube()</code></td><td>a standard six-sided cube using the block's own sprites</td></tr>
+<tr><td><code>renderAllLitFaces(sprite)</code></td><td>all six faces with one sprite, lit per face (what the pipe uses)</td></tr>
+<tr><td><code>renderLitFace(face, sprite)</code></td><td>a single face, with that face's lighting</td></tr>
+<tr><td><code>shouldRenderFace(face)</code></td><td>whether a face is visible (neighbour isn't covering it)</td></tr>
+<tr><td><code>getSprite(face)</code></td><td>the block's sprite index for a face</td></tr>
+<tr><td><code>tesselator()</code></td><td>the raw <code>Tessellator</code> for hand-rolled vertices when you need full control</td></tr>
+</table>
+
+<div class="note"><p>Custom render type ids are numbered starting at <strong>18</strong>, the vanilla render types occupy 0 to 17. You never write that number; <code>RenderType.register</code> hands back a <code>NamespacedIdentifier</code> and resolves the int internally. If you only need a built-in look, the <code>RenderTypes</code> class exposes the vanilla ones as constants, <code>RenderTypes.BLOCK</code>, <code>RenderTypes.CROSS</code>, <code>RenderTypes.TORCH</code>, <code>RenderTypes.PLANT</code>, <code>RenderTypes.FENCE</code>, and the rest, to pass straight into <code>.renderType(...)</code>.</p></div>
+
+<h2>Mineable: modern tool gating</h2>
+<p>Beta's rule for "which tool drops this block" is crude. RetroAPI swaps in the modern <strong>mineable tag</strong> system, the same one a 1.21 data pack uses, and you opt a block in with one builder call:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Mineable tags, modern semantics: ruby ore drops ONLY when mined with a</span>
+<span class="c">// pickaxe, at pickaxe speed. The same tag also loads from data files; see</span>
+<span class="c">// data/example_mod/tags/block/mineable/pickaxe.json, which re-adds this block</span>
+<span class="c">// (a harmless union) and tags vanilla glass as pickaxe-mineable too.</span>
+RUBY_ORE = RetroBlockAccess.of(<span class="k">new</span> RubyOreBlock(RetroBlockAccess.allocateId()))
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">3.0f</span>)
+	.texture(id(<span class="s">"ruby_ore"</span>))
+	.mineable(com.periut.retroapi.tag.RetroTool.PICKAXE)
+	.register(id(<span class="s">"ruby_ore"</span>));</code></pre></div>
+
+<p>The ore is now a <code>Block</code> subclass, handed in through <code>RetroBlockAccess.of(...)</code> with <code>allocateId()</code> supplying its constructor id, because it drops something other than itself. Custom drops work the plain vanilla way: override <code>getDroppedItemId(int meta, Random)</code> to return the item id (and, optionally, <code>getDroppedItemCount(Random)</code> for the count). Combined with the mineable tag, the ruby only drops when a pickaxe did the breaking; the wrong tool breaks the block and yields nothing.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/RubyOreBlock.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.block.Block;
+<span class="k">import</span> net.minecraft.block.material.Material;
+
+<span class="k">import</span> java.util.Random;
+
+<span class="c">/**
+ * Ruby ore drops rubies, not itself, the same way diamond ore drops diamonds:
+ * override getDroppedItemId (and optionally getDroppedItemCount). Because the
+ * block is in the mineable/pickaxe tag, the drop only happens when a pickaxe
+ * does the breaking; the wrong tool breaks the block and yields nothing.
+ */</span>
+<span class="k">public class</span> <span class="t">RubyOreBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
+
+	<span class="k">public</span> RubyOreBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, Material.STONE);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getDroppedItemId(<span class="k">int</span> meta, Random random) {
+		<span class="k">return</span> ExampleMod.RUBY.id;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getDroppedItemCount(Random random) {
+		<span class="k">return</span> <span class="n">1</span> + random.nextInt(<span class="n">2</span>); <span class="c">// 1 or 2 rubies</span>
+	}
+}</code></pre></div>
+
+<p>That <code>.mineable(RetroTool.PICKAXE)</code> is varargs, pass as many tool kinds as you like. <code>RetroTool</code> lives in <code>com.periut.retroapi.tag</code> and has five constants: <code>PICKAXE</code>, <code>AXE</code>, <code>SHOVEL</code>, <code>HOE</code>, <code>SWORD</code>. A block in <em>any</em> mineable tag follows the modern rule: it <strong>drops only when a matching tool is held</strong> (unless you also chain <code>.alwaysDrops()</code>), and it's mined at that tool's speed.</p>
+
+<div class="note"><p>Custom tool items that don't subclass the vanilla tool classes still work, declare their kind on the item builder with <code>RetroItemAccess</code>'s <code>.tool(RetroTool.PICKAXE)</code>, and the gating recognizes them.</p></div>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/ruby_ore.png" width="64" height="64" alt="ruby_ore"><div class="asset-name">ruby_ore.png</div><a href="assets/ruby_ore.png" download>download</a></div>
+</div>
+
+<h3>The data side, copied from a modern pack</h3>
+<p>The same tag also loads from a data file, in the modern 1.21 format, no translation needed:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/mineable/pickaxe.json</span><pre><code>{
+  <span class="s">"values"</span>: [
+    <span class="s">"example_mod:ruby_ore"</span>,
+    <span class="s">"minecraft:glass"</span>
+  ]
+}</code></pre></div>
+
+<p>The full format is supported: <code>values</code>, the <code>replace</code> flag, <code>#refs</code> to other tags, and optional entries written <code>{"id": ..., "required": false}</code>. A few things make these files safe to copy straight out of a modern pack:</p>
+<ul>
+<li><strong>Vanilla names resolve.</strong> <code>"minecraft:glass"</code> works because RetroAPI ships a built-in name table mapping modern block names to beta's blocks.</li>
+<li><strong>Unknown modern-only names don't crash, but they do warn.</strong> A texture name beta has no sprite for, or a <code>#variable</code> a model never resolves, is not fatal: the model still bakes and that face just shows the missing texture, so a copied file from a newer pack still loads. But RetroAPI now logs a warning naming the model and the unresolved value, so a typo or a genuinely-missing texture is visible in the log instead of a silent blank face.</li>
+<li><strong>Tags union.</strong> The code call and the data file both feed the same <code>mineable/pickaxe</code> tag, so re-adding <code>ruby_ore</code> in JSON is harmless; every mod's contributions merge.</li>
+</ul>
+
+<p>Under the hood this is one generic tag engine you can use for anything, not just mining:</p>
+
+<table>
+<tr><th>Call</th><th>What it does</th></tr>
+<tr><td><code>RetroTags.isIn(block, RetroTagKey.block("mineable/pickaxe"))</code></td><td>is this block in that tag?</td></tr>
+<tr><td><code>RetroTags.all(tag)</code></td><td>every block currently in the tag</td></tr>
+<tr><td><code>RetroTags.addToTag(tag, blocks...)</code></td><td>add blocks to a tag from code</td></tr>
+</table>
+
+<div class="note"><p>RetroAPI tags are <strong>namespace-blind by design</strong>: every namespace's file for the same tag <em>path</em> feeds one tag. A <code>tags/block/mineable/pickaxe.json</code> shipped by any mod, under any namespace, contributes to the single <code>mineable/pickaxe</code> tag. That is what makes vanilla-style data packs and cross-mod tagging line up without coordination.</p></div>
+
+<h3>Tool tiers: needs_iron_tool</h3>
+<p>Mineable tags gate <em>which kind</em> of tool; the <code>needs_&lt;tier&gt;_tool</code> family gates <em>how good</em> it has to be, exactly like modern Minecraft. A block in <code>needs_iron_tool</code> drops only when the breaking tool is iron tier or better, AND its kind still has to match the mineable tag. Both gates are enforced in the same harvest hook. The ladder is wood &lt; stone &lt; iron &lt; diamond, and vanilla gold tools mine at wood tier, also like modern.</p>
+
+<p>The data way: a modern-format tag file. The showcase puts its ruby ore behind iron:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{
+  "values": [
+    "example_mod:ruby_ore"
+  ]
+}</code></pre></div>
+
+<p>That is the whole block side. Now the item side: where does a tool's tier come from? Vanilla tools need nothing, any <code>ToolItem</code> subclass infers its tier from its material's mining level (<code>ToolMaterial.getMiningLevel()</code>), so an iron pickaxe is iron tier the moment the file loads. Custom tools that are plain <code>Item</code>s declare a tier with one chainable builder call, and the kind right next to it:</p>
+
+<div class="codeblock"><span class="code-title">ExampleMod.java, init(), the Ruby Pick</span><pre><code>// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem
+// subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it
+// harvests anything in mineable/pickaxe up through needs_iron_tool, including
+// the ruby ore above. Vanilla tools never need this, they infer kind from
+// their class and tier from their material. The handheld item model
+// (retroapi/models/item/ruby_pick.json) gives it the diagonal in-hand pose.
+RUBY_PICK = (Item) RetroItemAccess.create()
+	.maxStackSize(1)
+	.tool(com.periut.retroapi.tag.RetroTool.PICKAXE)
+	.tier(com.periut.retroapi.tag.RetroToolTier.IRON)
+	.register(id("ruby_pick"));</code></pre></div>
+
+<p>Like every builder method it returns the access object, so it slots anywhere in the chain, and it works from a constructor too: <code>RetroItemAccess.of(this).tier(RetroToolTier.IRON)</code>. From code, blocks join a tier tag with <code>RetroTags.addToTag(RetroToolTier.IRON.needsTag(), block)</code>, and you can ask <code>RetroTags.requiredTier(block)</code> or <code>RetroToolTier.of(item)</code> yourself for custom logic.</p>
+
+<p>The showcase's starter kit hands you both halves of the demonstration: the stone pickaxe breaks ruby ore but drops nothing, while the ruby pick (or any iron-or-better pickaxe) drops 1 to 2 rubies.</p>
+
+<h2>Condensed dirt: a shovel block</h2>
+<p>The ruby ore is a pickaxe block; the same two gates work for any tool. Condensed dirt, the "your first block" example ported from <a href="https://docs.fabricmc.net/develop/blocks/first-block">fabric-docs</a>, is the shovel counterpart: a compressed-dirt cube that mines with a <strong>shovel</strong> and, like the ore, only drops for an <strong>iron-tier</strong> tool. It is the plainest builder in the mod plus those two tag calls:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CONDENSED_DIRT = RetroBlockAccess.create(Material.SOIL)
+	.sounds(Block.GRAVEL_SOUND_GROUP)                       <span class="c">// crunchy, like gravel</span>
+	.strength(<span class="n">0.6f</span>)
+	.mineable(com.periut.retroapi.tag.RetroTool.SHOVEL)    <span class="c">// shovel is the matching tool</span>
+	.register(id(<span class="s">"condensed_dirt"</span>));</code></pre></div>
+
+<p>The shovel kind comes from the <code>.mineable(SHOVEL)</code> call; the iron tier comes from listing the block in the same <code>needs_iron_tool</code> tag the ruby ore uses, a one-line data union:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{
+  <span class="s">"values"</span>: [
+    <span class="s">"example_mod:ruby_ore"</span>,
+    <span class="s">"example_mod:condensed_dirt"</span>
+  ]
+}</code></pre></div>
+
+<p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Chapter 15</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
+
+<h2>What we built</h2>
+<p>Three blocks: a plain textured cube, a class-backed cube with a face per side, and a sub-cube pipe with its own renderer. Between them they exercise the whole block builder, custom <code>Block</code> subclasses, the per-face texture API, bounds, non-opacity, and custom render types, and every one of them got a free <code>BlockItem</code> on <code>register</code>, persisted with stable ids, safe in vanilla saves. The ruby ore added one more modern convenience: tag-driven tool gating, copied straight from a 1.21 data pack.</p>
+
+<p>Speaking of item forms: next we make items that aren't blocks at all, including one that makes you jump.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

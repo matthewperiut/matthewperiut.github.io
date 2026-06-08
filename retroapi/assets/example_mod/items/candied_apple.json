@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:composite",
+    "models": [
+      { "type": "minecraft:model", "model": "example_mod:item/candied_apple_base" },
+      { "type": "minecraft:model", "model": "example_mod:item/candied_apple_glint" }
+    ]
+  }
+}

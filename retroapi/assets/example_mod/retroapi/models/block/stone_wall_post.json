@@ -1,0 +1,4 @@
+{
+  "parent": "example_mod:block/template_wall_post",
+  "textures": { "wall": "minecraft:block/cobblestone" }
+}

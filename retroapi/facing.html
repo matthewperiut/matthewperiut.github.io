@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 16: Facing the World, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 16, Facing the World</h1>
+<p class="chapter-sub">Two directional blocks: a log whose grain follows the face you place it on, and a freezer that turns to face you. Both are pure state plus a blockstate JSON, with one block-entity trap to step around.</p>
+
+<p>A directional block is just a block with a single state property that records an orientation, plus a blockstate JSON that picks a rotated model per value of that property. No render code, no per-face texture juggling. <a href="states.html">Chapter 13</a> gave you the property machinery and <a href="models.html">Chapter 15</a> gave you the blockstate-to-model wiring; this chapter spends both at once on the two shapes you reach for most, a pillar that lies along an axis and a machine that fronts the player. The only genuinely surprising part is a one-line gotcha that only bites blocks with a block entity, and we save it for last.</p>
+
+<h2>An enum property</h2>
+<p>Both blocks here store their orientation in a <code>RetroEnumProperty</code>, the third kind from <a href="states.html">Chapter 13</a>'s table. You write a plain Java enum, and the property turns one of its constants into one of the block's states:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/Facing.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="c">/**
+ * The four horizontal directions a block can face, the beta equivalent of modern
+ * Minecraft's HorizontalFacingBlock property. Enum constants serialize as their
+ * lowercase names, which is what the freezer blockstate's "facing=north" keys match.
+ */</span>
+<span class="k">public enum</span> <span class="t">Facing</span> {
+	NORTH,
+	SOUTH,
+	WEST,
+	EAST;</code></pre></div>
+
+<p>Two details carry the whole pattern. First, the enum constant <strong>serializes to its lowercase name</strong>, so <code>NORTH</code> becomes the string <code>"north"</code>, which is exactly the key the blockstate JSON uses (<code>"facing=north"</code>). That string is the contract between Java and the JSON; nothing else connects them. Second, the <em>first-declared</em> constant is the property's default value, so the block's default state has <code>facing=north</code> unless you say otherwise. (You can override the serialized name by implementing <code>RetroNameable.getName()</code>, but lowercase-of-the-constant is almost always what you want, so neither enum here bothers.)</p>
+
+<div class="note"><p>The property is declared on the block as a <code>static final</code> field, the same way the lamp declared <code>LIT</code> and <code>AGE</code> in <a href="states.html">Chapter 13</a>: <code>public static final RetroEnumProperty&lt;Facing&gt; FACING = RetroEnumProperty.of("facing", Facing.class);</code>. The string <code>"facing"</code> is the property name, the one that appears on the left of the <code>=</code> in the blockstate keys.</p></div>
+
+<h2>The directional log</h2>
+<p>The simplest case has no block entity and no player-aware logic: a pillar that runs along whichever axis you place it on, like an oak log. The state is one <code>Axis</code> property, three values:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/Axis.java</span><pre><code><span class="k">public enum</span> <span class="t">Axis</span> {
+	Y,
+	X,
+	Z;
+
+	<span class="c">/**
+	 * The axis a pillar should run along when placed against {@code side}. Beta side
+	 * indices: 0/1 are the bottom/top faces (a vertical pillar), 4/5 are the x faces,
+	 * 2/3 are the z faces. The pillar runs along the axis of the face's NORMAL, so a
+	 * log placed on an x-facing wall runs along x.
+	 */</span>
+	<span class="k">public static</span> <span class="t">Axis</span> fromSide(<span class="k">int</span> side) {
+		<span class="k">switch</span> (side) {
+			<span class="k">case</span> <span class="n">0</span>: <span class="k">case</span> <span class="n">1</span>: <span class="k">return</span> Y;
+			<span class="k">case</span> <span class="n">2</span>: <span class="k">case</span> <span class="n">3</span>: <span class="k">return</span> X; <span class="c">// z faces -&gt; run along x (flipped from the face normal)</span>
+			<span class="k">default</span>: <span class="k">return</span> Z;        <span class="c">// sides 4/5, the x faces -&gt; run along z</span>
+		}
+	}
+}</code></pre></div>
+
+<p>Notice <code>Y</code> is listed <em>first</em>, on purpose. Because the first constant is the default, the log's default state is <code>axis=y</code>, an upright pillar, and that is the state the inventory icon and the in-hand model render. Nobody wants to see a log lying on its side in their hotbar, so the constant order is doing real work here, not just sorting alphabetically.</p>
+
+<p>The block flips the grain at placement time. Beta hands <code>onPlaced</code> the <code>side</code> you clicked, an integer face index, and the log converts it to an axis and writes that into state:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleLogBlock.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleLogBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
+
+	<span class="k">public static final</span> <span class="t">RetroEnumProperty</span>&lt;Axis&gt; AXIS = RetroEnumProperty.of(<span class="s">"axis"</span>, Axis.class);
+
+	<span class="k">public</span> ExampleLogBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, Material.WOOD);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> onPlaced(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="k">int</span> side) {
+		<span class="k">super</span>.onPlaced(world, x, y, z, side);
+		RetroStates.set(world, x, y, z,
+			RetroStates.getDefault(<span class="k">this</span>).with(AXIS, Axis.fromSide(side)));
+	}
+}</code></pre></div>
+
+<p>That is the entire directional behavior: start from <code>RetroStates.getDefault(this)</code>, swap in the axis for the face that was clicked with one <code>.with(...)</code>, and <code>RetroStates.set</code> commits it, re-rendering and syncing exactly as <a href="states.html">Chapter 13</a> described. There is no render code in this class because the look comes entirely from the blockstate JSON, which maps each axis value to a model plus the rotation that points the end-grain caps along the pillar:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/packed_log.json</span><pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">"axis=x"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/packed_log_horizontal"</span>, <span class="s">"x"</span>: <span class="n">90</span>, <span class="s">"y"</span>: <span class="n">90</span> },
+    <span class="s">"axis=y"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/packed_log"</span> },
+    <span class="s">"axis=z"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/packed_log_horizontal"</span>, <span class="s">"x"</span>: <span class="n">90</span> }
+  }
+}</code></pre></div>
+
+<p>The upright case (<code>axis=y</code>) uses an unrotated model whose parent is <code>minecraft:block/cube_column</code>, the modern pillar model that puts an <code>end</code> texture on the caps and a <code>side</code> texture around the trunk. The two horizontal cases reuse one <code>cube_column_horizontal</code> model and tip it 90 degrees on <code>x</code> to lay it down, with an extra 90 on <code>y</code> for the <code>x</code> axis so the caps point the right way. One state, three variants, the model rotations doing all the orienting. This is the same pattern modern Minecraft's logs use, working unchanged on beta.</p>
+
+<h2>Facing the placer</h2>
+<p>The freezer is the other archetype: instead of following the face you click, it turns to face <em>you</em>. The state is a single <code>Facing</code> property (the four-direction enum above), and the work is in converting the placer's yaw into a direction. The enum's <code>fromYaw</code> does the arithmetic:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/Facing.java</span><pre><code>	<span class="c">/**
+	 * The direction a block should face when placed by an entity looking along {@code yaw}.
+	 * A block faces the player, so this is the OPPOSITE of the way they look: the furnace
+	 * and chest do exactly this. Yaw 0 is south in beta, so the quadrants land as below.
+	 */</span>
+	<span class="k">public static</span> <span class="t">Facing</span> fromYaw(<span class="k">float</span> yaw) {
+		<span class="k">int</span> quadrant = Math.round(yaw / <span class="n">90.0F</span>) &amp; <span class="n">3</span>;
+		<span class="k">switch</span> (quadrant) {
+			<span class="k">case</span> <span class="n">0</span>: <span class="k">return</span> NORTH; <span class="c">// looking south, face north</span>
+			<span class="k">case</span> <span class="n">1</span>: <span class="k">return</span> EAST;
+			<span class="k">case</span> <span class="n">2</span>: <span class="k">return</span> SOUTH;
+			<span class="k">default</span>: <span class="k">return</span> WEST;
+		}
+	}</code></pre></div>
+
+<p>The key word is <strong>OPPOSITE</strong>. A furnace, a chest, and our freezer all show their front to the person who placed them, which means the stored facing is the reverse of where the player is looking. Round the yaw to the nearest quadrant, mask to four values with <code>&amp; 3</code>, and the <code>case 0</code> branch makes that concrete: when you look south (yaw 0 in beta), the block faces north, back at you. That is the whole orientation rule.</p>
+
+<p>The block calls it in <code>onPlaced</code>, which for a block-entity block gets the <code>LivingEntity</code> placer rather than a face index:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlock.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">public void</span> onPlaced(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">LivingEntity</span> placer) {
+		<span class="k">super</span>.onPlaced(world, x, y, z, placer);
+		<span class="c">// State, not raw meta: store the facing the placer should see. RetroStates.set</span>
+		<span class="c">// re-renders and notifies, so the door is correctly oriented the instant it lands.</span>
+		RetroStates.set(world, x, y, z,
+			RetroStates.getDefault(<span class="k">this</span>).with(FACING, Facing.fromYaw(placer.yaw)));
+	}</code></pre></div>
+
+<p>Structurally it is identical to the log: default state, one <code>.with(...)</code>, one <code>set</code>. Only the source of the direction differs, the placer's yaw instead of the clicked face. And the blockstate JSON is the same shape too, y-rotating one orientable model per facing so the frosted door always lands on the front:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/freezer_block.json</span><pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">"facing=north"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/freezer_block"</span> },
+    <span class="s">"facing=south"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/freezer_block"</span>, <span class="s">"y"</span>: <span class="n">180</span> },
+    <span class="s">"facing=west"</span>:  { <span class="s">"model"</span>: <span class="s">"example_mod:block/freezer_block"</span>, <span class="s">"y"</span>: <span class="n">270</span> },
+    <span class="s">"facing=east"</span>:  { <span class="s">"model"</span>: <span class="s">"example_mod:block/freezer_block"</span>, <span class="s">"y"</span>: <span class="n">90</span> }
+  }
+}</code></pre></div>
+
+<p>The model's parent is <code>minecraft:block/orientable</code>, the modern model that paints a distinct <code>front</code> texture on one side and <code>side</code> on the other three, with <code>top</code> on the cap. <code>facing=north</code> is the unrotated baseline; the other three values spin that same model around <code>y</code> by 90, 180, or 270 degrees. One model, four variants, the door pointed four ways. The freezer's actual machine, its block entity, container, and screen, is <a href="blockentities.html">Chapter 6</a>'s subject; here we only care that it points the right way.</p>
+
+<h2>The block-entity render gotcha</h2>
+<p>Here is the trap, and it is worth understanding because it produces a baffling symptom. A plain RetroAPI block gets the <strong>model render type wired up for it automatically</strong> the moment it has a blockstate JSON: RetroAPI sets that render type on the base <code>Block</code> during registration, and the JSON-driven look just appears. The packed log relies on exactly this and overrides nothing.</p>
+
+<p>But the freezer is a <code>BlockWithEntity</code>, and <code>BlockWithEntity</code> <strong>overrides <code>getRenderType()</code></strong> to return its own block-entity default. That override shadows the value RetroAPI set on the base class, so the automatic wiring is silently lost. The block-entity block has to ask for the model render type back, itself:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlock.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleFreezerBlock</span> <span class="k">extends</span> <span class="t">BlockWithEntity</span> {
+
+	<span class="k">public static final</span> <span class="t">RetroEnumProperty</span>&lt;Facing&gt; FACING = RetroEnumProperty.of(<span class="s">"facing"</span>, Facing.class);
+
+	<span class="k">public</span> ExampleFreezerBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, Material.STONE);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getRenderType() {
+		<span class="c">// Render the orientable JSON model (in the world AND the inventory icon), not the</span>
+		<span class="c">// block-entity default. See the class note on why this override is required here.</span>
+		<span class="k">return</span> RenderType.resolve(RenderTypes.MODEL);
+	}</code></pre></div>
+
+<p>Without that override the freezer falls back to a featureless cube: no front face, no orientation, in the world <em>and</em> in the inventory icon. The fix is the four lines above, return <code>RenderType.resolve(RenderTypes.MODEL)</code> from <code>getRenderType()</code>, putting the block back on the JSON-model render type that a non-entity block would have gotten for free.</p>
+
+<div class="note"><p>The rule of thumb: if your block has a block entity <em>and</em> a blockstate JSON you want it to honor, override <code>getRenderType()</code> to return <code>RenderType.resolve(RenderTypes.MODEL)</code>. A block without a block entity never needs this; the log doesn't have it. <code>RenderTypes</code> is the same constants class from <a href="blocks.html">Chapter 4</a>'s pipe note, here exposing the model render type rather than a vanilla cube look.</p></div>
+
+<h2>The inventory icon faces a chosen way</h2>
+<p>One more wrinkle, and it follows from a single fact: the inventory icon, the thing in your hotbar and the creative menu, renders the block's <strong>default state</strong>. A placed freezer computes its facing from your yaw in <code>onPlaced</code>, but the held item never runs <code>onPlaced</code>, so it just draws whatever the default state says. If you leave the default at <code>facing=north</code>, the icon points its front away from the visible faces of the little isometric cube, and the freezer looks blank in the menu.</p>
+
+<p>So the registration overrides the default state, purely to aim the icon:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>FREEZER_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleFreezerBlock(RetroBlockAccess.allocateId()))
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">3.5f</span>)
+	.states(ExampleFreezerBlock.FACING)
+	<span class="c">// The inventory icon renders the DEFAULT state. Face it south so the front lands</span>
+	<span class="c">// on the visible bottom-left face of the iso cube (where the furnace shows its</span>
+	<span class="c">// front); placed freezers ignore this and face the player (see onPlaced).</span>
+	.defaultState(s -&gt; s.with(ExampleFreezerBlock.FACING, Facing.SOUTH))
+	.register(id(<span class="s">"freezer_block"</span>));</code></pre></div>
+
+<p>The <code>.defaultState(...)</code> call, the same optional hook <a href="states.html">Chapter 13</a> introduced, points the default at <code>facing=south</code> so the front lands on a face the isometric icon actually shows, right where the vanilla furnace shows its front. This is a cosmetic choice for the held item alone: a placed freezer never reads the default, because <code>onPlaced</code> immediately overwrites the facing with the one computed from your yaw. The icon and the world block are decided by two completely separate code paths, and <code>.defaultState(...)</code> only touches the icon.</p>
+
+<p>Contrast the log, which doesn't call <code>.defaultState(...)</code> at all (its registration is just <code>.states(ExampleLogBlock.AXIS)</code> plus the usual sounds, strength, and <code>.mineable(RetroTool.AXE)</code>). It gets the right icon for free, because <code>Y</code> being the first enum constant already makes the upright pillar the default, which is exactly what you want to see in hand. Choosing the enum order well can save you a <code>.defaultState(...)</code> call entirely.</p>
+
+<h2>The textures</h2>
+<p>The log uses a side grain and an end cap; the freezer uses a front, a side, and a top. All five are below.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/packed_log.png" width="64" height="64" alt="packed_log"><div class="asset-name">packed_log.png</div><a href="assets/packed_log.png" download>download</a></div>
+<div class="asset-card"><img src="assets/packed_log_top.png" width="64" height="64" alt="packed_log_top"><div class="asset-name">packed_log_top.png</div><a href="assets/packed_log_top.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_side.png" width="64" height="64" alt="freezer_side"><div class="asset-name">freezer_side.png</div><a href="assets/freezer_side.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
+</div>
+
+<h2>What we built</h2>
+<p>Two directional blocks, one pattern. Each declares a single enum state property whose constants serialize to lowercase names; each writes that property in <code>onPlaced</code> with one <code>.with(...)</code> and one <code>RetroStates.set</code>; and each gets its rotated look from a blockstate JSON that maps property values to models plus rotations, with zero render code in the block class. The log follows the clicked face and leans on its enum order for a free upright icon. The freezer faces the placer via <code>fromYaw</code>, overrides <code>getRenderType()</code> to survive the <code>BlockWithEntity</code> shadowing trap, and uses <code>.defaultState(...)</code> to aim the inventory icon at a visible face. Orientation, on beta, is just state and data.</p>
+
+<p>These blocks were things to place and look at. Next we make things to swing: <a href="tools.html">Chapter 17</a>, the Toolbelt, builds the tools and weapons that break them.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

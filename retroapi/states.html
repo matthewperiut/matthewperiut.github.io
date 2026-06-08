@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 13: Deeper States, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 13, Deeper States</h1>
+<p class="chapter-sub">Beta gives every block four bits of metadata. We want more. Here is how RetroAPI hands you up to 4096 states per block without breaking a single vanilla save.</p>
+
+<p>Every block in Beta 1.7.3 carries a nibble of metadata, four bits, sixteen values, and that is the whole budget. A door uses some of it for orientation, a slab for which half is filled, wool for its color. Sixteen sounds like plenty right up until the moment you want a lamp that is both lit-or-not <em>and</em> tracking an age from 0 to 9, and suddenly twenty states won't fit in a space that holds sixteen. Mods have wrestled this corner of beta forever.</p>
+
+<p>RetroAPI's answer is <strong>flattened blockstates</strong>, the same idea modern Minecraft adopted in 1.13, retrofitted onto a nibble-sized world. You declare a block's <strong>properties</strong>; the Cartesian product of their values becomes the block's set of states; each state gets a single flattened index. The low four bits of that index ride vanilla metadata exactly where the game expects them. The bits above, <strong>4 through 11</strong>, the part we call <em>secondary meta</em> or <em>xmeta</em>, live in a sidecar that RetroAPI keeps next to the chunk. That buys you eight extra bits, so up to <strong>4096</strong> states per block. Declare more than that and registration throws, on purpose, before a broken world can exist.</p>
+
+<div class="note"><p>The honest promise underneath: a block with <strong>16 or fewer states</strong> stores byte-for-byte identically to plain metadata. The xmeta sidecar only appears once a block actually needs bit 4. You pay for the extra states only when you use them.</p></div>
+
+<h2>Declaring properties</h2>
+<p>A property is a named axis with a fixed list of values. Three kinds cover almost everything, all from package <code>com.periut.retroapi.state</code>:</p>
+
+<table>
+<tr><th>Property</th><th>Values</th></tr>
+<tr><td><code>RetroBoolProperty.of("lit")</code></td><td>exactly two: <code>false</code>, then <code>true</code></td></tr>
+<tr><td><code>RetroIntProperty.of("age", 0, 9)</code></td><td>the inclusive integer range, here ten values <code>0..9</code></td></tr>
+<tr><td><code>RetroEnumProperty.of("facing", MyEnum.class)</code></td><td>one value per enum constant, in declaration order</td></tr>
+</table>
+
+<p>Two rules about <strong>order</strong> are worth tattooing somewhere, because the flattened index depends on both. First, the <em>first value of every property</em> is its default, so the block's default state is "every property at its first value." Second, the <em>first-declared property varies slowest</em> in the index, exactly like digits in a number: the last property you list is the ones place. Enum constants serialize to their lowercase name unless the enum implements <code>RetroNameable.getName()</code> to say otherwise.</p>
+
+<p>You hand the properties to the builder with <code>.states(...)</code> before <code>.register()</code>. An optional <code>.defaultState(...)</code> overrides which combination counts as the default if "all-first-values" isn't what you want:</p>
+
+<div class="codeblock"><span class="code-title">the shape of a stateful registration</span><pre><code>MY_BLOCK = RetroBlockAccess.of(<span class="k">new</span> <span class="t">MyBlock</span>(RetroBlockAccess.allocateId()))
+	.states(LIT, AGE)
+	.defaultState(s -> s.with(LIT, <span class="k">false</span>))   <span class="c">// optional</span>
+	.register(id(<span class="s">"my_block"</span>));</code></pre></div>
+
+<h2>Reading and writing state</h2>
+<p>All world access goes through <code>RetroStates</code>. The two you reach for constantly are <code>get</code> and <code>set</code>:</p>
+
+<table>
+<tr><th>Call</th><th>What it does</th></tr>
+<tr><td><code>RetroStates.get(world, x, y, z)</code></td><td>the <code>RetroBlockState</code> at a position, or <code>null</code> for air / invalid</td></tr>
+<tr><td><code>RetroStates.set(world, x, y, z, state)</code></td><td>writes meta + xmeta, marks the chunk dirty, re-renders, syncs to clients</td></tr>
+<tr><td><code>RetroStates.getDefault(block)</code></td><td>the block's default state</td></tr>
+<tr><td><code>RetroStates.fromIndex(block, index)</code></td><td>the state for a raw flattened index</td></tr>
+<tr><td><code>RetroStates.property(block, "lit")</code></td><td>look a property up by name</td></tr>
+<tr><td><code>RetroStates.stateCount(block)</code></td><td>how many states the block has</td></tr>
+</table>
+
+<p>The state object itself, <code>RetroBlockState</code>, is <strong>immutable and interned per block</strong>. That second word is the gift: there is exactly one instance per distinct state, so <code>==</code> is a valid comparison and you never worry about <code>equals</code>. You navigate the state space with <code>with</code>, which returns the sibling instance:</p>
+
+<table>
+<tr><th>Method</th><th>Returns</th></tr>
+<tr><td><code>state.get(PROP)</code></td><td>the value of one property in this state</td></tr>
+<tr><td><code>state.with(PROP, value)</code></td><td>the interned sibling state with that one property changed</td></tr>
+<tr><td><code>state.getIndex()</code></td><td>the flattened index</td></tr>
+<tr><td><code>state.getBlock()</code></td><td>the owning block</td></tr>
+</table>
+
+<p>A state prints itself the way you'd hope, block name plus a sorted property list: <code>tile.example_mod.lamp[lit=true,age=7]</code>. That string is exactly what the lamp drops into chat below.</p>
+
+<h2>Blocks you never wrote state code for</h2>
+<p>Here is the quietly clever part. A block that <em>never</em> calls <code>.states()</code> still gets a single implicit <code>meta</code> property running 0 to 15, lazily, the first time anything queries its state. That means a blockstate JSON with variant keys like <code>"meta=2"</code> just works on a completely ordinary block, with zero lines of code on your side. Vanilla's sixteen-value nibble becomes a property you can address by name, for free.</p>
+
+<p>And properties don't have to come from Java at all. A blockstate JSON may declare them itself:</p>
+
+<div class="codeblock"><span class="code-title">a data-declared property block (schema)</span><pre><code>{
+  <span class="s">"properties"</span>: {
+    <span class="s">"facing"</span>: [<span class="s">"north"</span>, <span class="s">"south"</span>],
+    <span class="s">"lit"</span>: <span class="s">"boolean"</span>,
+    <span class="s">"age"</span>: { <span class="s">"min"</span>: <span class="n">0</span>, <span class="s">"max"</span>: <span class="n">7</span> }
+  }
+}</code></pre></div>
+
+<p>If both code and data declare a property, <strong>code wins</strong> and a warning is logged, so a stray JSON can never silently reshape a block your Java already pinned down.</p>
+
+<div class="note"><p>There is no opt-in for crossing the 16-state line, in code or in data: the moment a definition needs more than the nibble, the extra bits ride secondary meta automatically. That is safe to leave silent because xmeta costs nothing until a high bit is actually set (the sidecar stores only nonzero entries, and old worlds load unchanged), and the one genuinely dangerous case, a definition past 4096 states, throws at registration instead.</p></div>
+
+<div class="note"><p>Writing a custom render type? Reach the current state from inside the render lambda with <code>ctx.getState()</code>. That is how a renderer draws "lit" differently from "not lit" without touching the world again.</p></div>
+
+<h2>Storage and sync, the one honest paragraph</h2>
+<p>You will never touch any of this, but you should know it exists. The world save's inventory sidecar moves to <strong>format v3</strong>, which adds an <em>optional</em> xmeta array per chunk; a v2 world (no mod, or an older mod) loads completely unchanged, and chunks with no state above 15 never grow the array. The full-chunk network packet carries that xmeta alongside the metadata; a single-block change instead rides a small dedicated packet on the <code>retroapi:state_sync</code> channel, which is what <code>RetroStates.set</code> broadcasts on a dedicated server. And when StationAPI is present, the xmeta store keeps working through it. None of these words ever appear in your mod. You call <code>get</code> and <code>set</code>; the sidecar, the packet, and the channel are RetroAPI's problem.</p>
+
+<h2>The walkthrough: the State Lamp</h2>
+<p>The showcase ships a lamp built to land squarely past the nibble: two values of <code>lit</code> times ten values of <code>age</code> is <strong>twenty states</strong>, four more than metadata can hold. Right-clicking it walks the whole state space, bumping <code>age</code> each click and flipping <code>lit</code> when age wraps, printing the state and its flattened index to chat, and visibly swapping the model when <code>lit</code> changes. Here is the block in full:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleLampBlock.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.periut.retroapi.state.RetroBlockState;
+<span class="k">import</span> com.periut.retroapi.state.RetroBoolProperty;
+<span class="k">import</span> com.periut.retroapi.state.RetroIntProperty;
+<span class="k">import</span> com.periut.retroapi.state.RetroStates;
+
+<span class="k">import</span> net.minecraft.block.Block;
+<span class="k">import</span> net.minecraft.block.material.Material;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.world.World;
+
+<span class="c">/**
+ * The state lamp: flattened blockstates and JSON models working together.
+ *
+ * Properties are declared in code (.states(LIT, AGE) at registration); 2 x 10 = 20
+ * states, deliberately MORE than the 16 a vanilla meta nibble can hold, so the
+ * extra bits ("secondary meta") ride RetroAPI's region sidecar and sync channels.
+ * You never see any of that: RetroStates.get/set are the whole API.
+ *
+ * The look comes from assets/example_mod/retroapi/blockstates/lamp.json, which
+ * maps lit=false / lit=true to two cube_all models. Because that JSON exists,
+ * the block was auto-wired to the model render type at registration; no render
+ * code anywhere in this class.
+ *
+ * Right-click to walk the state space and watch the chat line + the model flip.
+ */</span>
+<span class="k">public class</span> <span class="t">ExampleLampBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
+
+	<span class="k">public static final</span> <span class="t">RetroBoolProperty</span> LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
+	<span class="k">public static final</span> <span class="t">RetroIntProperty</span> AGE = RetroIntProperty.of(<span class="s">"age"</span>, <span class="n">0</span>, <span class="n">9</span>);
+
+	<span class="k">public</span> ExampleLampBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, Material.STONE);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> onUse(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">PlayerEntity</span> player) {
+		<span class="t">RetroBlockState</span> state = RetroStates.get(world, x, y, z);
+		<span class="k">if</span> (state == <span class="k">null</span>) {
+			<span class="k">return false</span>;
+		}
+		<span class="c">// Bump age each click; toggle lit when it wraps. with() returns the interned</span>
+		<span class="c">// sibling state, set() writes meta + xmeta, marks dirty and syncs to clients.</span>
+		<span class="k">int</span> age = state.get(AGE);
+		<span class="t">RetroBlockState</span> next = age == <span class="n">9</span>
+			? state.with(AGE, <span class="n">0</span>).with(LIT, !state.get(LIT))
+			: state.with(AGE, age + <span class="n">1</span>);
+		RetroStates.set(world, x, y, z, next);
+		<span class="k">if</span> (!world.isRemote) {
+			player.sendMessage(<span class="s">"lamp is now "</span> + next + <span class="s">" (flattened index "</span> + next.getIndex() + <span class="s">")"</span>);
+		}
+		<span class="k">return true</span>;
+	}
+}</code></pre></div>
+
+<p>Read <code>onUse</code> slowly, because it is the entire API in miniature. <code>RetroStates.get</code> hands back the current state (or <code>null</code>, which we guard). We read <code>age</code>, and if it's at the top of its range we wrap it to 0 <em>and</em> flip <code>lit</code> with two chained <code>with</code> calls, otherwise we just bump age. Every <code>with</code> returns the interned sibling, no allocation churn, no <code>equals</code>. Then <code>RetroStates.set</code> commits the new state: it writes the low bits to vanilla meta, the high bit of <code>lit</code> to xmeta, marks the chunk dirty, re-renders, and broadcasts on the sync channel if we're a server. The chat line prints, for example, <code>tile.example_mod.lamp[lit=true,age=7] (flattened index 17)</code>.</p>
+
+<p>The registration is where the twenty states are declared, with <code>.states(LIT, AGE)</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Flattened blockstates + JSON models: the lamp declares 20 states in code</span>
+<span class="c">// and gets its two looks from blockstates/lamp.json. See ExampleLampBlock.</span>
+LAMP = RetroBlockAccess.of(<span class="k">new</span> ExampleLampBlock(RetroBlockAccess.allocateId()))
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">0.5f</span>)
+	.alwaysEffectiveTool()
+	.alwaysDrops()
+	.states(ExampleLampBlock.LIT, ExampleLampBlock.AGE)
+	.register(id(<span class="s">"lamp"</span>));</code></pre></div>
+
+<p>Because <code>LIT</code> is declared first, it varies slowest: states 0 through 9 are <code>lit=false</code> with age climbing, states 10 through 19 are <code>lit=true</code> with age climbing again. The lit flip at state 10 is the one that crosses bit 4 into xmeta, the visible proof that we left the nibble behind. And notice there is <em>no render code</em> anywhere in the lamp: it gets its two looks from a blockstate JSON that maps <code>lit</code> to a model, which is <a href="models.html">Chapter 15</a>'s whole story. The block half is done; the picture half is next.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/lamp_off.png" width="64" height="64" alt="lamp_off"><div class="asset-name">lamp_off.png</div><a href="assets/lamp_off.png" download>download</a></div>
+<div class="asset-card"><img src="assets/lamp_on.png" width="64" height="64" alt="lamp_on"><div class="asset-name">lamp_on.png</div><a href="assets/lamp_on.png" download>download</a></div>
+</div>
+
+<h2>The wall: 162 states in the wild</h2>
+<p>The lamp was a clean twenty states to make the point. The wall is what the point is <em>for</em>. The showcase ports <a href="https://github.com/matthewperiut/stonewalls-fabric-b1.7.3">matthewperiut/stonewalls-fabric-b1.7.3</a>, a StationAPI mod, to RetroAPI as <code>ExampleWallBlock</code>, and it lands at <strong>162 states</strong>. Five properties do it: <code>up</code> is a boolean for the center post, and each of the four sides carries a <code>none</code>/<code>low</code>/<code>tall</code> <code>WallShape</code> enum. That is 2 &times; 3<sup>4</sup> = 162, more than ten times the nibble, so the overwhelming majority of these states live entirely in secondary meta.</p>
+
+<p>The enum is three constants, no more:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/WallShape.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="c">/**
+ * The shape of one side of a wall: not connected, a low segment, or a full-height
+ * segment (when something sits on the junction). Enum constants serialize as their
+ * lowercase names, which is what the blockstate JSON's "north": "low" keys match.
+ */</span>
+<span class="k">public enum</span> <span class="t">WallShape</span> {
+	NONE,
+	LOW,
+	TALL
+}</code></pre></div>
+
+<p>The block itself is mostly lifecycle. A wall's connections are not stored by hand, they are <strong>state recomputed from the neighborhood</strong>, and the whole trick is in three overrides plus the <code>determineState</code> that feeds them. Here is the class, with the shape and bounds helpers trimmed (they are collision geometry, pure code, and not the state story):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleWallBlock.java</span><pre><code><span class="c">/**
+ * The stone wall: the real-world blockstate workout. Ported from
+ * matthewperiut/stonewalls-fabric-b1.7.3 (a StationAPI mod) to RetroAPI.
+ *
+ * Five properties: up (the center post) and a none/low/tall shape per side, which
+ * makes 2 x 3 x 3 x 3 x 3 = 162 states, an order of magnitude past the vanilla
+ * nibble, so most of them live in secondary meta. The blockstate JSON is a
+ * MULTIPART file straight out of the modern wall format: the post applies when
+ * up=true, a rotated side segment applies per connected direction, and the tall
+ * variant applies when something sits on the junction.
+ *
+ * The interesting lifecycle: connections are STATE, recomputed whenever the
+ * neighborhood changes. onPlaced computes the initial state; neighborUpdate
+ * recomputes it on every block update next door; RetroStates.set only fires when
+ * the state actually changed (states are interned, so != is exact), which both
+ * avoids redundant work and terminates the update ripple two walls would
+ * otherwise bounce between forever.
+ */</span>
+<span class="k">public class</span> <span class="t">ExampleWallBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
+
+	<span class="c">// fields, constructor, canConnect helper ...</span>
+
+	<span class="c">/** Computes what this wall's state should be from its neighborhood. */</span>
+	<span class="k">public</span> <span class="t">RetroBlockState</span> determineState(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="k">boolean</span> up = <span class="k">true</span>;
+		<span class="k">boolean</span> north = canConnect(world, x, y, z - <span class="n">1</span>);
+		<span class="k">boolean</span> south = canConnect(world, x, y, z + <span class="n">1</span>);
+		<span class="k">boolean</span> west = canConnect(world, x - <span class="n">1</span>, y, z);
+		<span class="k">boolean</span> east = canConnect(world, x + <span class="n">1</span>, y, z);
+
+		<span class="c">// A straight run (and nothing else) hides the post.</span>
+		<span class="k">boolean</span> nsWall = north &amp;&amp; south &amp;&amp; !(west || east);
+		<span class="k">boolean</span> weWall = west &amp;&amp; east &amp;&amp; !(north || south);
+		<span class="k">boolean</span> canUpBeFalse = nsWall || weWall;
+
+		<span class="k">boolean</span> tallNorth = <span class="k">false</span>;
+		<span class="k">boolean</span> tallSouth = <span class="k">false</span>;
+		<span class="k">boolean</span> tallWest = <span class="k">false</span>;
+		<span class="k">boolean</span> tallEast = <span class="k">false</span>;
+
+		<span class="k">int</span> aboveId = world.getBlockId(x, y + <span class="n">1</span>, z);
+		<span class="t">Block</span> above = (aboveId &gt; <span class="n">0</span> &amp;&amp; aboveId &lt; Block.BLOCKS.length) ? Block.BLOCKS[aboveId] : <span class="k">null</span>;
+
+		<span class="k">if</span> (above <span class="k">instanceof</span> ExampleWallBlock) {
+			<span class="k">if</span> (canUpBeFalse) {
+				<span class="c">// Match the wall above: a post up there forces a post down here.</span>
+				<span class="t">RetroBlockState</span> aboveState = ((ExampleWallBlock) above).determineState(world, x, y + <span class="n">1</span>, z);
+				up = aboveState.get(UP);
+			}
+			tallNorth = canConnect(world, x, y + <span class="n">1</span>, z - <span class="n">1</span>);
+			tallSouth = canConnect(world, x, y + <span class="n">1</span>, z + <span class="n">1</span>);
+			tallWest = canConnect(world, x - <span class="n">1</span>, y + <span class="n">1</span>, z);
+			tallEast = canConnect(world, x + <span class="n">1</span>, y + <span class="n">1</span>, z);
+		} <span class="k">else</span> {
+			up = !canUpBeFalse;
+		}
+
+		<span class="k">if</span> (above != <span class="k">null</span> &amp;&amp; above.isFullCube()) {
+			tallNorth = <span class="k">true</span>;
+			tallSouth = <span class="k">true</span>;
+			tallWest = <span class="k">true</span>;
+			tallEast = <span class="k">true</span>;
+		}
+
+		<span class="k">return</span> RetroStates.getDefault(<span class="k">this</span>)
+			.with(UP, up)
+			.with(NORTH, north ? (tallNorth ? WallShape.TALL : WallShape.LOW) : WallShape.NONE)
+			.with(SOUTH, south ? (tallSouth ? WallShape.TALL : WallShape.LOW) : WallShape.NONE)
+			.with(WEST, west ? (tallWest ? WallShape.TALL : WallShape.LOW) : WallShape.NONE)
+			.with(EAST, east ? (tallEast ? WallShape.TALL : WallShape.LOW) : WallShape.NONE);
+	}
+
+	<span class="c">/** Recomputes and writes the state, but only when it actually changed (interned ==). */</span>
+	<span class="k">private void</span> refresh(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="t">RetroBlockState</span> current = RetroStates.get(world, x, y, z);
+		<span class="t">RetroBlockState</span> next = determineState(world, x, y, z);
+		<span class="k">if</span> (current != next) {
+			RetroStates.set(world, x, y, z, next);
+		}
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> onPlaced(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="k">super</span>.onPlaced(world, x, y, z);
+		refresh(world, x, y, z);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> neighborUpdate(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="k">int</span> neighborId) {
+		refresh(world, x, y, z);
+		<span class="c">// A wall below may need to grow or lose its post because of us.</span>
+		<span class="k">int</span> belowId = world.getBlockId(x, y - <span class="n">1</span>, z);
+		<span class="k">if</span> (belowId &gt; <span class="n">0</span> &amp;&amp; belowId &lt; Block.BLOCKS.length &amp;&amp; Block.BLOCKS[belowId] <span class="k">instanceof</span> ExampleWallBlock) {
+			((ExampleWallBlock) Block.BLOCKS[belowId]).refresh(world, x, y - <span class="n">1</span>, z);
+		}
+		<span class="k">super</span>.neighborUpdate(world, x, y, z, neighborId);
+	}
+
+	<span class="c">// shape(), offset(), getCollisionShape, getBoundingBox, updateBoundingBox ...</span>
+}</code></pre></div>
+
+<p>Read that as one loop. <code>determineState</code> looks at the four horizontal neighbors with <code>canConnect</code> (a full cube or another wall), decides whether each side is connected, then whether it should be <code>tall</code> because something sits on the junction above, and folds the post rule (a straight run hides the post) on top. It returns an interned state, never a mutation. <code>onPlaced</code> runs <code>determineState</code> once to set the freshly placed wall's shape; <code>neighborUpdate</code> runs it again on <em>every</em> block update next door, and also nudges the wall directly below in case our placement changed its post.</p>
+
+<p>The line that makes this safe is in <code>refresh</code>: <code>if (current != next)</code>, then and only then does <code>RetroStates.set</code> fire. Because states are interned, that <code>!=</code> is an exact identity check, not a field-by-field compare, and it is what <strong>terminates the ripple</strong>. Two adjacent walls each see the other update and recompute, but the second time around the recomputed state equals what is already there, <code>set</code> is skipped, and no further neighbor update is emitted. Without that guard, two touching walls would bounce updates between each other forever.</p>
+
+<div class="note"><p>The propagation cuts both ways, which is exactly what you want. <code>RetroStates.set</code> does a <code>setBlockDirty</code> plus <code>notifyNeighbors</code>, so a real state change re-renders the block <em>and</em> fires block updates outward, which reach the next wall's <code>neighborUpdate</code>, which recomputes it, and so on down a chain. Place a wall at the end of a long run and the whole run reshapes in one tick. A no-op <code>set</code> emits nothing, so the cascade stops the instant the shapes stabilize.</p></div>
+
+<p>Registration declares the five properties with <code>.states(...)</code>, in the order that fixes the flattened index, and overrides the default so a lone wall stands as a post:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// THE blockstate workout: a cobblestone wall ported from</span>
+<span class="c">// matthewperiut/stonewalls-fabric-b1.7.3. Five properties (up + a</span>
+<span class="c">// none/low/tall shape per side) make 162 states; connections are</span>
+<span class="c">// recomputed from the neighborhood on placement and on every block</span>
+<span class="c">// update (see ExampleWallBlock), and the multipart blockstate JSON</span>
+<span class="c">// assembles post + rotated side models per state. The models reference</span>
+<span class="c">// minecraft:block/cobblestone, resolved straight off the vanilla atlas.</span>
+STONE_WALL = RetroBlockAccess.of(<span class="k">new</span> ExampleWallBlock(RetroBlockAccess.allocateId()))
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">2.0f</span>, <span class="n">10.0f</span>)
+	.nonOpaque()
+	.states(ExampleWallBlock.UP, ExampleWallBlock.NORTH, ExampleWallBlock.EAST,
+		ExampleWallBlock.WEST, ExampleWallBlock.SOUTH)
+	.defaultState(s -&gt; s.with(ExampleWallBlock.UP, <span class="k">true</span>))
+	.mineable(com.periut.retroapi.tag.RetroTool.PICKAXE)
+	.register(id(<span class="s">"stone_wall"</span>));</code></pre></div>
+
+<p>And the recipe is the classic two rows of cobblestone, lifted straight from the original mod:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in registerRecipes()</span><pre><code><span class="c">// The classic wall recipe, straight from the stonewalls mod: two rows of</span>
+<span class="c">// cobblestone craft six walls.</span>
+RetroRecipes.addShaped(<span class="k">new</span> ItemStack(STONE_WALL, <span class="n">6</span>),
+	<span class="s">"CCC"</span>,
+	<span class="s">"CCC"</span>,
+	<span class="s">'C'</span>, Block.COBBLESTONE);</code></pre></div>
+
+<p>That is 162 states with no bespoke storage, no packet code, and no manual connection bookkeeping, the same two <code>get</code>/<code>set</code> calls the lamp used, scaled up by the state count alone. The 162-way multipart blockstate JSON that turns each of those states into post-plus-sides geometry is <a href="models.html">Chapter 15</a>'s, see the multipart section there.</p>
+
+<h2>What we built</h2>
+<p>You declared properties, multiplied them into a state space larger than beta was ever meant to hold, and read and wrote those states with two method calls that hide a sidecar, a chunk packet, and a sync channel. Plain blocks got a free <code>meta</code> property so old-style variant JSONs keep working; data files can declare properties of their own, and your code always wins the tie. Twenty states for the lamp, 162 for the wall, sixteen bits of room, and the world still opens in vanilla.</p>
+
+<p>The lamp visibly changed its look when <code>lit</code> flipped, and we waved at the reason without explaining it. That explanation, blockstate JSONs, model JSONs, render layers, tints, and animated textures, all working in beta, is the next and final building chapter. See <a href="blocks.html">Chapter 4</a> for where blocks began; now let's give them modern shapes and pixels.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

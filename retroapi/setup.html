@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 1: The Workshop, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 1, The Workshop</h1>
+<p class="chapter-sub">In which we point modern tools at 2011 and they just… work.</p>
+
+<p>Every craft begins with a bench. Ours is the official <a href="https://github.com/OrnitheMC/ornithe-mod-template">ornithe-mod-template</a>, the same starting point Ornithe recommends for any version, converted to target <strong>Beta 1.7.3</strong> with <strong>biny mappings</strong> and <strong>RetroAPI</strong>. You can do the conversion by hand (this chapter shows every line), or skip it entirely:</p>
+
+<p><a class="download-btn" href="bare-retroapi-template.zip" download>⬇ bare-retroapi-template.zip <small>, this chapter, already done</small></a></p>
+
+<div class="note"><p><strong>You need Java 21</strong> to run Gradle and the game (the gen2 toolchain and the LWJGL3 runtime expect it). Your mod compiles for Java 21 too, modern language features on a 2011 game, courtesy of the modern JVM underneath.</p></div>
+
+<h2>The three files that matter</h2>
+<p>Starting from the stock template, exactly three files change: <code>build.gradle</code> (how to build), <code>gradle.properties</code> (which versions), and <code>fabric.mod.json</code> (who you are). Here is each one in its converted form.</p>
+
+<h3>build.gradle, Loom, Ploceus, and biny</h3>
+<p>The stock template uses Feather mappings on gen1 intermediary. We switch to <strong>gen2</strong> intermediary and the community <strong>biny-ornithe</strong> mappings, and add the two mavens that host the b1.7.3 ecosystem:</p>
+
+<div class="codeblock"><span class="code-title">build.gradle</span><pre><code>plugins {
+	id 'java'
+	id 'net.fabricmc.fabric-loom-remap' version '1.16.3'
+	id 'ploceus' version '1.16.1'
+}
+
+base {
+	archivesName = project.archives_base_name
+}
+version = "${project.version}+mc${project.minecraft_version}"
+group = project.maven_group
+
+ploceus {
+	setIntermediaryGeneration(2)   <span class="c">// gen2, required for b1.7.3 + this ecosystem</span>
+}
+
+repositories {
+	mavenLocal()
+	maven { url = 'https://matthewperiut.github.io/repository' } <span class="c">// gen2 mod deps (retroapi, retrocommands, starac)</span>
+	maven { url = 'https://maven.glass-launcher.net/releases/' } <span class="c">// biny mappings</span>
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	<span class="c">// biny instead of Feather: human-readable names for the whole game</span>
+	mappings ploceus.mappings("net.glasslauncher:biny-ornithe:b1.7.3+build.${project.biny_mappings}:mergedv2")
+
+	<span class="c">// exceptions/signatures/nests are per-side in beta (client and server were separate jars)</span>
+	clientExceptions ploceus.raven(project.client_raven_build, 'client')
+	serverExceptions ploceus.raven(project.server_raven_build, 'server')
+	clientSignatures ploceus.sparrow(project.client_sparrow_build, 'client')
+	serverSignatures ploceus.sparrow(project.server_sparrow_build, 'server')
+	clientNests "net.glasslauncher:biny-nests:b1.7.3-client+build.${project.biny_nests_build}"
+	serverNests "net.glasslauncher:biny-nests:b1.7.3-server+build.${project.biny_nests_build}"
+
+	ploceus.dependOsl(project.osl_version)   <span class="c">// entrypoints, networking, lifecycle events…</span>
+
+	modImplementation "com.periut:retroapi:${project.retroapi_version}"
+	modImplementation("com.periut:retrocommands:${project.retrocommands_version}") {
+		exclude group: 'net.modificationstation'
+		exclude group: 'net.glasslauncher.mods'
+		exclude group: 'com.github.GeyserMC'
+	}
+	modImplementation "com.periut:starac:${project.starac_version}"
+}
+
+<span class="c">// Exclude Legacy Fabric LWJGL 2 wrapper (starac provides LWJGL 3)</span>
+configurations.configureEach {
+	exclude group: 'org.lwjgl.lwjgl'
+}
+
+processResources {
+	inputs.property 'version', version
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 21
+}
+
+java {
+	// Still required by IDEs such as Eclipse and Visual Studio Code
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+	withSourcesJar()
+}
+
+jar {
+	from('LICENSE') {
+		rename { "${it}_${base.archivesName.get()}" }
+	}
+}</code></pre></div>
+
+<p>Three guests came along with RetroAPI, all optional but very welcome in a dev environment:</p>
+<table>
+<tr><th>Dependency</th><th>What it does for you</th></tr>
+<tr><td><code>retroapi</code></td><td>The star of this guide, registration, persistence, networking, rendering.</td></tr>
+<tr><td><code>retrocommands</code></td><td>In-game commands (<code>/give</code>, <code>/tp</code>, …) while testing. Beta had almost none.</td></tr>
+<tr><td><code>starac</code></td><td>Runs the old client on LWJGL 3, modern keyboards, displays, and macOS support. Hence the LWJGL 2 exclusion just below it.</td></tr>
+</table>
+
+<h3>gradle.properties, the version pinboard</h3>
+<div class="codeblock"><span class="code-title">gradle.properties</span><pre><code># Gradle Properties
+org.gradle.jvmargs = -Xmx1G
+org.gradle.parallel = true
+
+# Mod Properties
+version = 1.0.0
+maven_group = com.example          <span class="c"># ← change me</span>
+archives_base_name = example_mod   <span class="c"># ← change me</span>
+
+# Dependencies
+retroapi_version=1.0.23
+retrocommands_version = 0.7.2+gen2
+starac_version=1.2.1+mcb1.7.3+gen2
+
+# Ornithe Related Dependencies - check https://ornithemc.net/develop for the latest versions
+minecraft_version = b1.7.3
+loader_version = 0.19.3
+
+biny_mappings = 9859f76
+client_raven_build = 2
+server_raven_build = 2
+client_sparrow_build = 2
+server_sparrow_build = 2
+biny_nests_build = 2
+
+osl_version = 0.18.0</code></pre></div>
+
+<h3>fabric.mod.json, your passport</h3>
+<p>Two lines change from the stock template, and one is added: the Minecraft version becomes beta (note the loader's spelling: <code>1.0.0-beta.7.3</code>), and the mod now <em>depends</em> on RetroAPI so the loader refuses to launch without it, a crash at the door beats a crash in the basement:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/fabric.mod.json</span><pre><code>{
+	"schemaVersion": 1,
+	"id": "example_mod",
+	"version": "${version}",
+	"name": "Example mod",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [ "Me!" ],
+	"license": "CC0-1.0",
+	"icon": "assets/example_mod/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"init": [ "com.example.example_mod.ExampleMod" ]
+	},
+	"mixins": [ "example_mod.mixins.json" ],
+	"depends": {
+		"fabricloader": "&gt;=0.17.3",
+		"minecraft": "1.0.0-beta.7.3",
+		"retroapi": "&gt;=1.0.0",
+		"osl-entrypoints": "&gt;=0.4.0"
+	}
+}</code></pre></div>
+
+<div class="note"><p><code>settings.gradle</code> stays exactly as the template ships it, it already knows about the Fabric and Ornithe mavens that host the Gradle plugins.</p></div>
+
+<h2>Light the forge</h2>
+<p>That's the whole conversion. Prove it:</p>
+<div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew runClient</code></pre></div>
+<p>First run downloads the game, remaps it with biny, and decompile-links everything, give it a minute. Then Beta 1.7.3 opens with your mod loaded. Check the log for the line your <code>ExampleMod.init()</code> printed. To produce a shippable jar:</p>
+<div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew build
+<span class="c"># → build/libs/example_mod-1.0.0+mcb1.7.3.jar</span></code></pre></div>
+
+<h2>Make it yours</h2>
+<ul>
+<li>Set <code>maven_group</code> and <code>archives_base_name</code> in <code>gradle.properties</code>.</li>
+<li>Set <code>id</code>, <code>name</code>, <code>description</code>, <code>authors</code> in <code>fabric.mod.json</code>, the <code>id</code> is load-bearing: it names your assets folder, your lang keys, and every identifier you register.</li>
+<li>Rename the <code>com.example.example_mod</code> package and <code>example_mod.mixins.json</code> to match.</li>
+</ul>
+
+<p>The bench is built. Next: the three doors every mod walks through at launch.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "example_mod:block/lamp_off" },
+    "lit=true": { "model": "example_mod:block/lamp_on" }
+  }
+}

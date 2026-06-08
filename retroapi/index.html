@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetroAPI Guide, modding Minecraft Beta 1.7.3</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Modding Beta 1.7.3, the comfortable way</h1>
+<p class="chapter-sub">A guided tour from empty folder to custom blocks, machines, mobs, dimensions, and packets.</p>
+
+<p>It's Beta 1.7.3 again, the grass is that particular green, the world is quiet, and there is no modding API. There never was one. What there is, in 2026, is something better: modern tooling pointed backwards. <strong>Ornithe</strong> gives us a Fabric-style loader and Gradle builds for old versions; <strong>biny mappings</strong> give the decompiled code human names; <strong>OSL</strong> provides entrypoints, lifecycle events and networking; and <strong><a href="https://github.com/matthewperiut/RetroAPI">RetroAPI</a></strong> does the dangerous work, block ID expansion, texture atlasing, save-file safety, multiplayer sync, so your mod doesn't have to.</p>
+
+<p>This guide is written as a story in chapters. Each chapter builds one feature of a real, working example mod, with every line of code copyable and every texture downloadable. By the last page you'll have seen a mod with custom blocks, items, a clicking counter, a crate with its own GUI, a fuel-burning freezer with animated progress bars, a mob, an achievement page, a dimension behind a walk-in portal, a welcome packet, and a twelve-step mixin course.</p>
+
+<h2>Grab a template</h2>
+<p>Two zips, one decision:</p>
+<p>
+<a class="download-btn" href="bare-retroapi-template.zip" download>⬇ bare-retroapi-template.zip <small>, a clean start</small></a>
+<a class="download-btn secondary" href="feature-showcase-retroapi-template.zip" download>⬇ feature-showcase-retroapi-template.zip <small>, everything, built &amp; commented</small></a>
+</p>
+<ul>
+<li><strong>Bare</strong> is the official <a href="https://github.com/OrnitheMC/ornithe-mod-template">ornithe-mod-template</a> with its build files already converted for b1.7.3 + RetroAPI (the exact conversion is <a href="setup.html">Chapter 1</a>). One example entrypoint, one example mixin, nothing else. Start here.</li>
+<li><strong>Feature showcase</strong> is the mod this guide walks through, every feature finished and heavily commented. Keep it open in a second editor window and steal from it freely (it's CC0).</li>
+</ul>
+
+<div class="note"><p><strong>Already modding modern Minecraft?</strong> You'll feel at home: <code>fabric.mod.json</code>, entrypoints, mixins, and Loom all work the way you expect. The differences worth knowing: identifiers come from OSL (<code>NamespacedIdentifiers.from("mod", "thing")</code>), there is <em>no integrated server</em> in b1.7.3 (singleplayer runs entirely client-side, <a href="entrypoints.html">Chapter 2</a>), and the registry is RetroAPI's job, not the game's.</p></div>
+
+<h2>The chapters</h2>
+<div class="chapter-grid">
+<a class="chapter-card" href="setup.html"><span class="num">Chapter 1</span><span class="title">The Workshop</span><span class="desc">Set up Gradle, biny mappings, and fabric.mod.json, then run the game.</span></a>
+<a class="chapter-card" href="entrypoints.html"><span class="num">Chapter 2</span><span class="title">Three Doors In</span><span class="desc">init, client-init, server-init, what runs where, and why textures are safe in common code.</span></a>
+<a class="chapter-card" href="assets.html"><span class="num">Chapter 3</span><span class="title">Pixels &amp; Words</span><span class="desc">Texture loading and sprite ids, GUI art, lang files, and the sound autoloader.</span></a>
+<a class="chapter-card" href="blocks.html"><span class="num">Chapter 4</span><span class="title">Blocks</span><span class="desc">One cube, a multi-sided cube, and a pipe with its own render type.</span></a>
+<a class="chapter-card" href="items.html"><span class="num">Chapter 5</span><span class="title">Items</span><span class="desc">A simple item, then the Jump Stick, custom classes and right-click behavior.</span></a>
+<a class="chapter-card" href="blockentities.html"><span class="num">Chapter 6</span><span class="title">Machines</span><span class="desc">Block entities: a click counter, a crate with a GUI, and the freezer, with synced progress bars.</span></a>
+<a class="chapter-card" href="entities.html"><span class="num">Chapter 7</span><span class="title">Creatures</span><span class="desc">A custom mob, its renderer, and the truth about entity networking.</span></a>
+<a class="chapter-card" href="achievements.html"><span class="num">Chapter 8</span><span class="title">Achievements</span><span class="desc">Toasts, parent trees, your own page, and granting from gameplay.</span></a>
+<a class="chapter-card" href="dimensions.html"><span class="num">Chapter 9</span><span class="title">Other Worlds</span><span class="desc">Register a dimension and walk into it through a portal block.</span></a>
+<a class="chapter-card" href="recipes.html"><span class="num">Chapter 10</span><span class="title">Recipes</span><span class="desc">Shaped, shapeless, smelting, fuel, and metadata wildcards.</span></a>
+<a class="chapter-card" href="networking.html"><span class="num">Chapter 11</span><span class="title">Wires</span><span class="desc">Custom packets with OSL: a welcome message and its reply.</span></a>
+<a class="chapter-card" href="mixins.html"><span class="num">Chapter 12</span><span class="title">The Scalpel</span><span class="desc">Why beta modding is mixin-heavy, how to cut safely, and 12 graded examples.</span></a>
+<a class="chapter-card" href="states.html"><span class="num">Chapter 13</span><span class="title">Deeper States</span><span class="desc">Flattened blockstates: properties, secondary meta, and a 20-state lamp.</span></a>
+<a class="chapter-card" href="voxelshapes.html"><span class="num">Chapter 14</span><span class="title">True Shapes</span><span class="desc">VoxelShapes: multi-box outlines, collision, and mining through the gaps.</span></a>
+<a class="chapter-card" href="models.html"><span class="num">Chapter 15</span><span class="title">Shapes &amp; Pixels</span><span class="desc">JSON block and item models, render layers, tints, and animated textures.</span></a>
+<a class="chapter-card" href="facing.html"><span class="num">Chapter 16</span><span class="title">Facing the World</span><span class="desc">Directional blocks: a log whose grain flips, a freezer that faces the placer.</span></a>
+<a class="chapter-card" href="tools.html"><span class="num">Chapter 17</span><span class="title">The Toolbelt</span><span class="desc">Custom tools, the food API with a poisonous apple, and a full zanite armor set.</span></a>
+<a class="chapter-card" href="sounds.html"><span class="num">Chapter 18</span><span class="title">The Soundtrack</span><span class="desc">Sound effects, streaming music, shuffled background tracks, and jukebox records.</span></a>
+<a class="chapter-card" href="worldgen.html"><span class="num">Chapter 19</span><span class="title">New Lands</span><span class="desc">Chunk generators, Perlin terrain, biomes, spawn rules, and dimension portals.</span></a>
+<a class="chapter-card" href="components.html"><span class="num">Chapter 20</span><span class="title">Item Memory</span><span class="desc">Data components: typed item data, tooltips, and component-driven textures.</span></a>
+<a class="chapter-card" href="testing.html"><span class="num">Chapter 21</span><span class="title">Proving Grounds</span><span class="desc">runClient, runServer, offline mode, and the sided-code checklist.</span></a>
+</div>
+
+<h2>The two-minute version</h2>
+<p>For the impatient, this is most of the API:</p>
+<div class="codeblock"><span class="code-title">the elevator pitch</span><pre><code><span class="c">// blocks (Chapter 4)</span>
+Block myBlock = RetroBlockAccess.create(Material.STONE)
+    .strength(1.5f, 10.0f).texture(id("my_block")).register(id("my_block"));
+
+<span class="c">// items (Chapter 5)</span>
+Item myItem = RetroItemAccess.create()
+    .maxStackSize(64).texture(id("my_item")).register(id("my_item"));
+
+<span class="c">// recipes (Chapter 10)</span>
+RetroRecipes.addShaped(new ItemStack(myBlock), "CC", "CC", 'C', Block.COBBLESTONE);
+
+<span class="c">// achievements (Chapter 8)</span>
+Achievement first = RetroAchievements.register(id("first"), "my_mod.first", 0, 0, myItem, null);
+
+<span class="c">// dimensions (Chapter 9)</span>
+DimensionRegistration dim = RetroDimensions.register(id("my_dim"), MyDimension::new);
+
+<span class="c">// entities (Chapter 7)</span>
+RetroEntities.register(MyMob.ID, MyMob.class).factory((MobFactory) MyMob::new);</code></pre></div>
+<p>Everything persists across world saves, survives being opened in vanilla, and syncs over multiplayer, that's the part RetroAPI quietly handles for you.</p>
+
+<p>Ready? <a href="setup.html"><strong>Chapter 1: The Workshop →</strong></a></p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

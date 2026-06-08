@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 14: True Shapes, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 14, True Shapes</h1>
+<p class="chapter-sub">A beta block is one box and it lies about itself. Stairs select as a full cube, a fence collides as a solid pillar, an L-shape claims to be a square. Here is how RetroAPI gives a block a list of boxes that the outline, the raytracer, collision, and even the server all agree on.</p>
+
+<p>Open Beta 1.7.3, look at a staircase, and move your crosshair across it. The selection box that snaps around it is a full cube, top to bottom, corner to corner, because in this game a block has exactly <em>one</em> bounding box and the stair's box is the whole cube. Walk into a fence and you stop a meter away from the rail, because the fence's single box is a fat pillar that fills its footprint. Anything that should be L-shaped or hollow or stepped, in vanilla beta, simply lies: it outlines, collides, and raytraces as the one box it was given, and there is no second box to be had.</p>
+
+<p>RetroAPI's answer is <strong>VoxelShapes</strong>, ported into RetroAPI from <a href="https://github.com/matthewperiut/voxelshapes">matthewperiut/voxelshapes</a> (credit and full source there). A VoxelShape is not one box, it is a <em>list</em> of boxes, and that list is honored by every system that cares about a block's geometry: the mouse-over <strong>selection outline</strong> (drawn per edge, with the interior edges where boxes meet removed), <strong>raytracing</strong> (so you can mine the block sitting behind the gap of a wall corner instead of hitting empty air), <strong>entity collision</strong>, and the dedicated server's <strong>movement verification</strong> (so a shaped block never false-flags a legitimate move). One interface on your block, and all four fall into line.</p>
+
+<div class="note"><p>This is the geometry half of a block. The <em>look</em> of a block, its model and textures, is <a href="models.html">Chapter 15</a>. VoxelShapes is collision and selection: pure code, no assets. The two are independent, a block can have a fancy model and a single vanilla box, or a plain model and a precise multi-box shape, or both.</p></div>
+
+<h2>The API, exactly</h2>
+<p>You opt in by implementing one interface on your <code>Block</code>. Here it is in full:</p>
+
+<div class="codeblock"><span class="code-title">com/periut/retroapi/voxelshapes/HasVoxelShape.java</span><pre><code><span class="k">package</span> com.periut.retroapi.voxelshapes;
+
+<span class="k">import</span> net.minecraft.world.World;
+
+<span class="c">/**
+ * Implement on a Block to give it a multi-box SELECTION shape: the mouse-over outline,
+ * raytracing (you can mine through the gaps), and, unless {@link HasCollisionVoxelShape}
+ * is also implemented, entity collision. Return null to fall back to vanilla handling
+ * for that position. Ported from matthewperiut/voxelshapes.
+ */</span>
+<span class="k">public interface</span> <span class="t">HasVoxelShape</span> {
+    <span class="t">VoxelShape</span> getVoxelShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z);
+}</code></pre></div>
+
+<p>One method, <code>getVoxelShape(world, x, y, z)</code>. It runs per query, per block position, so you can return a different shape depending on the world (a fence reading its neighbors, a wall reading its connection state). Return <code>null</code> for any position where you want the ordinary vanilla single-box treatment, the lazy escape hatch when you do not have a special shape to offer.</p>
+
+<p>Sometimes the shape you <em>collide</em> with should not match the shape you <em>select</em>. A fence and a wall stand only one block tall visually, but they are meant to be unjumpable: real Minecraft makes their collision box half a block taller than the model so a player cannot hop over them. That second, taller shape is a separate interface:</p>
+
+<div class="codeblock"><span class="code-title">com/periut/retroapi/voxelshapes/HasCollisionVoxelShape.java</span><pre><code><span class="k">package</span> com.periut.retroapi.voxelshapes;
+
+<span class="k">import</span> net.minecraft.world.World;
+
+<span class="c">/**
+ * Implement alongside {@link HasVoxelShape} when the COLLISION shape differs from the
+ * selection shape (fences and walls collide 1.5 blocks tall but select at their visual
+ * height). Return null to fall back. Ported from matthewperiut/voxelshapes.
+ */</span>
+<span class="k">public interface</span> <span class="t">HasCollisionVoxelShape</span> {
+    <span class="t">VoxelShape</span> getCollisionVoxelShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z);
+}</code></pre></div>
+
+<p>Implement <code>HasCollisionVoxelShape</code> <em>alongside</em> <code>HasVoxelShape</code> only when collision differs from selection. If you implement only <code>HasVoxelShape</code>, the same shape does both jobs. The outline you see and the wall you bump into are then literally the same boxes.</p>
+
+<h3>Building a shape</h3>
+<p>A shape is built from two small types. A <code>VoxelBox</code> is one box in <strong>block space</strong>, the unit cube runs 0 to 1 on each axis (values outside are allowed), with a min corner and a max corner. A <code>VoxelData</code> is the immutable list of boxes plus a precomputable set of outline edges. Here is <code>VoxelBox</code> in full, it is a record, so it is just six doubles and a couple of helpers:</p>
+
+<div class="codeblock"><span class="code-title">com/periut/retroapi/voxelshapes/VoxelBox.java</span><pre><code><span class="k">package</span> com.periut.retroapi.voxelshapes;
+
+<span class="k">import</span> net.minecraft.util.math.Box;
+
+<span class="k">import</span> java.util.Arrays;
+
+<span class="c">/**
+ * One immutable box of a {@link VoxelShape}, coordinates in block space (0-1, values
+ * outside are allowed). Ported from matthewperiut/voxelshapes.
+ */</span>
+<span class="k">public record</span> <span class="t">VoxelBox</span>(<span class="k">double</span> minX, <span class="k">double</span> minY, <span class="k">double</span> minZ, <span class="k">double</span> maxX, <span class="k">double</span> maxY, <span class="k">double</span> maxZ) {
+
+	<span class="k">public static</span> <span class="t">VoxelBox</span> voxelify(<span class="t">Box</span> box) {
+		<span class="k">return new</span> <span class="t">VoxelBox</span>(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+	}
+
+	<span class="k">public static</span> <span class="t">VoxelBox</span>[] voxelify(<span class="t">Box</span>[] boxes) {
+		<span class="k">return</span> Arrays.stream(boxes).map(VoxelBox::voxelify).toArray(VoxelBox[]::<span class="k">new</span>);
+	}
+
+	<span class="k">public static</span> <span class="t">Box</span> devoxelify(<span class="t">VoxelBox</span> voxelBox) {
+		<span class="k">return</span> Box.create(voxelBox.minX, voxelBox.minY, voxelBox.minZ, voxelBox.maxX, voxelBox.maxY, voxelBox.maxZ);
+	}
+
+	<span class="k">public static</span> <span class="t">Box</span>[] devoxelify(<span class="t">VoxelBox</span>[] voxelBoxes) {
+		<span class="k">return</span> Arrays.stream(voxelBoxes).map(VoxelBox::devoxelify).toArray(Box[]::<span class="k">new</span>);
+	}
+
+	<span class="k">public</span> <span class="t">VoxelBox</span> add(<span class="k">double</span> minX, <span class="k">double</span> minY, <span class="k">double</span> minZ, <span class="k">double</span> maxX, <span class="k">double</span> maxY, <span class="k">double</span> maxZ) {
+		<span class="k">return new</span> <span class="t">VoxelBox</span>(<span class="k">this</span>.minX + minX, <span class="k">this</span>.minY + minY, <span class="k">this</span>.minZ + minZ,
+			<span class="k">this</span>.maxX + maxX, <span class="k">this</span>.maxY + maxY, <span class="k">this</span>.maxZ + maxZ);
+	}
+
+	<span class="k">public</span> <span class="t">VoxelBox</span> add(<span class="t">VoxelBox</span> other) {
+		<span class="k">return new</span> <span class="t">VoxelBox</span>(<span class="k">this</span>.minX + other.minX, <span class="k">this</span>.minY + other.minY, <span class="k">this</span>.minZ + other.minZ,
+			<span class="k">this</span>.maxX + other.maxX, <span class="k">this</span>.maxY + other.maxY, <span class="k">this</span>.maxZ + other.maxZ);
+	}
+}</code></pre></div>
+
+<p>Note the two <code>add</code> overloads. They shift and grow a box, every corner is moved by the amount you pass, so adding a box that is zero on most axes and <code>0.5</code> on <code>maxY</code> is exactly how the fence and wall raise their collision height by half a block, leaving the other five corners untouched. <code>voxelify</code> and <code>devoxelify</code> convert to and from the game's native <code>Box</code>, which is why you can build a shape out of vanilla <code>Box</code> objects when you already have those.</p>
+
+<p><code>VoxelData</code> is the list. You build one, then derive the rest, every method returns a new instance because the boxes are immutable:</p>
+
+<div class="codeblock"><span class="code-title">com/periut/retroapi/voxelshapes/VoxelData.java, constructors + builders</span><pre><code><span class="k">public class</span> <span class="t">VoxelData</span> {
+    <span class="k">private final</span> <span class="t">VoxelVec3d</span> center;
+    <span class="k">private final</span> <span class="t">VoxelBox</span>[] boxes;
+    <span class="k">private</span> <span class="t">Line</span>[] lines = <span class="k">null</span>;
+
+    <span class="k">public</span> VoxelData(<span class="t">Box</span>... boxes) {
+        <span class="k">this</span>(VoxelBox.voxelify(boxes));
+    }
+
+    <span class="k">public</span> VoxelData(<span class="t">VoxelBox</span>... boxes) {
+        <span class="k">this</span>(<span class="k">new</span> <span class="t">VoxelVec3d</span>(<span class="n">0.5</span>, <span class="n">0.5</span>, <span class="n">0.5</span>), boxes);
+    }
+
+    <span class="k">public</span> VoxelData(<span class="t">Vec3d</span> center, <span class="t">Box</span>[] boxes) {
+        <span class="k">this</span>(VoxelVec3d.voxelify(center), VoxelBox.voxelify(boxes));
+    }
+
+    <span class="k">public</span> VoxelData(<span class="t">VoxelVec3d</span> center, <span class="t">VoxelBox</span>[] boxes) {
+        <span class="k">this</span>.center = center;
+        <span class="k">this</span>.boxes = boxes;
+    }
+
+    <span class="k">public</span> <span class="t">VoxelData</span> withBox(<span class="t">VoxelBox</span> voxelBox) {
+        <span class="t">VoxelBox</span>[] newBoxes = <span class="k">new</span> <span class="t">VoxelBox</span>[boxes.length + <span class="n">1</span>];
+        System.arraycopy(boxes, <span class="n">0</span>, newBoxes, <span class="n">0</span>, boxes.length);
+        newBoxes[boxes.length] = voxelBox;
+        <span class="k">return new</span> <span class="t">VoxelData</span>(center, newBoxes);
+    }
+
+    <span class="k">public</span> <span class="t">VoxelData</span> withBox(<span class="t">Box</span> box) {
+        <span class="k">return</span> withBox(VoxelBox.voxelify(box));
+    }
+
+    <span class="k">public</span> <span class="t">VoxelData</span> preCache() {
+        computeLines();
+        <span class="k">return this</span>;
+    }
+
+    <span class="k">public</span> <span class="t">VoxelShape</span> withOffset(<span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+        <span class="k">return</span> withOffset(<span class="k">new</span> <span class="t">VoxelVec3d</span>(x, y, z));
+    }
+
+    <span class="c">// ... withOffset(VoxelVec3d) / withOffset(Vec3d), accessors, computeLines, getLines ...</span>
+}</code></pre></div>
+
+<p>The lifecycle reads top to bottom:</p>
+<table>
+<tr><th>Call</th><th>What it does</th></tr>
+<tr><td><code>new VoxelData(VoxelBox...)</code></td><td>a shape from one or more block-space boxes (centered at 0.5, 0.5, 0.5)</td></tr>
+<tr><td><code>new VoxelData(Box...)</code></td><td>same, built from vanilla <code>Box</code> objects you already have</td></tr>
+<tr><td><code>data.withBox(box)</code></td><td>appends one box, returns a <em>new</em> <code>VoxelData</code>, the original is untouched</td></tr>
+<tr><td><code>data.preCache()</code></td><td>computes the outline edges once, up front, and returns the same data for chaining</td></tr>
+<tr><td><code>data.withOffset(x, y, z)</code></td><td>positions the shape at a block, producing the per-query <code>VoxelShape</code></td></tr>
+</table>
+
+<p>The pattern that falls out of this is the whole performance story: <strong>build the <code>VoxelData</code> once per distinct shape</strong> (a static field, a small array indexed by metadata, or a map keyed by state) and call <strong><code>withOffset</code> per query</strong> to slide that cached template onto the block being asked about. The boxes and the precomputed outline edges are shared across every position; only the cheap offset wrapper is created each time. Never rebuild the box list inside <code>getVoxelShape</code>.</p>
+
+<div class="warn"><p>Coordinates are <strong>block-space</strong>, 0 to 1, not world coordinates. A box from <code>0.25</code> to <code>0.75</code> is the centered post of <em>any</em> block. <code>withOffset(x, y, z)</code> is what moves it to the actual position. Build templates in 0-1 space and never bake a world coordinate into a box.</p></div>
+
+<h2>Free upgrades: vanilla stairs and fences</h2>
+<p>Because the interfaces are implemented by mixin, the moment VoxelShapes is in the game, vanilla stairs and fences get real shapes with zero work on your part. Stairs are the perfect minimal example, the entire mixin is a base slab, four upper-half boxes, and a metadata lookup:</p>
+
+<div class="codeblock"><span class="code-title">com/periut/retroapi/mixin/voxelshapes/StairsVoxelShapeMixin.java</span><pre><code><span class="k">package</span> com.periut.retroapi.mixin.voxelshapes;
+
+<span class="k">import</span> com.periut.retroapi.voxelshapes.HasVoxelShape;
+<span class="k">import</span> com.periut.retroapi.voxelshapes.VoxelData;
+<span class="k">import</span> com.periut.retroapi.voxelshapes.VoxelShape;
+<span class="k">import</span> com.periut.retroapi.voxelshapes.VoxelBox;
+<span class="k">import</span> net.minecraft.block.StairsBlock;
+<span class="k">import</span> net.minecraft.world.World;
+<span class="k">import</span> org.spongepowered.asm.mixin.Mixin;
+<span class="k">import</span> org.spongepowered.asm.mixin.Unique;
+
+<span class="k">@Mixin</span>(StairsBlock.class)
+<span class="k">public class</span> <span class="t">StairsVoxelShapeMixin</span> <span class="k">implements</span> <span class="t">HasVoxelShape</span> {
+    <span class="k">@Unique</span>
+    <span class="k">private static final</span> <span class="t">VoxelData</span> retroapi$BASE_VOXEL_DATA = <span class="k">new</span> <span class="t">VoxelData</span>(<span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">0.5</span>, <span class="n">1</span>));
+    <span class="k">@Unique</span>
+    <span class="k">private static final</span> <span class="t">VoxelData</span>[] retroapi$VOXEL_DATUM = <span class="k">new</span> <span class="t">VoxelData</span>[<span class="n">4</span>];
+
+    <span class="k">static</span> {
+        retroapi$VOXEL_DATUM[<span class="n">0</span>] = retroapi$BASE_VOXEL_DATA.withBox(<span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">.5</span>, <span class="n">.5</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>)).preCache();
+        retroapi$VOXEL_DATUM[<span class="n">1</span>] = retroapi$BASE_VOXEL_DATA.withBox(<span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0</span>, <span class="n">.5</span>, <span class="n">0</span>, <span class="n">.5</span>, <span class="n">1</span>, <span class="n">1</span>)).preCache();
+        retroapi$VOXEL_DATUM[<span class="n">2</span>] = retroapi$BASE_VOXEL_DATA.withBox(<span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0</span>, <span class="n">.5</span>, <span class="n">.5</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>)).preCache();
+        retroapi$VOXEL_DATUM[<span class="n">3</span>] = retroapi$BASE_VOXEL_DATA.withBox(<span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0</span>, <span class="n">.5</span>, <span class="n">0</span>, <span class="n">1</span>, <span class="n">1</span>, <span class="n">.5</span>)).preCache();
+    }
+
+    <span class="k">@Override</span>
+    <span class="k">public</span> <span class="t">VoxelShape</span> getVoxelShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+        <span class="k">int</span> meta = world.getBlockMeta(x, y, z);
+        <span class="k">if</span> (meta &lt; <span class="n">0</span> || meta &gt; <span class="n">3</span>) <span class="k">return null</span>;
+        <span class="k">return</span> retroapi$VOXEL_DATUM[meta].withOffset(x, y, z);
+    }
+}</code></pre></div>
+
+<p>Walk it through, because this is the canonical recipe. <code>retroapi$BASE_VOXEL_DATA</code> is the bottom slab, the lower half of the stair, shared by all four facings. The static block builds four <code>VoxelData</code>, one per facing, each the base slab plus the upper-half box for that orientation, and calls <code>preCache()</code> on each so the outline edges are computed exactly once at class load. The four go into a static array. Then <code>getVoxelShape</code> reads the stair's metadata (0 to 3, the facing), bails to <code>null</code> if it is somehow out of range, indexes the right precomputed <code>VoxelData</code>, and calls <code>withOffset</code> to land it on this block. Build four shapes forever, index in, offset out. Now stairs select and raytrace as two stacked boxes, and you can mine the block tucked under the overhang.</p>
+
+<p>Fences do exactly the same thing with more entries. There are 16 connection combinations (four neighbor directions, each present or not), so the fence mixin builds a 16-entry array of <code>VoxelData</code>, a center post plus one rail box per connected side, and a parallel 16-entry array for collision where every box is grown half a block taller with that <code>add</code> trick so the fence cannot be hopped. The query computes a 4-bit index from the four neighbors and offsets the matching template, the same index-in-offset-out shape as stairs.</p>
+
+<h2>The wall: connection-state-driven shapes</h2>
+<p>The stair indexed by four metadata values. The fence indexed by sixteen connection bits. The showcase wall is the full version of the idea: its shape is a pure function of its <strong>blockstate</strong>, the 162-state connection state you met in <a href="states.html">Chapter 13</a>, and it caches one <code>VoxelData</code> per interned state in a map. Here is the entire voxel-shape section of <code>ExampleWallBlock</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleWallBlock.java, voxel shapes</span><pre><code>	<span class="c">// ------------------------------------------------------------ voxel shapes --</span>
+	<span class="c">// The wall's REAL shape: a box per visible piece, built from the same state the</span>
+	<span class="c">// models render from. The post box appears when up=true, and every connected</span>
+	<span class="c">// side contributes its own segment box (mirroring the wall_side model geometry,</span>
+	<span class="c">// 14px tall for low and 16px for tall segments). Selection outlines hug each</span>
+	<span class="c">// box, you can mine through the gaps, and entities collide with the true shape.</span>
+	<span class="c">// The collision variant adds the fence-style +0.5 height so walls can't be</span>
+	<span class="c">// hopped over, while the selection shape stays at the visual height.</span>
+
+	<span class="k">private static final</span> <span class="t">VoxelBox</span> POST = <span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0.25</span>, <span class="n">0</span>, <span class="n">0.25</span>, <span class="n">0.75</span>, <span class="n">1</span>, <span class="n">0.75</span>);
+	<span class="k">private static final</span> <span class="t">VoxelBox</span> SIDE_NORTH_LOW = <span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0.3125</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.6875</span>, <span class="n">0.875</span>, <span class="n">0.5</span>);
+	<span class="k">private static final</span> <span class="t">VoxelBox</span> SIDE_NORTH_TALL = <span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0.3125</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.6875</span>, <span class="n">1</span>, <span class="n">0.5</span>);
+	<span class="k">private static final</span> <span class="t">VoxelBox</span> CLIMB_GUARD = <span class="k">new</span> <span class="t">VoxelBox</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0.5</span>, <span class="n">0</span>);
+
+	<span class="c">/** Shapes are pure functions of the state; cache one VoxelData per interned state. */</span>
+	<span class="k">private static final</span> <span class="t">Map</span>&lt;<span class="t">RetroBlockState</span>, <span class="t">VoxelData</span>&gt; SHAPES = <span class="k">new</span> <span class="t">HashMap</span>&lt;&gt;();
+	<span class="k">private static final</span> <span class="t">Map</span>&lt;<span class="t">RetroBlockState</span>, <span class="t">VoxelData</span>&gt; COLLISION_SHAPES = <span class="k">new</span> <span class="t">HashMap</span>&lt;&gt;();
+
+	<span class="k">private</span> <span class="t">VoxelData</span> shapeData(<span class="t">RetroBlockState</span> state, <span class="k">boolean</span> collision) {
+		<span class="t">Map</span>&lt;<span class="t">RetroBlockState</span>, <span class="t">VoxelData</span>&gt; cache = collision ? COLLISION_SHAPES : SHAPES;
+		<span class="t">VoxelData</span> cached = cache.get(state);
+		<span class="k">if</span> (cached != <span class="k">null</span>) {
+			<span class="k">return</span> cached;
+		}
+		<span class="t">VoxelData</span> data = <span class="k">new</span> <span class="t">VoxelData</span>(<span class="k">new</span> <span class="t">VoxelBox</span>[<span class="n">0</span>]);
+		<span class="k">if</span> (state.get(UP)) {
+			data = data.withBox(collision ? POST.add(CLIMB_GUARD) : POST);
+		}
+		data = withSide(data, state.get(NORTH), <span class="n">0</span>, collision);
+		data = withSide(data, state.get(EAST), <span class="n">1</span>, collision);
+		data = withSide(data, state.get(SOUTH), <span class="n">2</span>, collision);
+		data = withSide(data, state.get(WEST), <span class="n">3</span>, collision);
+		<span class="k">if</span> (!collision) {
+			data = data.preCache(); <span class="c">// outline edges computed once per state</span>
+		}
+		cache.put(state, data);
+		<span class="k">return</span> data;
+	}
+
+	<span class="c">/** Adds one side segment box, rotated from the north template in 90 degree steps. */</span>
+	<span class="k">private static</span> <span class="t">VoxelData</span> withSide(<span class="t">VoxelData</span> data, <span class="t">WallShape</span> shape, <span class="k">int</span> rotation, <span class="k">boolean</span> collision) {
+		<span class="k">if</span> (shape == WallShape.NONE) {
+			<span class="k">return</span> data;
+		}
+		<span class="t">VoxelBox</span> box = shape == WallShape.TALL ? SIDE_NORTH_TALL : SIDE_NORTH_LOW;
+		<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; rotation; i++) {
+			box = rotateY(box);
+		}
+		<span class="k">if</span> (collision) {
+			box = box.add(CLIMB_GUARD);
+		}
+		<span class="k">return</span> data.withBox(box);
+	}
+
+	<span class="c">/** Rotates a box 90 degrees clockwise about the block center (x,z) -&gt; (1-z, x). */</span>
+	<span class="k">private static</span> <span class="t">VoxelBox</span> rotateY(<span class="t">VoxelBox</span> box) {
+		<span class="k">return new</span> <span class="t">VoxelBox</span>(<span class="n">1</span> - box.maxZ(), box.minY(), box.minX(), <span class="n">1</span> - box.minZ(), box.maxY(), box.maxX());
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">VoxelShape</span> getVoxelShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="t">RetroBlockState</span> state = RetroStates.get(world, x, y, z);
+		<span class="k">if</span> (state == <span class="k">null</span>) {
+			<span class="k">return null</span>;
+		}
+		<span class="k">return</span> shapeData(state, <span class="k">false</span>).withOffset(x, y, z);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">VoxelShape</span> getCollisionVoxelShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="t">RetroBlockState</span> state = RetroStates.get(world, x, y, z);
+		<span class="k">if</span> (state == <span class="k">null</span>) {
+			<span class="k">return null</span>;
+		}
+		<span class="k">return</span> shapeData(state, <span class="k">true</span>).withOffset(x, y, z);
+	}</code></pre></div>
+
+<p>Read it as the same recipe, scaled up to a real state space. There is one <code>VoxelBox</code> per visible piece: the centered <code>POST</code> (a quarter-to-three-quarters pillar, full height), a low north segment (<code>SIDE_NORTH_LOW</code>, 14 pixels tall, the <code>0.875</code> on its <code>maxY</code>) and a tall north segment (<code>SIDE_NORTH_TALL</code>, the full 16 pixels), both matching the wall_side model geometry exactly. <code>CLIMB_GUARD</code> is the now-familiar half-block lift, zero on every axis except <code>maxY</code>.</p>
+
+<p><code>shapeData</code> is the cache. It keys a <code>HashMap</code> on the <code>RetroBlockState</code> itself, which is safe and fast because states are <strong>interned</strong> (Chapter 13): there is exactly one object per distinct state, so it is a perfect map key with identity hashing. On a cache miss it builds the shape from the state: a post box when <code>up=true</code>, then one segment box per connected side. It calls <code>preCache()</code> for the selection shape so the outline edges are computed once, stores it, and returns it. Every later query for that state is a single map lookup plus a cheap <code>withOffset</code>.</p>
+
+<p><code>withSide</code> is where the rotation lives. There is only <em>one</em> template, the north segment; the other three faces are that template spun by <code>rotateY</code> in 90-degree steps, exactly the way the wall's blockstate JSON y-rotates the single side model to face east, south, and west. The collision build path adds <code>CLIMB_GUARD</code> to every box (and to the post), which is why a wall is the unjumpable 1.5 blocks tall to an entity while still drawing its outline at the visual height. The two public methods are tiny: read the state, return <code>null</code> if there is none, otherwise pull the cached <code>VoxelData</code> and offset it onto the block.</p>
+
+<p>The payoff in game is immediate. The selection outline hugs the wall's true silhouette, post plus whichever arms are connected, instead of snapping to a cube. You can mine a block hiding behind the gap of a wall corner, because the raytracer tests each box and finds the empty space between them. And entities collide with the real shape, stopped by the arms and the post, not by a phantom full cube. The connection state drives all of it, and the moment <code>RetroStates.set</code> reshapes the wall, the next query rebuilds (or re-fetches) the matching cached shape automatically.</p>
+
+<div class="note"><p>The <code>SHAPES</code> map is bounded by the number of states the wall is actually placed in, not by 162. It fills lazily, one entry the first time each distinct connection state is queried, and every position sharing that state then shares the same precomputed boxes and outline edges.</p></div>
+
+<h2>How it hooks in</h2>
+<p>Your block code never touches collision math, the raytracer, the outline renderer, or the server's move check. Five mixins do all of it, keyed off the two interfaces, in package <code>com.periut.retroapi.mixin.voxelshapes</code>:</p>
+
+<table>
+<tr><th>Mixin</th><th>Intercepts</th><th>What it does with your shape</th></tr>
+<tr><td><code>BlockVoxelShapeMixin</code></td><td><code>Block.addIntersectingBoundingBox</code> and <code>Block.raycast</code></td><td>collision: feeds your boxes (collision variant if present) into the entity-collision list. Raycast: tests each box's six faces and returns the nearest one hit, so the ray passes through the gaps and lands on whatever box is actually in the way</td></tr>
+<tr><td><code>VoxelOutlineRendererMixin</code> <em>(client)</em></td><td><code>WorldRenderer.renderBlockOutline</code></td><td>draws the selection outline as tessellated per-edge lines from the precomputed edge list, each expanded slightly from the box center so it never z-fights with the block face</td></tr>
+<tr><td><code>VoxelMoveCheckMixin</code> <em>(dedicated server)</em></td><td><code>ServerPlayNetworkHandler.onPlayerMove</code></td><td>replaces the anti-cheat teleport-back check: verifies the player's move against your real boxes so a shaped block does not false-flag a legitimate movement and rubber-band the player</td></tr>
+<tr><td><code>StairsVoxelShapeMixin</code></td><td><code>StairsBlock</code></td><td>implements <code>HasVoxelShape</code> on vanilla stairs, for free</td></tr>
+<tr><td><code>FenceVoxelShapeMixin</code></td><td><code>FenceBlock</code></td><td>implements both interfaces on vanilla fences, with the taller collision variant, for free</td></tr>
+</table>
+
+<p>The outline is drawn per edge, not per face, with the interior edges (where two boxes meet) already removed by the edge precompute, and every line is pushed about <code>0.002</code> out from the center so it floats just clear of the block surface and never flickers against it. The raycast walks your boxes and, for each, interpolates where the ray crosses each of the six faces, keeps only crossings that actually land inside the box, and picks the face nearest the ray's start, which is what lets you target a back box through the gap of a front one. The server move check rebuilds the player's bounding box, scans the blocks it overlaps, and accepts the move if it intersects any of your real boxes, so the shaped block participates in collision verification instead of being treated as a full cube the player is illegally inside.</p>
+
+<p>None of those names appear in <code>ExampleWallBlock</code>. You implement <code>getVoxelShape</code> (and optionally <code>getCollisionVoxelShape</code>), build a cached <code>VoxelData</code> per shape, and offset it per query. The mixins find your interface and wire the rest.</p>
+
+<h2>What we built</h2>
+<p>A beta block had one box and lied about its shape. Now a block can carry a list of boxes that the outline, the raytracer, entity collision, and the dedicated server all honor: one interface for selection, an optional second when collision should stand taller. The recipe is always the same, build a <code>VoxelData</code> once per distinct shape, <code>preCache</code> its outline edges, and <code>withOffset</code> it onto the block per query, whether you index by metadata like the stairs, by connection bits like the fence, or by interned blockstate like the wall.</p>
+
+<p>The wall now has its true silhouette, but it is still wearing no clothes: collision is code, the <em>look</em> is a model and a texture, and we keep mentioning the multipart blockstate JSON that turns those 162 states into post-plus-rotated-side geometry without drawing it. That, JSON block and item models, render layers, tints, and animated textures, all running on a 2011 game, is the last building chapter. The states of the wall came from <a href="states.html">Chapter 13</a>; now let's give it pixels in <a href="models.html">Chapter 15</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

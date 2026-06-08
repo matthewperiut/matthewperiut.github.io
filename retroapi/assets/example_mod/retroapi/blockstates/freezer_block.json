@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "example_mod:block/freezer_block" },
+    "facing=south": { "model": "example_mod:block/freezer_block", "y": 180 },
+    "facing=west":  { "model": "example_mod:block/freezer_block", "y": 270 },
+    "facing=east":  { "model": "example_mod:block/freezer_block", "y": 90 }
+  }
+}

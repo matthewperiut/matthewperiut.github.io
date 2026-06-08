@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 15: Shapes &amp; Pixels, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 15, Shapes &amp; Pixels</h1>
+<p class="chapter-sub">Modern resource-pack formats, working in Beta 1.7.3. Blockstate JSONs, model JSONs, render layers, tints, item models, and animated textures, all the files you already know, copied straight in.</p>
+
+<p>Here is the pitch, stated flat: the resource formats from modern Minecraft work in beta. Blockstate JSONs pick a model per state. Model JSONs are the vanilla 1.8-era schema, parents, textures, elements, faces. A <code>.png.mcmeta</code> next to any texture animates it. These are not lookalikes; they are the real files, and most of them copy straight out of a modern resource pack with no edits. This chapter is the tour of what RetroAPI understands and the handful of places where beta's age shows.</p>
+
+<h2>Blockstate files: choosing a model per state</h2>
+<p>A blockstate JSON answers one question, "given this block's state, which model do I draw, and how is it rotated?" RetroAPI looks for it in three places, in this order, and the first hit wins:</p>
+
+<div class="codeblock"><span class="code-title">blockstate JSON search order</span><pre><code>assets/{ns}/retroapi/blockstates/{block}.json     <span class="c"># RetroAPI-first</span>
+assets/{ns}/blockstates/{block}.json              <span class="c"># the plain modern path</span>
+assets/{ns}/stationapi/blockstates/{block}.json   <span class="c"># StationAPI's path</span></code></pre></div>
+
+<p>The showcase's lamp from <a href="states.html">Chapter 13</a> uses the simplest possible form, a <code>variants</code> map keyed on the <code>lit</code> property:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/lamp.json</span><pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">"lit=false"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> },
+    <span class="s">"lit=true"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
+  }
+}</code></pre></div>
+
+<p>Two variants, two models, and the lamp's twenty states collapse cleanly onto them because only <code>lit</code> is mentioned, every <code>age</code> shares a look. That partial-key behavior is the heart of the schema.</p>
+
+<h3>The variants schema, in full</h3>
+<ul>
+<li><strong>Partial keys, comma-joined.</strong> A key like <code>"lit=true,facing=north"</code> matches any state where both hold; the <strong>most specific</strong> matching key wins. The empty key <code>""</code> is the catch-all default.</li>
+<li><strong>Weighted arrays.</strong> A variant can be a list, <code>[{"model":...,"weight":3}, {"model":...}]</code>, and RetroAPI picks one by a <em>position-seeded hash</em>. The same block at the same coordinates always picks the same model, so there is no flicker on re-render, but neighbors vary.</li>
+<li><strong>Rotation.</strong> <code>"x"</code> and <code>"y"</code> rotate the model in 90-degree steps.</li>
+<li><strong>Multipart.</strong> Instead of <code>variants</code>, a <code>multipart</code> list applies several models at once, each gated by a <code>when</code> condition. Within a condition, <code>"a|b"</code> is alternation (OR), and listing separate properties is also OR.</li>
+<li><strong>Retro extensions.</strong> Two keys beyond the vanilla schema: <code>"properties"</code> (declare data-side state properties, the <a href="states.html">Chapter 13</a> feature) and <code>"render_layer"</code> (covered below).</li>
+</ul>
+
+<div class="warn"><p>One honest limit. <strong>AND is not supported</strong> in multipart <code>when</code> conditions, it is a 1.17 feature, so a single condition can only OR its terms. <code>"uvlock"</code>, on the other hand, is fully supported: it re-derives UVs from the rotated geometry so the texture stays world-aligned.</p></div>
+
+<div class="note"><p><strong>A blockstate JSON auto-wires the block at registration.</strong> The moment one exists for your block, RetroAPI sets the render type to <code>retroapi:model</code> (the constant <code>RenderTypes.MODEL</code>) for you, and pulls the block's particle sprite from the model's <code>particle</code> texture. The baked model is what renders in the inventory and in your hand, too. You only set <code>RenderTypes.MODEL</code> by hand if you want model rendering <em>without</em> shipping a JSON.</p></div>
+
+<h3>Multipart: many models per state</h3>
+<p>The lamp's <code>variants</code> map picks <em>one</em> model per state. The wall from <a href="states.html">Chapter 13</a> needs the opposite: a post, plus a separate side segment for each direction it connects, all stacked into the same block. That is what <code>multipart</code> is for. Instead of choosing a single winner, multipart walks its list and applies <strong>every</strong> part whose <code>when</code> condition matches the current state. The wall's 162 states all draw from this one file:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/stone_wall.json</span><pre><code>{
+  <span class="s">"multipart"</span>: [
+    { <span class="s">"when"</span>: { <span class="s">"up"</span>: <span class="s">"true"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_post"</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"north"</span>: <span class="s">"low"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"east"</span>: <span class="s">"low"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">90</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"south"</span>: <span class="s">"low"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">180</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"west"</span>: <span class="s">"low"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">270</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"north"</span>: <span class="s">"tall"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side_tall"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"east"</span>: <span class="s">"tall"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side_tall"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">90</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"south"</span>: <span class="s">"tall"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side_tall"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">180</span> } },
+    { <span class="s">"when"</span>: { <span class="s">"west"</span>: <span class="s">"tall"</span> },
+      <span class="s">"apply"</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/stone_wall_side_tall"</span>, <span class="s">"uvlock"</span>: <span class="k">true</span>, <span class="s">"y"</span>: <span class="n">270</span> } }
+  ]
+}</code></pre></div>
+
+<p>Trace one state. A wall with <code>up=true</code>, <code>north=low</code>, and <code>east=tall</code> matches three parts: the post (always, here, because <code>up</code> is true), the north low side at its base rotation, and the east tall side rotated <code>"y": 90</code>. All three render together. The <code>"y"</code> rotations are how one side model serves all four directions, the north model spun 90/180/270 degrees becomes east/south/west, so the file ships exactly two side models (a <code>low</code> and a <code>tall</code>) and the post.</p>
+
+<div class="note"><p>Note the <code>"uvlock": true</code> on every rotated part: the side model is authored once facing north, the variants spin the geometry in 90 degree steps, and uvlock re-derives the UVs from the final positions so the cobblestone never appears rotated, no matter which way the segment points.</p></div>
+
+<h2>Model files: the shape itself</h2>
+<p>Model JSONs live under <code>models/</code> with the same three-place search order as blockstates. The lamp's off-model is about as small as a model gets, a parent and one texture:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/lamp_off.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"block/cube_all"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"all"</span>: <span class="s">"example_mod:block/lamp_off"</span> }
+}</code></pre></div>
+
+<p>That <code>"parent": "block/cube_all"</code> is the key trick. The standard parents are <strong>embedded in RetroAPI</strong>, so a resource pack ships none of the vanilla model assets and the chain still resolves. The embedded parents are:</p>
+
+<div class="codeblock"><span class="code-title">embedded standard parents</span><pre><code>block/block          block/cube           block/cube_all
+block/cube_column    block/cube_bottom_top    block/cross
+item/generated       item/handheld</code></pre></div>
+
+<p>A parent chain does not have to end at an embedded parent in one hop, your own models can be parents too. The wall's multipart file points at three tiny models, and each of those is just a parent and a texture override. Here is the post the wall applies when <code>up=true</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/stone_wall_post.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"example_mod:block/template_wall_post"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"wall"</span>: <span class="s">"minecraft:block/cobblestone"</span> }
+}</code></pre></div>
+
+<p>It carries no geometry at all, only a <code>#wall</code> texture binding. The shape comes from its parent, a template that defines the actual box and routes every face through the <code>#wall</code> variable the child filled in:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/template_wall_post.json</span><pre><code>{
+  <span class="s">"textures"</span>: {
+    <span class="s">"particle"</span>: <span class="s">"#wall"</span>
+  },
+  <span class="s">"elements"</span>: [
+    {
+      <span class="s">"from"</span>: [<span class="n">4</span>, <span class="n">0</span>, <span class="n">4</span>],
+      <span class="s">"to"</span>: [<span class="n">12</span>, <span class="n">16</span>, <span class="n">12</span>],
+      <span class="s">"faces"</span>: {
+        <span class="s">"down"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"down"</span> },
+        <span class="s">"up"</span>:    { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"up"</span> },
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"south"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"west"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"east"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> }
+      }
+    }
+  ]
+}</code></pre></div>
+
+<p>That is the modern resource-pack idiom intact: a reusable <code>template_wall_post</code> with the geometry and <code>#wall</code> placeholders, and a thin <code>stone_wall_post</code> that does nothing but say "<code>#wall</code> is cobblestone." Ship a second wall material and it is one more three-line file. The <code>#wall</code> default of <code>minecraft:block/cobblestone</code> is a vanilla sprite resolved by name, which the next section is about.</p>
+
+<h3>The supported model schema</h3>
+<p>This is the exact set of keys RetroAPI reads. It is most of the vanilla 1.8+ model schema:</p>
+<ul>
+<li><strong><code>parent</code></strong>, a chain ending in one of the embedded standard parents above.</li>
+<li><strong><code>textures</code></strong>, a map of names to sprite ids, with <code>#variable</code> indirection (a face can name <code>#all</code> and inherit whatever <code>all</code> resolves to).</li>
+<li><strong><code>ambientocclusion</code></strong>, the AO flag.</li>
+<li><strong><code>elements</code></strong>, the boxes. Each has <code>from</code>/<code>to</code> in 0 to 16 coordinates (<em>out-of-range values are allowed</em>), an optional <code>rotation</code> (<code>origin</code>, <code>axis</code>, an <code>angle</code> from {&minus;45, &minus;22.5, 0, 22.5, 45}, and <code>rescale</code>), a <code>shade</code> flag, and <code>faces</code>.</li>
+<li><strong>faces</strong>, any of <code>down</code>, <code>up</code>, <code>north</code>, <code>south</code>, <code>west</code>, <code>east</code>, each with <code>uv</code> (auto-derived from the element box when omitted), <code>texture</code>, <code>cullface</code>, a <code>rotation</code> of 0/90/180/270, and <code>tintindex</code>.</li>
+<li><strong><code>display</code></strong> transforms, <code>gui</code>, <code>firstperson_righthand</code>, and <code>thirdperson_righthand</code> are parsed and mapped onto beta's render contexts.</li>
+</ul>
+
+<div class="note"><p><strong>Lighting follows the cullface.</strong> A quad with a <code>cullface</code> gets neighbor-aware flat lighting and is occlusion-culled, it behaves like a real block face. A free quad (no cullface) is shaded by its own geometric facing instead. That single distinction is how a model can mix solid walls with floating inner detail and have both lit correctly.</p></div>
+
+<h3>Vanilla textures by name</h3>
+<p>The wall's post resolved its texture to <code>"minecraft:block/cobblestone"</code>, and that namespace is doing real work. A texture value in the <code>minecraft</code> namespace resolves <strong>straight to the vanilla terrain atlas sprite by name</strong>, exactly like StationAPI and modern versions do it. There is no mod PNG behind <code>minecraft:block/cobblestone</code>; RetroAPI maps the name onto the beta terrain texture and bakes that sprite into the model. So a model copied out of a modern resource pack, the kind that freely references <code>minecraft:block/oak_planks</code> or <code>minecraft:block/iron_ore</code>, works <strong>without re-shipping a single vanilla PNG</strong>.</p>
+
+<p>A curated name table covers the beta-era blocks: stone, cobblestone, the plank and log faces, the ores, the sandstone faces, the furnace faces, and so on down the beta block list. A name in the table binds to its terrain sprite. A name that is <em>not</em> in the table falls through to the ordinary mod-file path, RetroAPI looks for <code>assets/{ns}/textures/{path}.png</code> as usual, with a warning that the vanilla name was unrecognized. That fall-through is also the override hook: a mod that ships its own <code>assets/minecraft/textures/block/cobblestone.png</code> takes over that name, so you can either lean on the built-in vanilla sprite or replace it by shipping the file.</p>
+
+<div class="note"><p>The practical upshot: paste a modern block model in, leave its <code>minecraft:</code> texture references alone, and it renders against beta's own terrain pixels. You only need to ship a texture when you want a sprite the beta atlas doesn't have, or when you want to override one it does.</p></div>
+
+<h2>A fancier model: the pedestal</h2>
+<p>The lamp was a single textured cube. The pedestal puts the whole schema to work in one block, three elements that each demonstrate a different rule, plus a tint that reaches back into client code. Its blockstate JSON is the simplest possible, one model, no states:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/pedestal.json</span><pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">""</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/pedestal"</span> }
+  }
+}</code></pre></div>
+
+<p>The empty key <code>""</code> is the catch-all default, so every state of the block (there is only one) draws <code>block/pedestal</code>. The model itself is where the interesting work happens:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/pedestal.json</span><pre><code>{
+  <span class="s">"textures"</span>: {
+    <span class="s">"particle"</span>: <span class="s">"example_mod:block/pedestal"</span>,
+    <span class="s">"stone"</span>: <span class="s">"example_mod:block/pedestal"</span>,
+    <span class="s">"gem"</span>: <span class="s">"example_mod:block/gem"</span>
+  },
+  <span class="s">"elements"</span>: [
+    {
+      <span class="s">"from"</span>: [<span class="n">1</span>, <span class="n">0</span>, <span class="n">1</span>],
+      <span class="s">"to"</span>: [<span class="n">15</span>, <span class="n">4</span>, <span class="n">15</span>],
+      <span class="s">"faces"</span>: {
+        <span class="s">"down"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"cullface"</span>: <span class="s">"down"</span> },
+        <span class="s">"up"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span> },
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">1</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">16</span>] },
+        <span class="s">"south"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">1</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">16</span>] },
+        <span class="s">"west"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">1</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">16</span>] },
+        <span class="s">"east"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">1</span>, <span class="n">12</span>, <span class="n">15</span>, <span class="n">16</span>] }
+      }
+    },
+    {
+      <span class="s">"from"</span>: [<span class="n">5</span>, <span class="n">4</span>, <span class="n">5</span>],
+      <span class="s">"to"</span>: [<span class="n">11</span>, <span class="n">12</span>, <span class="n">11</span>],
+      <span class="s">"faces"</span>: {
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">5</span>, <span class="n">4</span>, <span class="n">11</span>, <span class="n">12</span>] },
+        <span class="s">"south"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">5</span>, <span class="n">4</span>, <span class="n">11</span>, <span class="n">12</span>] },
+        <span class="s">"west"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">5</span>, <span class="n">4</span>, <span class="n">11</span>, <span class="n">12</span>] },
+        <span class="s">"east"</span>: { <span class="s">"texture"</span>: <span class="s">"#stone"</span>, <span class="s">"uv"</span>: [<span class="n">5</span>, <span class="n">4</span>, <span class="n">11</span>, <span class="n">12</span>] }
+      }
+    },
+    {
+      <span class="s">"from"</span>: [<span class="n">5.5</span>, <span class="n">11</span>, <span class="n">5.5</span>],
+      <span class="s">"to"</span>: [<span class="n">10.5</span>, <span class="n">16</span>, <span class="n">10.5</span>],
+      <span class="s">"rotation"</span>: { <span class="s">"origin"</span>: [<span class="n">8</span>, <span class="n">13.5</span>, <span class="n">8</span>], <span class="s">"axis"</span>: <span class="s">"y"</span>, <span class="s">"angle"</span>: <span class="n">45</span>, <span class="s">"rescale"</span>: <span class="k">false</span> },
+      <span class="s">"shade"</span>: <span class="k">false</span>,
+      <span class="s">"faces"</span>: {
+        <span class="s">"down"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> },
+        <span class="s">"up"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> },
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> },
+        <span class="s">"south"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> },
+        <span class="s">"west"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> },
+        <span class="s">"east"</span>: { <span class="s">"texture"</span>: <span class="s">"#gem"</span>, <span class="s">"tintindex"</span>: <span class="n">0</span> }
+      }
+    }
+  ]
+}</code></pre></div>
+
+<p>Walk the three elements top to bottom, each one is a deliberate demonstration:</p>
+<ul>
+<li><strong>Element 1, the slab base.</strong> A wide, flat box (<code>[1,0,1]</code> to <code>[15,4,15]</code>) whose <code>down</code> face carries <code>"cullface": "down"</code>, so it is occlusion-culled and dropped when something solid sits directly below the pedestal, exactly the cullface lighting rule from the note above. The four side faces use explicit <code>uv</code> windows (<code>[1, 12, 15, 16]</code>) to sample just the strip of the texture that should wrap the base, rather than letting the box auto-derive its UVs.</li>
+<li><strong>Element 2, the column.</strong> A tall narrow stalk (<code>[5,4,5]</code> to <code>[11,12,11]</code>) whose four faces have <strong>no <code>cullface</code> at all</strong>. They are free quads: always drawn, never occlusion-culled, and shaded by their own geometric facing instead of by a neighbor. That is what keeps the inner column lit correctly while it floats above the base.</li>
+<li><strong>Element 3, the gem.</strong> A small cube up top, rotated <code>45</code> degrees about the <code>y</code> axis so it reads as a faceted gem, with <code>"shade": false</code> so it ignores directional shading and stays evenly bright. Every face carries <code>"tintindex": 0</code>, which hands its color off to the client-side provider below.</li>
+</ul>
+
+<p>The block registration is a plain block, the model does all the visual work, but two builder calls still matter because <em>collision is a code concern, models are purely visual</em>. <code>.nonOpaque()</code> stops the pedestal from hiding its neighbors' touching faces, and <code>.bounds(...)</code> gives it a one-block-tall, slightly-inset hitbox that matches the base:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A COMPLEX model: three elements (a slab base with cullfaces and custom UVs,</span>
+<span class="c">// a column of free quads, and a 45-degree-rotated gem with tintindex 0, whose</span>
+<span class="c">// color comes from the provider registered in ExampleModClient). Everything</span>
+<span class="c">// lives in retroapi/models/block/pedestal.json; this class is a plain block.</span>
+PEDESTAL = RetroBlockAccess.create(Material.STONE)
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">2.0f</span>)
+	.nonOpaque()
+	.bounds(<span class="n">1</span> / <span class="n">16.0F</span>, <span class="n">0.0F</span>, <span class="n">1</span> / <span class="n">16.0F</span>, <span class="n">15</span> / <span class="n">16.0F</span>, <span class="n">1.0F</span>, <span class="n">15</span> / <span class="n">16.0F</span>)
+	.register(id(<span class="s">"pedestal"</span>));</code></pre></div>
+
+<p>The gem's <code>tintindex 0</code> is satisfied by a tint provider registered on the client, the same <code>RetroBlockColors.register</code> call from the Tints section, here returning a steady ruby red instead of sampling the biome:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, in initClient()</span><pre><code><span class="c">// Tint provider for the pedestal's gem faces (tintindex 0 in the model JSON):</span>
+<span class="c">// a steady ruby red. Providers can also sample the world, see</span>
+<span class="c">// RetroBlockColors.GRASS / .FOLIAGE for the biome colormap versions.</span>
+com.periut.retroapi.client.render.RetroBlockColors.register(ExampleMod.PEDESTAL,
+	(state, world, x, y, z, tintIndex) -&gt; <span class="n">0xE12D55</span>);</code></pre></div>
+
+<div class="note"><p>Two things you get for free here. The block-breaking <strong>crack animation draws over the model geometry automatically</strong>, the renderer honors the texture override and overlays the progress sprite on every quad without any work on your part. And because a blockstate JSON exists, the baked model also renders in the <strong>inventory and in your hand</strong> with no extra setup, just like the lamp.</p></div>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/pedestal.png" width="64" height="64" alt="pedestal"><div class="asset-name">pedestal.png</div><a href="assets/pedestal.png" download>download</a></div>
+<div class="asset-card"><img src="assets/gem.png" width="64" height="64" alt="gem"><div class="asset-name">gem.png</div><a href="assets/gem.png" download>download</a></div>
+</div>
+
+<h2>Render layers</h2>
+<p>Beta has two render passes: pass 0 alpha-tests (hard-edged, used for everything opaque and for cutouts like leaves), and pass 1 is the sorted translucent pass (the one water draws in). RetroAPI exposes the choice as an enum, <code>RetroRenderLayer</code> in <code>com.periut.retroapi.client.render</code>, with three values:</p>
+
+<table>
+<tr><th>Layer</th><th>Beta pass</th><th>Meaning</th></tr>
+<tr><td><code>SOLID</code></td><td>pass 0 (alpha-tested)</td><td>fully opaque</td></tr>
+<tr><td><code>CUTOUT</code></td><td>pass 0 (alpha-tested)</td><td>hard-edged transparency; intent metadata</td></tr>
+<tr><td><code>TRANSLUCENT</code></td><td>pass 1 (sorted, after opaque)</td><td>real blending, glass and water</td></tr>
+</table>
+
+<p>You set it two ways, in code or in the blockstate JSON, and they are equivalent:</p>
+
+<div class="codeblock"><span class="code-title">setting a render layer</span><pre><code><span class="c">// in code</span>
+RetroRenderLayers.set(MY_BLOCK, RetroRenderLayer.TRANSLUCENT);
+
+<span class="c">// or in the blockstate JSON</span>
+<span class="s">"render_layer"</span>: <span class="s">"translucent"</span></code></pre></div>
+
+<div class="note"><p><code>SOLID</code> and <code>CUTOUT</code> both render in pass 0 and both alpha-test; <code>CUTOUT</code> is intent metadata that documents "this has hard-edged holes." Only <code>TRANSLUCENT</code> moves a block into beta's blended water pass.</p></div>
+
+<p>Choosing in practice: if a texture's pixels are either fully opaque or fully transparent (leaves, grates, the wall's gaps between segments), say <code>CUTOUT</code> and you are done; pass 0 discards the transparent pixels for free, with no sorting concerns. Reach for <code>TRANSLUCENT</code> only when pixels are PARTIALLY transparent (stained glass, ice); pass 1 blends correctly but draws after all opaque geometry and costs sorting. There is deliberately no alpha-test toggle: beta's terrain pass always alpha-tests, so a toggle would have nothing to switch, and declaring CUTOUT today means your blockstate files stay correct if a future version ever maps the layers differently.</p>
+
+<h2>Tints</h2>
+<p>A face with <code>tintindex</code> &ge; 0 asks to be multiplied by a color your code supplies. Register a provider per block:</p>
+
+<div class="codeblock"><span class="code-title">registering a tint provider</span><pre><code>RetroBlockColors.register(MY_BLOCK,
+	(state, world, x, y, z, tintIndex) -> <span class="n">0xRRGGBB</span>);</code></pre></div>
+
+<p>The lambda receives the state, the world (which may be <code>null</code> for the item form, so guard it), the position, and the face's tint index, and returns a packed <code>0xRRGGBB</code> color. Two built-in providers sample the biome colormaps for you, <code>RetroBlockColors.GRASS</code> and <code>RetroBlockColors.FOLIAGE</code>, so a custom leaf or grass block tints exactly like vanilla's.</p>
+
+<h2>Item models</h2>
+<p>At item registration RetroAPI checks for <code>models/item/{id}.json</code>, and if it exists, the model overrides any <code>.texture()</code> call. There are three shapes an item model can take.</p>
+
+<h3>Shape 1: layered sprites (item/generated)</h3>
+<p>A model parented to <code>item/generated</code> or <code>item/handheld</code> with <code>layer0</code>, <code>layer1</code>, and so on stacks those textures. The showcase's ruby does exactly this, a base ruby with a sparkle overlaid:</p>
+
+<div class="note"><p>The two parents differ in one way beyond texture stacking, the same way they do in modern Minecraft: <code>item/handheld</code> ALSO flips the item's in-hand render to the diagonal through-the-fist pose that vanilla tools and sticks use. The showcase's Ruby Pick gets the tool pose purely from its model file; an item without a model JSON opts in from code with the chainable <code>RetroItemAccess.handheld()</code> (see the builder table in <a href="items.html">Chapter 5</a>).</p></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/item/ruby.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"item/generated"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"layer0"</span>: <span class="s">"example_mod:item/ruby"</span>,
+    <span class="s">"layer1"</span>: <span class="s">"example_mod:item/ruby_sparkle"</span>
+  }
+}</code></pre></div>
+
+<p>The ruby registers with no <code>.texture()</code> call at all, the model is found by the item's id:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Layered item model: models/item/ruby.json (parent item/generated) stacks</span>
+<span class="c">// layer0 + layer1 into one sprite at atlas build. No .texture() call at all;</span>
+<span class="c">// the model JSON is found by the item's id at registration.</span>
+RUBY = RetroItemAccess.create()
+	.maxStackSize(<span class="n">64</span>)
+	.register(id(<span class="s">"ruby"</span>));</code></pre></div>
+
+<div class="warn"><p>Important detail about layers in beta: the layers are <strong>flattened into one atlas sprite at atlas build</strong>, then drawn through the unchanged vanilla sprite path. That keeps rendering fast and compatible, but it means <strong>per-layer tinting is unsupported</strong> (it would need separate draws), and a model that asks for it gets a warning.</p></div>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/ruby.png" width="64" height="64" alt="ruby"><div class="asset-name">ruby.png</div><a href="assets/ruby.png" download>download</a></div>
+<div class="asset-card"><img src="assets/ruby_sparkle.png" width="64" height="64" alt="ruby_sparkle"><div class="asset-name">ruby_sparkle.png</div><a href="assets/ruby_sparkle.png" download>download</a></div>
+</div>
+
+<h3>Shape 2: block-parent models</h3>
+<p>An item model parented to a block model renders that baked block in your inventory and hand. <strong>Block items get this for free</strong>, the <code>BlockItem</code> that every block registration creates already shows the block's baked model, so the lamp you hold is the lamp model. A plain (non-block) item that points its model at a block parent logs a warning in v1; that combination isn't wired yet.</p>
+
+<h3>Shape 3: no JSON</h3>
+<p>If there's no <code>models/item/{id}.json</code>, nothing changes: your existing <code>.texture()</code> / custom-class workflows from <a href="items.html">Chapter 5</a> work exactly as before. Model JSONs are purely additive.</p>
+
+<h2>Animated textures</h2>
+<p><a href="assets.html">Chapter 3</a> gave the one-paragraph version; the full treatment lives here. Any texture you register, through <code>.texture(id)</code>, <code>RetroTextures.addBlockTexture</code>, or <code>addItemTexture</code>, animates automatically the moment a <code>{png}.png.mcmeta</code> file sits next to it. No code changes, no separate registration. The showcase's ember block ships this mcmeta:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/textures/block/ember_block.png.mcmeta</span><pre><code>{
+  <span class="s">"animation"</span>: {
+    <span class="s">"frametime"</span>: <span class="n">6</span>,
+    <span class="s">"interpolate"</span>: <span class="k">true</span>
+  }
+}</code></pre></div>
+
+<p>And the block that wears it is an ordinary textured block, the animation is entirely in the asset:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Animated texture, zero code: ember_block.png is a 4-frame vertical strip</span>
+<span class="c">// and ember_block.png.mcmeta sets frametime 6 + interpolate. The ordinary</span>
+<span class="c">// .texture() call picks the animation up automatically.</span>
+EMBER_BLOCK = RetroBlockAccess.create(Material.STONE)
+	.sounds(Block.STONE_SOUND_GROUP)
+	.strength(<span class="n">0.8f</span>)
+	.texture(id(<span class="s">"ember_block"</span>))
+	.register(id(<span class="s">"ember_block"</span>));</code></pre></div>
+
+<h3>The mcmeta schema</h3>
+<ul>
+<li><strong><code>frametime</code></strong>, ticks each frame is shown; default 1.</li>
+<li><strong><code>interpolate</code></strong>, when true RetroAPI lerps pixels between frames for a smooth fade.</li>
+<li><strong><code>frames</code></strong>, an explicit order and per-frame timing, e.g. <code>[0, 1, {"index": 2, "time": 8}]</code>; omit it and every frame plays in PNG order.</li>
+</ul>
+
+<div class="note"><p><strong>The PNG layout is the modern one:</strong> square frames stacked <em>vertically</em>, so the image height is the number of frames times its width. A square-frame vertical strip with <strong>no mcmeta at all still animates</strong>, at one tick per frame, RetroAPI never silently squashes a tall strip into a stretched single frame. The non-square <code>width</code>/<code>height</code> keys (for rectangular frames) are <strong>unsupported</strong> and warned.</p></div>
+
+<p>There is a code-driven equivalent if you'd rather not ship an mcmeta, <code>RetroTextures.addAnimatedBlockTexture(id, frameCount, ticksPerFrame)</code> and <code>addAnimatedItemTexture(...)</code>. The <code>frameCount</code> there is informational; the PNG's height is what actually decides how many frames exist. And under StationAPI, the same PNG-plus-mcmeta animates through StationAPI's own atlas, no different on your side.</p>
+
+<p>The ember block's PNG is a four-frame vertical strip, four 16&times;16 frames stacked into a 16&times;64 image. Shown here at 64&times;256 (and in game the four frames cycle every six ticks, interpolated):</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/ember_block.png" width="64" height="256" alt="ember_block"><div class="asset-name">ember_block.png</div><a href="assets/ember_block.png" download>download</a></div>
+</div>
+
+<h2>What we built</h2>
+<p>Blockstate JSONs picked models per state and auto-wired the block to model rendering. Model JSONs gave us embedded parents (so packs ship no vanilla assets), elements, faces, and cullface-aware lighting. Render layers placed blocks in the right beta pass; tint providers colored them per biome; item models layered sprites or borrowed a block's baked look; and a lone <code>.png.mcmeta</code> brought a texture to life. Every one of these is a real modern-pack file, copied in and working.</p>
+
+<p>That closes the visual building blocks. You have blocks, items, machines, mobs, dimensions, packets, deep states, and modern models. A few chapters round out the build: blocks that face you, the equipment you carry, the sounds it plays, the lands it generates, and the data items hold. First, putting all of this together into blocks that know which way they point. On to <a href="facing.html">Chapter 16</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 20: Item Memory, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 20, Item Memory</h1>
+<p class="chapter-sub">Beta ItemStacks remember nothing. This chapter gives them typed, persistent data the modern way: declare a component once, then get and set it on any stack.</p>
+
+<p>A beta <code>ItemStack</code> is three numbers: id, count, damage. There is no NBT field, so two stacks of the same item are interchangeable and an item cannot carry anything beyond which item it is and how worn it is. Modern Minecraft moved past that years ago: items hold rich, typed data called <strong>data components</strong>, and <code>stack.get(TYPE)</code> / <code>stack.set(TYPE, value)</code> read and write it. RetroAPI ports that whole idea backwards. You declare a component type once, then read and write it on any stack, and the value persists, copies, and (on a dedicated server) syncs. This is the closest neighbor to <a href="items.html">Chapter 5</a>: components extend items, so if you have not met the item builder yet, start there.</p>
+
+<h2>Registering a component</h2>
+<p>A component is a <code>RetroComponentType&lt;T&gt;</code>, the beta port of modern's <code>DataComponentType</code>. You make one with <code>RetroComponents.register(id, defaultValue, serializer)</code>: an id, the value returned when the component is unset, and a serializer that says how the value rides in NBT for saving (and, on a dedicated server, on the wire). RetroAPI ships serializers for every primitive you are likely to want:</p>
+
+<table>
+<tr><th>Serializer</th><th>Holds</th></tr>
+<tr><td><code>RetroComponentType.INT</code></td><td>an <code>Integer</code></td></tr>
+<tr><td><code>RetroComponentType.FLOAT</code></td><td>a <code>Float</code></td></tr>
+<tr><td><code>RetroComponentType.BOOL</code></td><td>a <code>Boolean</code></td></tr>
+<tr><td><code>RetroComponentType.STRING</code></td><td>a <code>String</code></td></tr>
+<tr><td><code>RetroComponentType.LONG</code></td><td>a <code>Long</code></td></tr>
+<tr><td><code>RetroComponentType.DOUBLE</code></td><td>a <code>Double</code></td></tr>
+<tr><td><code>RetroComponentType.ITEM</code></td><td>an <code>Item</code> reference (stored as its id)</td></tr>
+<tr><td><code>RetroComponentType.ITEM_STACK</code></td><td>a whole <code>ItemStack</code>: id, count, damage, and its own components</td></tr>
+<tr><td><code>RetroComponentType.NBT</code></td><td>a raw <code>NbtCompound</code>, the free-form escape hatch</td></tr>
+</table>
+
+<p>Here are the showcase's three components, registered in <code>init()</code>. Two are plain ints, the third holds a whole record (more on that below):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Register two typed components (modern DataComponentType equivalent). They are</span>
+<span class="c">// just ints here; RetroComponentType.compound(...) handles records.</span>
+CLICK_COUNT = com.periut.retroapi.component.RetroComponents.register(
+	id(<span class="s">"click_count"</span>), <span class="n">0</span>, com.periut.retroapi.component.RetroComponentType.INT);
+MOOD = com.periut.retroapi.component.RetroComponents.register(
+	id(<span class="s">"mood"</span>), <span class="n">0</span>, com.periut.retroapi.component.RetroComponentType.INT);
+ATTUNEMENT = com.periut.retroapi.component.RetroComponents.register(
+	id(<span class="s">"attunement"</span>), GemAttunement.EMPTY, GemAttunement.CODEC);</code></pre></div>
+
+<p>Keep the returned <code>RetroComponentType</code> in a <code>static</code> field, exactly as you keep a <code>Block</code> or <code>Item</code> reference. The default (<code>0</code>, or <code>GemAttunement.EMPTY</code>) is what a stack hands back before anyone has written to it.</p>
+
+<h2>Reading and writing</h2>
+<p>Modern Minecraft can add methods to <code>ItemStack</code>; beta cannot, so the get/set API lives on <code>RetroComponents</code> as statics taking the stack as the first argument. That is the only real difference from <code>stack.get(TYPE)</code>:</p>
+
+<table>
+<tr><th>Call</th><th>What it does</th></tr>
+<tr><td><code>RetroComponents.get(stack, type)</code></td><td>the value, or the type's default if unset</td></tr>
+<tr><td><code>RetroComponents.getOrDefault(stack, type, fallback)</code></td><td>the value, or your fallback if unset</td></tr>
+<tr><td><code>RetroComponents.set(stack, type, value)</code></td><td>write the value onto the stack</td></tr>
+<tr><td><code>RetroComponents.has(stack, type)</code></td><td>whether the stack explicitly has it set</td></tr>
+<tr><td><code>RetroComponents.remove(stack, type)</code></td><td>clear it from the stack</td></tr>
+</table>
+
+<p>The Counter item is the fabric-docs example ported straight across: every right-click bumps a <code>CLICK_COUNT</code> component on the stack. The read-modify-write is one tiny helper:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/CounterItem.java, the bump helper</span><pre><code><span class="k">private static void</span> bump(ItemStack stack) {
+	<span class="k">int</span> count = RetroComponents.getOrDefault(stack, ExampleMod.CLICK_COUNT, <span class="n">0</span>);
+	RetroComponents.set(stack, ExampleMod.CLICK_COUNT, count + <span class="n">1</span>);
+}</code></pre></div>
+
+<p>That stack now remembers how many times it was clicked, even though a beta <code>ItemStack</code> has nowhere of its own to keep that number. The how lives in the <a href="#h-persistence">Persistence</a> and <a href="#h-multiplayer-sync">Multiplayer sync</a> sections below; for the moment, trust that it sticks.</p>
+
+<h2>Tooltips</h2>
+<p>A clicked count is no good if you cannot see it. The catch: beta has <strong>no tooltip system at all</strong>. Hovering an item in the inventory shows its name and nothing more. So RetroAPI adds the multi-line tooltip itself and reads the extra lines from your item. Implement <code>RetroTooltipProvider</code> and override <code>appendTooltip(stack, lines)</code>, adding as many strings as you like; they render under the name. Prefix a line with a section sign for color, the same codes vanilla chat uses (<code>§6</code> is gold, <code>§b</code> aqua, and so on):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/CounterItem.java, the tooltip</span><pre><code><span class="k">@Override</span>
+<span class="k">public void</span> appendTooltip(ItemStack stack, List&lt;String&gt; lines) {
+	<span class="c">// section sign + 6 = gold, matching the fabric example's ChatFormatting.GOLD.</span>
+	lines.add(<span class="s">"§6Clicks: "</span> + RetroComponents.get(stack, ExampleMod.CLICK_COUNT));
+}</code></pre></div>
+
+<p>That covers items you wrote. For an item you do <em>not</em> own (a vanilla item, or one from another mod), implement the same interface and hand it to <code>RetroTooltips.register(item, provider)</code> instead. RetroAPI calls both paths, the item's own provider and any registered one, for every hovered stack:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/component/RetroTooltips.java, the registry call</span><pre><code><span class="c">/** Adds a tooltip provider for an item (works for vanilla items too). */</span>
+<span class="k">public static void</span> register(Item item, RetroTooltipProvider provider) {
+	PROVIDERS.put(item, provider);
+}</code></pre></div>
+
+<p>This is also the only general-purpose multi-line tooltip in beta, so even an item with no components can use it to print a description line under its name.</p>
+
+<h2>Records and lists</h2>
+<p>Components are not limited to single primitives. The <code>compound(writer, reader)</code> serializer packs a whole structured value into its own sub-compound and back, the beta-era stand-in for a <code>RecordCodecBuilder</code>. The showcase's <code>GemAttunement</code> is a two-field record (a level and an awakened flag) carried as one component:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/GemAttunement.java</span><pre><code><span class="k">public record</span> <span class="t">GemAttunement</span>(<span class="k">int</span> level, <span class="k">boolean</span> awakened) {
+
+	<span class="k">public static final</span> GemAttunement EMPTY = <span class="k">new</span> GemAttunement(<span class="n">0</span>, <span class="k">false</span>);
+
+	<span class="c">/** The serializer: writes the two fields into a sub-compound and reads them back. */</span>
+	<span class="k">public static final</span> RetroComponentType.Serializer&lt;GemAttunement&gt; CODEC =
+		RetroComponentType.compound(
+			(nbt, value) -&gt; {
+				nbt.putInt(<span class="s">"level"</span>, value.level);
+				nbt.putBoolean(<span class="s">"awakened"</span>, value.awakened);
+			},
+			(NbtCompound nbt) -&gt; <span class="k">new</span> GemAttunement(nbt.getInt(<span class="s">"level"</span>), nbt.getBoolean(<span class="s">"awakened"</span>)));
+}</code></pre></div>
+
+<p>The writer is a <code>BiConsumer&lt;NbtCompound, T&gt;</code>, the reader a <code>Function&lt;NbtCompound, T&gt;</code>. Register it like any other serializer (the <code>ATTUNEMENT</code> line above passes <code>GemAttunement.CODEC</code>), then get and set <code>GemAttunement</code> values just as you would an int.</p>
+
+<p>For many-of-something, wrap an element serializer with <code>listOf</code>. It produces a <code>Serializer&lt;List&lt;E&gt;&gt;</code> that stores the list as an NBT list of compounds, so <code>RetroComponentType.listOf(RetroComponentType.STRING)</code> gives you a component holding a <code>List&lt;String&gt;</code>, and <code>listOf(GemAttunement.CODEC)</code> a list of records.</p>
+
+<h3>Inventories and raw NBT</h3>
+<p>Yes, a component can hold a whole inventory or arbitrary NBT. Two built-in serializers cover it. <code>ITEM_STACK</code> stores a full <code>ItemStack</code>, id, count, damage, and the stack's own components, and combined with <code>listOf</code> it stores an entire inventory in a single component:</p>
+
+<div class="codeblock"><span class="code-title">storing an inventory in a component</span><pre><code><span class="c">// A component that holds a list of ItemStacks, e.g. a bag or a backpack's contents.</span>
+<span class="k">static final</span> RetroComponentType&lt;List&lt;ItemStack&gt;&gt; CONTENTS =
+	RetroComponents.register(id(<span class="s">"contents"</span>), <span class="k">new</span> ArrayList&lt;&gt;(),
+		RetroComponentType.listOf(RetroComponentType.ITEM_STACK));
+
+<span class="c">// then read/write it like any other component</span>
+List&lt;ItemStack&gt; held = RetroComponents.getOrDefault(stack, CONTENTS, <span class="k">new</span> ArrayList&lt;&gt;());
+held.add(<span class="k">new</span> ItemStack(Item.DIAMOND, <span class="n">3</span>));
+RetroComponents.set(stack, CONTENTS, held);</code></pre></div>
+
+<p>When even that is too rigid, <code>RetroComponentType.NBT</code> stores a raw <code>NbtCompound</code>, the free-form escape hatch for data you already have as nbt, or shapes a typed serializer would be fussy for. All of it rides the same persistence and sync as a plain int, so an inventory stored in a component saves with the world and (on a dedicated server) syncs down like anything else.</p>
+
+<h2>Component-driven textures</h2>
+<p>Modern Minecraft repaints an item from its components, stacking and tinting model layers at render time. RetroAPI does the same: an item implements <code>RetroLayeredTexture</code> and hands back a list of <code>RetroTextureLayer</code> (an atlas sprite id plus a tint) that RetroAPI draws back to front everywhere the item appears, hotbar, inventory, hand, and dropped on the ground. The base is just layer 0; there is no separate base texture. It is drawn live, nothing is baked, so the number of distinct looks is unbounded: a tool with thousands of component-driven colors, or a smooth gradient, costs nothing to store because only the layers of the stacks actually on screen are ever drawn.</p>
+
+<div class="note"><p>For the simple case of swapping ONE whole sprite by a component (no tint, no stacking), there is also <code>RetroDynamicTexture</code> with a single <code>getDynamicTextureId(stack)</code>. <code>RetroLayeredTexture</code> is the richer one and is what the Mood Gem uses now.</p></div>
+
+<h3>The simplest layered item: the Sticked Apple</h3>
+<p>Before the component-driven version, the plainest possible layered item: two untinted layers, a vanilla stick under a vanilla apple, with no texture or components of its own. <code>Item.getTextureId(0)</code> pulls a vanilla item's atlas slot, so this ships no PNG:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/StickedAppleItem.java</span><pre><code><span class="k">@Override</span>
+<span class="k">public</span> List&lt;RetroTextureLayer&gt; getTextureLayers(ItemStack stack) {
+	<span class="k">return</span> List.of(
+		RetroTextureLayer.plain(Item.STICK.getTextureId(<span class="n">0</span>)),   <span class="c">// bottom layer: a stick</span>
+		RetroTextureLayer.plain(Item.APPLE.getTextureId(<span class="n">0</span>)));   <span class="c">// top layer: an apple</span>
+}</code></pre></div>
+
+<h3>The component-driven version: the Mood Gem</h3>
+<p>The Mood Gem ships ONE grayscale gem sprite and TINTS it live from its <code>MOOD</code> component, exactly how modern recolors a layer, instead of baking a PNG per color. A second, untinted sparkle layer appears only once the <code>ATTUNEMENT</code> record says the gem is awakened, so BOTH a primitive component (the tint) and a structured one (whether the overlay exists) drive the picture. It registers the two sprites up front:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>MOOD_GEM_BASE = com.periut.retroapi.register.block.RetroTextures.addItemTexture(id(<span class="s">"mood_gem_base"</span>)).id;
+MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTexture(id(<span class="s">"mood_gem_sparkle"</span>)).id;
+<span class="c">// The 0xRRGGBB tint per mood (red, green, blue, gold), multiplied onto the gray gem.</span>
+<span class="k">public static final int</span>[] MOOD_TINTS = {<span class="n">0xFF4D4D</span>, <span class="n">0x57E06A</span>, <span class="n">0x4D8AFF</span>, <span class="n">0xFFC233</span>};</code></pre></div>
+
+<p>and builds its layer list from the components each render:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/MoodGemItem.java, the layered-texture hook</span><pre><code><span class="k">@Override</span>
+<span class="k">public</span> List&lt;RetroTextureLayer&gt; getTextureLayers(ItemStack stack) {
+	<span class="k">int</span> mood = RetroComponents.getOrDefault(stack, ExampleMod.MOOD, <span class="n">0</span>);
+	GemAttunement att = RetroComponents.getOrDefault(stack, ExampleMod.ATTUNEMENT, GemAttunement.EMPTY);
+	List&lt;RetroTextureLayer&gt; layers = <span class="k">new</span> ArrayList&lt;&gt;(<span class="n">2</span>);
+	layers.add(RetroTextureLayer.tinted(ExampleMod.MOOD_GEM_BASE, ExampleMod.MOOD_TINTS[mood]));
+	<span class="k">if</span> (att.awakened()) {
+		layers.add(RetroTextureLayer.plain(ExampleMod.MOOD_GEM_SPARKLE));
+	}
+	<span class="k">return</span> layers;
+}</code></pre></div>
+
+<p>Right-clicking cycles <code>MOOD</code> through 0..3, and the gem recolors live the instant the component changes; loop all the way around and the <code>ATTUNEMENT</code> record awakens, adding the sparkle. Registering the two sprites is <a href="assets.html">Chapter 3</a>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/mood_gem_base.png" width="64" height="64" alt="mood_gem_base"><div class="asset-name">mood_gem_base.png</div><a href="assets/mood_gem_base.png" download>download</a></div>
+<div class="asset-card"><img src="assets/mood_gem_sparkle.png" width="64" height="64" alt="mood_gem_sparkle"><div class="asset-name">mood_gem_sparkle.png</div><a href="assets/mood_gem_sparkle.png" download>download</a></div>
+</div>
+
+<h2 id="h-persistence">Persistence</h2>
+<p>Here is the trick that makes all of the above work despite beta stacks having no NBT field. RetroAPI injects a component map onto every <code>ItemStack</code> through a mixin (the <code>RetroComponentHolder</code> duck interface), and the get/set calls read and write that map. The map is then:</p>
+<ul>
+<li><strong>deep-copied</strong> when a stack is copied or split, so a half-stack keeps the parent's components and the two halves drift apart independently;</li>
+<li><strong>written to and read from NBT</strong> under a single <code>retroapi:components</code> tag, so it rides along through every save path;</li>
+<li><strong>saved to the sidecar</strong> and restored on load, the same vanilla-safe sidecar machinery that hides modded blocks and inventories from vanilla saves (the mechanism is <a href="blockentities.html">Chapter 6</a>).</li>
+</ul>
+<p>The upshot: components survive slot-moves, dropping the item, picking it back up, quitting and reloading the world. The Counter's number is still there tomorrow. Because beta has no key-iteration API on <code>NbtCompound</code>, the serializer writes the whole component compound to the binary NBT format and re-reads it to recover the keys; that detail lives in <code>ComponentNbt</code> and you never touch it.</p>
+
+<h2 id="h-multiplayer-sync">Multiplayer sync</h2>
+<p>Singleplayer needs no sync at all. Beta's singleplayer is client-only, the client <em>is</em> the world, so it already holds the real stacks with their components and everything simply works.</p>
+
+<p>A dedicated server is the hard case. Beta serializes an <code>ItemStack</code> inline as id/count/damage with no NBT, so a client never learns about components the server set, and the held item's texture and tooltip would never update. RetroAPI's <code>ComponentWire</code> fixes this: packet mixins append a tiny component blob <em>after</em> each stack in the slot, inventory, and dropped-item spawn packets (the stack is always the last field, so trailing data is safe) and read it back on the far side. A dropped or unreadable blob is non-fatal, the item still works, just unsynced for that frame.</p>
+
+<p>One rule matters more than the wire format, and it is the bug that bites everyone. Do <strong>not</strong> guard <code>use()</code> with the usual <code>!world.isRemote</code> server-only pattern. Bump the component on <em>both</em> sides:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/CounterItem.java, use() and useOnBlock()</span><pre><code><span class="k">@Override</span>
+<span class="k">public</span> ItemStack use(ItemStack stack, World world, PlayerEntity player) {
+	<span class="c">// Bump on BOTH sides: client predicts so the tooltip updates instantly,</span>
+	<span class="c">// server is the authority that persists and reconciles. Guarding with</span>
+	<span class="c">// !world.isRemote is what made the count never move on a dedicated server.</span>
+	bump(stack);
+	<span class="k">return</span> stack;
+}
+
+<span class="k">@Override</span>
+<span class="k">public boolean</span> useOnBlock(ItemStack stack, PlayerEntity player, World world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="k">int</span> side) {
+	<span class="c">// Right-clicking a BLOCK: beta always processes these on the server, so this</span>
+	<span class="c">// is the reliable path. Returning true consumes the interaction.</span>
+	bump(stack);
+	<span class="k">return true</span>;
+}</code></pre></div>
+
+<p>The client bump is a prediction so the tooltip and sprite move the instant you click; the server bump is the authority that persists and, via <code>ComponentWire</code>, reconciles the client. They land on the same number, so there is no flicker. Guard it server-only and the client does nothing, sees no change, and so never tells the server to do anything either, the count just sits still forever. Right-clicking a block routes to <code>useOnBlock</code>, which the server always processes, so it is the rock-solid path when air-clicks feel unreliable. The same logic drives the Mood Gem's color cycle. Setting up and probing a dedicated server is <a href="networking.html">Chapter 11</a> and <a href="testing.html">Chapter 21</a>.</p>
+
+<p class="credit-note">The Counter and the <code>GemAttunement</code> record are ports of the custom-data-components walkthrough in <a href="https://docs.fabricmc.net/develop/items/custom-data-components">FabricMC's docs</a> (fabric-docs), used under CC BY-NC-SA. RetroAPI carries the same shapes back to beta where <code>ItemStack</code> has no NBT to lean on.</p>
+
+<p>Components give items a memory. Next we make sure all of it actually holds up: running the client and a real dedicated server, offline mode, and the sided gotchas that this chapter's sync rule hints at, in <a href="testing.html">Chapter 21, Proving Grounds</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

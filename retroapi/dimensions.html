@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 9: Other Worlds, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 9, Other Worlds</h1>
+<p class="chapter-sub">Register a whole dimension, then walk into it through a block you can step through like a doorway.</p>
+
+<p>Beta 1.7.3 shipped with two dimensions: the Overworld and the Nether. RetroAPI lets you add a third, a tenth, as many as you like, each with its own save folder, its own terrain, and a portal that arms itself exactly the way the Nether's does. We'll register a dimension that reuses overworld generation (so terrain actually appears), then build a walk-in portal block that ferries the player there and back.</p>
+
+<h2>The dimension class</h2>
+<p>A dimension is a class, and the smallest useful one is almost embarrassingly short. Extend <code>OverworldDimension</code> to inherit the overworld's chunk generator and biome source, store the serial id you're handed, and you're done:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleDimension.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.world.dimension.OverworldDimension;
+
+<span class="k">public class</span> <span class="t">ExampleDimension</span> <span class="k">extends</span> <span class="t">OverworldDimension</span> {
+
+	<span class="k">public</span> ExampleDimension(<span class="k">int</span> serialId) {
+		<span class="k">this</span>.id = serialId;
+	}
+}</code></pre></div>
+
+<p>The constructor takes one <code>int</code>, the <strong>serial id</strong> RetroAPI assigns when you register, and stores it in the inherited <code>id</code> field. That single number does a lot of work: it picks the <code>DIM&lt;serialId&gt;/</code> save folder where this dimension's chunks live on disk, and it's what gets written into player NBT to remember which world a player is in. You don't choose the number; you receive it and stash it. That's the whole contract.</p>
+
+<h3>Registering it</h3>
+<p>Registration is one call in <code>init()</code>. The factory is the interesting part:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>EXAMPLE_DIMENSION = <span class="t">RetroDimensions</span>.register(id(<span class="s">"example_dim"</span>), <span class="t">ExampleDimension</span>::<span class="k">new</span>);
+LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
+	EXAMPLE_DIMENSION.getId(), EXAMPLE_DIMENSION.getSerialId());</code></pre></div>
+
+<p>The factory <code>ExampleDimension::new</code> is an <code>IntFunction&lt;Dimension&gt;</code>, give it the assigned serial id, get back a dimension. That's why the constructor takes an <code>int</code>: RetroAPI calls the factory <em>with</em> the serial id it picked, so the dimension is born already knowing its number. The logging line shows the two faces of a registered dimension: <code>getId()</code> is your stable namespaced identifier (<code>example_mod:example_dim</code>), and <code>getSerialId()</code> is the runtime number RetroAPI assigned. You name it; RetroAPI numbers it.</p>
+
+<h2>The portal block</h2>
+<p>A dimension you can't reach is just a folder on disk. The way in is a portal, and RetroAPI's <code>CustomPortal</code> interface makes a "walk into it" portal block out of a handful of overrides. Here it is in full:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExamplePortalBlock.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.periut.retroapi.achievement.RetroAchievements;
+<span class="k">import</span> com.periut.retroapi.dimension.CustomPortal;
+<span class="k">import</span> com.periut.retroapi.dimension.HasTeleportationManager;
+
+<span class="k">import</span> net.minecraft.block.Block;
+<span class="k">import</span> net.minecraft.block.material.Material;
+<span class="k">import</span> net.minecraft.entity.Entity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.util.math.Box;
+<span class="k">import</span> net.minecraft.world.World;
+<span class="k">import</span> net.minecraft.world.dimension.PortalForcer;
+
+<span class="k">import</span> net.ornithemc.osl.core.api.util.NamespacedIdentifier;
+
+<span class="k">public class</span> <span class="t">ExamplePortalBlock</span> <span class="k">extends</span> <span class="t">Block</span> <span class="k">implements</span> <span class="t">CustomPortal</span> {
+
+	<span class="k">public</span> ExamplePortalBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, <span class="t">Material</span>.GLASS);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">Box</span> getCollisionShape(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z) {
+		<span class="k">return null</span>; <span class="c">// no collision box, the player can walk into the block</span>
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> isOpaque() {
+		<span class="k">return false</span>; <span class="c">// don't suffocate/black-out the player standing inside it</span>
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> onEntityCollision(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">Entity</span> entity) {
+		<span class="k">if</span> (entity <span class="k">instanceof</span> <span class="t">PlayerEntity</span> &amp;&amp; entity.vehicle == <span class="k">null</span> &amp;&amp; entity.passenger == <span class="k">null</span>) {
+			<span class="t">PlayerEntity</span> player = (<span class="t">PlayerEntity</span>) entity;
+
+			<span class="c">// A gameplay-triggered achievement grant (see ExampleAchievements).</span>
+			<span class="k">if</span> (!world.isRemote) {
+				<span class="t">RetroAchievements</span>.grant(<span class="t">ExampleAchievements</span>.DIMENSIONAL_TRAVELER, player);
+			}
+
+			<span class="c">// Standing in the portal: register ourselves as the thing that will switch</span>
+			<span class="c">// the player's dimension once the (vanilla) portal timer fills up.</span>
+			((<span class="t">HasTeleportationManager</span>) player).setTeleportationManager(<span class="k">this</span>);
+			player.tickPortalCooldown();
+		}
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">NamespacedIdentifier</span> getDimension(<span class="t">PlayerEntity</span> player) {
+		<span class="c">// Where this portal leads. From the example dimension the same portal leads</span>
+		<span class="c">// back to the overworld automatically (RetroAPI flips the travel direction).</span>
+		<span class="k">return</span> <span class="t">ExampleMod</span>.EXAMPLE_DIMENSION.getId();
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">PortalForcer</span> getTravelAgent(<span class="t">PlayerEntity</span> player) {
+		<span class="c">// The vanilla PortalForcer looks for (or builds) a portal at the destination.</span>
+		<span class="k">return new</span> <span class="t">PortalForcer</span>();
+	}
+}</code></pre></div>
+
+<h3>Walking through it, override by override</h3>
+<p>Five methods turn an ordinary block into a doorway, and each does one clear thing:</p>
+
+<p><strong><code>getCollisionShape</code> returns <code>null</code></strong>, the block has no solid box, so the player walks <em>into</em> it instead of bumping against it. That's what makes it a portal you step into rather than a wall you mine through.</p>
+
+<p><strong><code>isOpaque</code> returns <code>false</code></strong>, light passes through and, just as importantly, the player standing inside doesn't suffocate or black out. A walk-in block that you can't see out of would be a trap, not a portal.</p>
+
+<p><strong><code>onEntityCollision</code> arms the portal.</strong> This fires every tick an entity is inside the block. It checks the entity is a player and isn't riding or carrying anything, no teleporting boats and their passengers into the void, then does two things. It registers the block as the player's <em>teleportation manager</em> via <code>setTeleportationManager(this)</code>, and it ticks the portal cooldown with <code>tickPortalCooldown()</code>. This is precisely how vanilla Nether portals arm themselves: stand in it, a timer fills, and when it's full the manager switches your dimension. (It also grants the <code>DIMENSIONAL_TRAVELER</code> achievement from <a href="achievements.html">Chapter 8</a> on the way, a nice touch worth pointing at, guarded by <code>!world.isRemote</code> so it only fires on the authoritative side.)</p>
+
+<p><strong><code>getDimension</code> names the destination.</strong> It returns the id of the dimension to travel to, here, <code>EXAMPLE_DIMENSION.getId()</code>. And travel <em>flips</em>: a player already in the example dimension who steps into the same portal is sent back to the overworld. RetroAPI reverses the direction automatically, mirroring exactly how the Nether portal you came through is also the one you leave through. This is verified RetroAPI behavior, not a hopeful description, the round trip works.</p>
+
+<p><strong><code>getTravelAgent</code> finds or builds the landing.</strong> It returns a vanilla <code>PortalForcer</code>, the same object the Nether uses to locate an existing portal at the destination or construct a new one if there isn't one. You inherit decades of arrival-portal logic by handing back the stock class.</p>
+
+<div class="note"><p><code>CustomPortal</code> has one more method with a sensible default: <code>getDimensionScale(player)</code>, which returns <code>1.0</code>, no coordinate scaling. The vanilla Nether overrides this to 8×, so one block in the Nether maps to eight in the Overworld. Override it on your portal if you want the same trick (a compact dimension that covers a vast overworld); leave it alone and the two worlds share coordinates one-to-one.</p></div>
+
+<h3>Registering the portal block</h3>
+<p>The portal is a normal block registration, with one shortcut worth noticing, it reuses the vanilla glass sprite rather than shipping its own texture:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code><span class="c">// A walk-in portal block that sends the player to the dimension above.</span>
+<span class="c">// See ExamplePortalBlock, it implements RetroAPI's CustomPortal interface.</span>
+EXAMPLE_PORTAL = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExamplePortalBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
+	.sounds(<span class="t">Block</span>.GLASS_SOUND_GROUP)
+	.sprite(<span class="t">Block</span>.GLASS.getTexture(<span class="n">0</span>)) <span class="c">// reuse the vanilla glass texture</span>
+	.register(id(<span class="s">"example_portal"</span>));</code></pre></div>
+
+<p>The <code>.sprite(Block.GLASS.getTexture(0))</code> call borrows glass's existing atlas sprite, so the portal is translucent and ready without a single new PNG, handy for prototyping, and a reminder that any vanilla texture is yours to reuse.</p>
+
+<h2>What RetroAPI does behind the scenes</h2>
+<p>The two classes above are short because RetroAPI is quietly handling the parts that are genuinely hard. Three of them are worth knowing about.</p>
+
+<p><strong>A stable serial id.</strong> Your dimension gets a runtime number that stays put, the <code>DIM&lt;serialId&gt;/</code> folder doesn't move out from under saved chunks as you add or remove dimensions. That stability is what lets a world reload its other dimensions correctly across sessions.</p>
+
+<p><strong>A prepared spawn region.</strong> At server startup, RetroAPI prepares a spawn region for the dimension, so the first player to arrive doesn't fall through ungenerated chunks while terrain catches up. The world is ready before anyone walks into it.</p>
+
+<p><strong>Multiplayer id sync.</strong> Serial ids are a runtime detail of the server, so when a client joins, the server tells it which numbers map to which dimensions over the <code>retroapi:dim_sync</code> channel. The client learns the table on join and stays in agreement, the same sidecar-and-sync philosophy that keeps blocks, items, and entities portable applies to whole worlds.</p>
+
+<h2>Custom terrain, the honest version</h2>
+<p>This showcase reuses overworld generation, and that's a deliberate choice, not a limitation. <code>ExampleDimension extends OverworldDimension</code> precisely so that terrain generates immediately and the chapter can stay focused on the thing that's actually new, registering a dimension and walking into it through a portal. The moment you bring your own generator into the room, you're learning a second large subject (chunk generators, biome sources, surface builders) that has nothing to do with portals.</p>
+
+<p>When you <em>do</em> want a world that looks different, the move is to extend <code>Dimension</code> directly (or override the generator hooks on whatever parent you pick) and supply your own chunk generator and biome source. The registration, the portal, the sidecar, the sync, none of that changes. You swap the generation half and keep everything you learned here. The Aether, the Twilight Forest, an end-game void dimension: they're all this same skeleton with a more ambitious <code>createChunkGenerator</code> bolted on.</p>
+
+<p>You now have a world behind a doorway, a creature to put in it, machines to build there, and badges for getting there. The last piece is the one that ties multiplayer together: sending your own messages over the wire.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

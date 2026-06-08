@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 6: Machines, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 6, Machines</h1>
+<p class="chapter-sub">A block that remembers a number, a box that holds your things, and a machine that looks alive while it works.</p>
+
+<p>So far our blocks have been furniture, they sit there and look the way we told them to. A <strong>block entity</strong> gives a block a memory: a small bag of data attached to one position in the world, ticking, saving, loading, surviving the night. Vanilla uses them for chests, furnaces, and signs. We'll build three, each more ambitious than the last.</p>
+
+<p>We'll go in order of nerve: first a block that just counts your clicks, then a crate with its own window, then a fuel-burning freezer whose progress bars actually move on every screen in a multiplayer game. The last one is the whole reason this chapter exists, but the first two earn it.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/counter_block.png" width="64" height="64" alt="counter_block"><div class="asset-name">counter_block.png</div><a href="assets/counter_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/crate_block.png" width="64" height="64" alt="crate_block"><div class="asset-name">crate_block.png</div><a href="assets/crate_block.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_block.png" width="64" height="64" alt="freezer_block"><div class="asset-name">freezer_block.png</div><a href="assets/freezer_block.png" download>download</a></div>
+</div>
+
+<h2>Part 1, The Counter Block</h2>
+<p class="chapter-sub" style="margin-top:-8px">State that saves.</p>
+
+<p>The smallest interesting block entity is a single integer. Right-click the block and the number goes up; close the world, reopen it tomorrow, and the number is exactly where you left it. That's the promise of a block entity, distilled to one field.</p>
+
+<p>Two classes do it. The block entity holds the data and knows how to write and read it; the block creates the entity and reacts to clicks. Here's the data half:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlockEntity.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.block.entity.BlockEntity;
+<span class="k">import</span> net.minecraft.nbt.NbtCompound;
+
+<span class="k">public class</span> <span class="t">ExampleCounterBlockEntity</span> <span class="k">extends</span> <span class="t">BlockEntity</span> {
+
+	<span class="k">public int</span> clicks = <span class="n">0</span>;
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> writeNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.writeNbt(nbt);
+		nbt.putInt(<span class="s">"Clicks"</span>, <span class="k">this</span>.clicks);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> readNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.readNbt(nbt);
+		<span class="k">this</span>.clicks = nbt.getInt(<span class="s">"Clicks"</span>);
+	}
+}</code></pre></div>
+
+<p>That's the entire persistence contract: extend <code>BlockEntity</code>, override <code>writeNbt</code> and <code>readNbt</code>, and, this part is not optional, <strong>call <code>super</code> first in each</strong>. The superclass writes the block entity's own position and identity into the tag; skip the <code>super</code> call and the game can't find your data again on load. Inside, you read and write your fields by name, like keys in a dictionary.</p>
+
+<div class="warn"><p>The NBT key <code>"Clicks"</code> is private to this class, call it whatever you like. But once your mod ships, treat it as load-bearing: rename it and every existing counter in every saved world silently resets to zero, because <code>readNbt</code> looks for a key that no longer exists.</p></div>
+
+<p>Now the block. It extends <code>BlockWithEntity</code>, hands back a fresh entity from <code>createBlockEntity()</code>, and does the actual work in <code>onUse</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlock.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.block.BlockWithEntity;
+<span class="k">import</span> net.minecraft.block.entity.BlockEntity;
+<span class="k">import</span> net.minecraft.block.material.Material;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.world.World;
+
+<span class="k">public class</span> <span class="t">ExampleCounterBlock</span> <span class="k">extends</span> <span class="t">BlockWithEntity</span> {
+
+	<span class="k">public</span> ExampleCounterBlock(<span class="k">int</span> id) {
+		<span class="k">super</span>(id, <span class="t">Material</span>.STONE);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected</span> <span class="t">BlockEntity</span> createBlockEntity() {
+		<span class="k">return new</span> <span class="t">ExampleCounterBlockEntity</span>();
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> onUse(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">PlayerEntity</span> player) {
+		<span class="t">BlockEntity</span> be = world.getBlockEntity(x, y, z);
+		<span class="k">if</span> (be <span class="k">instanceof</span> <span class="t">ExampleCounterBlockEntity</span>) {
+			<span class="t">ExampleCounterBlockEntity</span> counter = (<span class="t">ExampleCounterBlockEntity</span>) be;
+			counter.clicks++;
+			counter.markDirty(); <span class="c">// tells the world this block entity needs saving</span>
+
+			<span class="c">// Custom sound: assets/example_mod/sounds/sound/counter/click.ogg is</span>
+			<span class="c">// auto-loaded by RetroAPI under the event id "example_mod:counter.click".</span>
+			world.playSound(x + <span class="n">0.5</span>, y + <span class="n">0.5</span>, z + <span class="n">0.5</span>, <span class="s">"example_mod:counter.click"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);
+
+			<span class="k">if</span> (!world.isRemote) {
+				player.sendMessage(<span class="s">"Counter: "</span> + counter.clicks + <span class="s">" (saved with the world!)"</span>);
+			}
+		}
+		<span class="k">return true</span>; <span class="c">// we handled the click, don't place blocks/use items through it</span>
+	}
+}</code></pre></div>
+
+<p>Three lines in <code>onUse</code> deserve a moment. <code>counter.clicks++</code> changes the field, but the world doesn't know anything happened until you call <code>counter.markDirty()</code>, that's the flag that says "save me when you next save the chunk." Forget it and your increments evaporate at the next reload. The <code>world.playSound</code> line plays the click sound RetroAPI auto-loaded in <a href="assets.html">Chapter 3</a>. And the <code>!world.isRemote</code> guard keeps the chat message on the authoritative side, more on that distinction below.</p>
+
+<p>Both halves are registered together in <code>init()</code>, and the order matters: register the block entity class first, then the block whose <code>createBlockEntity()</code> returns one.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code><span class="c">// ...then register the block whose createBlockEntity() returns one.</span>
+RetroBlockEntities.register(id(<span class="s">"counter"</span>), <span class="t">ExampleCounterBlockEntity</span>.<span class="k">class</span>);
+COUNTER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleCounterBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
+	.sounds(<span class="t">Block</span>.STONE_SOUND_GROUP)
+	.strength(<span class="n">1.5f</span>)
+	.texture(id(<span class="s">"counter_block"</span>))
+	.register(id(<span class="s">"counter_block"</span>));</code></pre></div>
+
+<div class="danger"><p>The string id <code>"counter"</code> passed to <code>RetroBlockEntities.register</code> is written into your world's NBT as the name of every counter's saved data. <strong>Never change it after release.</strong> Rename it and every counter in every existing world becomes an orphan the game can't reconstruct. Pick the name once and live with it forever, exactly the same rule as the NBT keys inside <code>writeNbt</code>.</p></div>
+
+<p>Here's the quiet magic underneath. Vanilla Beta 1.7.3 stores block entities inside the chunk file. If we let a modded one land there, the world would refuse to open in unmodded Minecraft. So RetroAPI keeps modded block entities in an <strong>inventory sidecar</strong>, a separate file alongside the vanilla chunk data. Open your world in plain Beta 1.7.3 and it loads fine; the counters simply aren't there. Put the mod back and they reappear, clicks and all. You write ordinary <code>writeNbt</code>/<code>readNbt</code> code and never think about it.</p>
+
+<h2>Part 2, The Crate</h2>
+<p class="chapter-sub" style="margin-top:-8px">A container with its own GUI.</p>
+
+<p>A counter holds one number. A crate holds twelve item stacks and shows you a window to rearrange them. That jump, from a field to a full container GUI, introduces a third class and a clean division of labor. Hold this table in your head for the rest of the chapter; the freezer uses the exact same shape.</p>
+
+<table>
+<tr><th>Piece</th><th>Class</th><th>Runs on</th><th>Job</th></tr>
+<tr><td>Block entity</td><td><code>ExampleCrateBlockEntity</code></td><td>server + client</td><td>holds the items, saves them to NBT</td></tr>
+<tr><td>Container</td><td><code>ExampleCrateContainer</code></td><td>server + client</td><td>the slots and the click/shift-click logic</td></tr>
+<tr><td>Screen</td><td><code>ExampleCrateScreen</code></td><td><strong>client only</strong></td><td>draws the window</td></tr>
+</table>
+
+<p>The Container is what most engines call a <em>ScreenHandler</em>: the server-authoritative object that owns the slots and validates every move. The Screen is just paint, it must never be loaded on a dedicated server, which has no graphics. Keep those two facts straight and containers stop being scary.</p>
+
+<div class="note"><p>This crate is based on <a href="https://github.com/matthewperiut/crates-fabric-b1.7.3">matthewperiut/crates-fabric-b1.7.3</a>.</p></div>
+
+<h3>The block entity, a 12-slot inventory by hand</h3>
+<p>There's no "give me an inventory" helper here; you implement the <code>Inventory</code> interface yourself. It's more code than you'd guess, but every method is short and obvious, and this is exactly what vanilla chests and furnaces do internally. The contents are an <code>ItemStack[]</code>; the methods are the rules for reading, taking from, and writing to it.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCrateBlockEntity.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.block.entity.BlockEntity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.inventory.Inventory;
+<span class="k">import</span> net.minecraft.item.ItemStack;
+<span class="k">import</span> net.minecraft.nbt.NbtCompound;
+<span class="k">import</span> net.minecraft.nbt.NbtList;
+
+<span class="k">public class</span> <span class="t">ExampleCrateBlockEntity</span> <span class="k">extends</span> <span class="t">BlockEntity</span> <span class="k">implements</span> <span class="t">Inventory</span> {
+
+	<span class="k">private</span> <span class="t">ItemStack</span>[] contents = <span class="k">new</span> <span class="t">ItemStack</span>[<span class="n">12</span>];
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> size() {
+		<span class="k">return this</span>.contents.length;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ItemStack</span> getStack(<span class="k">int</span> slot) {
+		<span class="k">return this</span>.contents[slot];
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ItemStack</span> removeStack(<span class="k">int</span> slot, <span class="k">int</span> amount) {
+		<span class="t">ItemStack</span> stack = <span class="k">this</span>.contents[slot];
+		<span class="k">if</span> (stack == <span class="k">null</span>) {
+			<span class="k">return null</span>;
+		}
+		<span class="k">if</span> (stack.count <= amount) {
+			<span class="c">// taking everything: empty the slot</span>
+			<span class="k">this</span>.contents[slot] = <span class="k">null</span>;
+			<span class="k">this</span>.markDirty();
+			<span class="k">return</span> stack;
+		}
+		<span class="c">// taking part of the stack: split it</span>
+		<span class="t">ItemStack</span> taken = stack.split(amount);
+		<span class="k">if</span> (stack.count == <span class="n">0</span>) {
+			<span class="k">this</span>.contents[slot] = <span class="k">null</span>;
+		}
+		<span class="k">this</span>.markDirty();
+		<span class="k">return</span> taken;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> setStack(<span class="k">int</span> slot, <span class="t">ItemStack</span> stack) {
+		<span class="k">this</span>.contents[slot] = stack;
+		<span class="k">if</span> (stack != <span class="k">null</span> &amp;&amp; stack.count > <span class="k">this</span>.getMaxCountPerStack()) {
+			stack.count = <span class="k">this</span>.getMaxCountPerStack();
+		}
+		<span class="k">this</span>.markDirty();
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">String</span> getName() {
+		<span class="k">return</span> <span class="s">"Crate"</span>; <span class="c">// drawn as the title by ExampleCrateScreen</span>
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public int</span> getMaxCountPerStack() {
+		<span class="k">return</span> <span class="n">64</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> canPlayerUse(<span class="t">PlayerEntity</span> player) {
+		<span class="c">// Standard container rules: still placed, and the player is within 8 blocks.</span>
+		<span class="k">if</span> (<span class="k">this</span>.world.getBlockEntity(<span class="k">this</span>.x, <span class="k">this</span>.y, <span class="k">this</span>.z) != <span class="k">this</span>) {
+			<span class="k">return false</span>;
+		}
+		<span class="k">return</span> player.getSquaredDistance(<span class="k">this</span>.x + <span class="n">0.5</span>, <span class="k">this</span>.y + <span class="n">0.5</span>, <span class="k">this</span>.z + <span class="n">0.5</span>) <= <span class="n">64.0</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> writeNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.writeNbt(nbt);
+		<span class="t">NbtList</span> items = <span class="k">new</span> <span class="t">NbtList</span>();
+		<span class="k">for</span> (<span class="k">int</span> slot = <span class="n">0</span>; slot < <span class="k">this</span>.contents.length; slot++) {
+			<span class="k">if</span> (<span class="k">this</span>.contents[slot] != <span class="k">null</span>) {
+				<span class="t">NbtCompound</span> entry = <span class="k">new</span> <span class="t">NbtCompound</span>();
+				entry.putByte(<span class="s">"Slot"</span>, (<span class="k">byte</span>) slot);
+				<span class="k">this</span>.contents[slot].writeNbt(entry);
+				items.add(entry);
+			}
+		}
+		nbt.put(<span class="s">"Items"</span>, items);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> readNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.readNbt(nbt);
+		<span class="t">NbtList</span> items = nbt.getList(<span class="s">"Items"</span>);
+		<span class="k">this</span>.contents = <span class="k">new</span> <span class="t">ItemStack</span>[<span class="k">this</span>.size()];
+		<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i < items.size(); i++) {
+			<span class="t">NbtCompound</span> entry = (<span class="t">NbtCompound</span>) items.get(i);
+			<span class="k">int</span> slot = entry.getByte(<span class="s">"Slot"</span>) &amp; <span class="n">255</span>;
+			<span class="k">if</span> (slot >= <span class="n">0</span> &amp;&amp; slot < <span class="k">this</span>.contents.length) {
+				<span class="k">this</span>.contents[slot] = <span class="k">new</span> <span class="t">ItemStack</span>(entry);
+			}
+		}
+	}
+}</code></pre></div>
+
+<p>The save format is worth recognizing because it's vanilla's own: an NBT list named <code>"Items"</code>, one compound per occupied slot, each tagged with a <code>"Slot"</code> byte so empty slots cost nothing. <code>canPlayerUse</code> enforces the two classic container rules, the block must still exist (you didn't mine it out from under the open window) and the player must be within 8 blocks (64 squared). And again, RetroAPI's inventory sidecar quietly carries all of this, modded items included, so the world stays vanilla-openable.</p>
+
+<h3>The container, slots, coordinates, and shift-click</h3>
+<p>The Container adds <code>Slot</code> objects in a fixed order, and each slot's <code>x</code>/<code>y</code> are pixel coordinates measured against the GUI art. Get them right and items land where the picture says they should.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCrateContainer.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerInventory;
+<span class="k">import</span> net.minecraft.inventory.Inventory;
+<span class="k">import</span> net.minecraft.item.ItemStack;
+<span class="k">import</span> net.minecraft.screen.ScreenHandler;
+<span class="k">import</span> net.minecraft.screen.slot.Slot;
+
+<span class="k">public class</span> <span class="t">ExampleCrateContainer</span> <span class="k">extends</span> <span class="t">ScreenHandler</span> {
+
+	<span class="c">/** A slot that refuses certain items, here: no crates inside crates. */</span>
+	<span class="k">private static class</span> <span class="t">CrateSlot</span> <span class="k">extends</span> <span class="t">Slot</span> {
+		<span class="k">public</span> CrateSlot(<span class="t">Inventory</span> inventory, <span class="k">int</span> index, <span class="k">int</span> x, <span class="k">int</span> y) {
+			<span class="k">super</span>(inventory, index, x, y);
+		}
+
+		<span class="k">@Override</span>
+		<span class="k">public boolean</span> canInsert(<span class="t">ItemStack</span> stack) {
+			<span class="k">return</span> allowedInCrate(stack);
+		}
+	}
+
+	<span class="k">private static boolean</span> allowedInCrate(<span class="t">ItemStack</span> stack) {
+		<span class="k">return</span> stack.itemId != <span class="t">ExampleMod</span>.CRATE_BLOCK.id;
+	}
+
+	<span class="k">private static final int</span> CRATE_SLOTS = <span class="n">12</span>;
+
+	<span class="k">public</span> ExampleCrateContainer(<span class="t">PlayerInventory</span> playerInventory, <span class="t">ExampleCrateBlockEntity</span> crate) {
+		<span class="c">// The crate's 4x3 grid.</span>
+		<span class="k">for</span> (<span class="k">int</span> row = <span class="n">0</span>; row < <span class="n">3</span>; row++) {
+			<span class="k">for</span> (<span class="k">int</span> col = <span class="n">0</span>; col < <span class="n">4</span>; col++) {
+				<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">CrateSlot</span>(crate, row * <span class="n">4</span> + col, <span class="n">53</span> + col * <span class="n">18</span>, <span class="n">26</span> + row * <span class="n">18</span>));
+			}
+		}
+
+		<span class="c">// The player's main inventory (3 rows of 9; indices 9-35)...</span>
+		<span class="k">int</span> offset = <span class="n">28</span>;
+		<span class="k">for</span> (<span class="k">int</span> row = <span class="n">0</span>; row < <span class="n">3</span>; row++) {
+			<span class="k">for</span> (<span class="k">int</span> col = <span class="n">0</span>; col < <span class="n">9</span>; col++) {
+				<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(playerInventory, col + row * <span class="n">9</span> + <span class="n">9</span>, <span class="n">8</span> + col * <span class="n">18</span>, offset + <span class="n">84</span> + row * <span class="n">18</span>));
+			}
+		}
+		<span class="c">// ...and the hotbar (indices 0-8).</span>
+		<span class="k">for</span> (<span class="k">int</span> col = <span class="n">0</span>; col < <span class="n">9</span>; col++) {
+			<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(playerInventory, col, <span class="n">8</span> + col * <span class="n">18</span>, offset + <span class="n">142</span>));
+		}
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> canUse(<span class="t">PlayerEntity</span> player) {
+		<span class="k">return true</span>;
+	}
+
+	<span class="c">/** Shift-click: crate slots dump into the inventory, inventory dumps into the crate. */</span>
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ItemStack</span> quickMove(<span class="k">int</span> slotIndex) {
+		<span class="t">ItemStack</span> moved = <span class="k">null</span>;
+		<span class="t">Slot</span> clicked = <span class="k">this</span>.slots.get(slotIndex);
+
+		<span class="k">if</span> (clicked != <span class="k">null</span> &amp;&amp; clicked.hasStack()) {
+			<span class="t">ItemStack</span> stack = clicked.getStack();
+			moved = stack.copy();
+			<span class="k">if</span> (slotIndex < CRATE_SLOTS) {
+				<span class="k">this</span>.insertItem(stack, CRATE_SLOTS, <span class="k">this</span>.slots.size(), <span class="k">true</span>);
+			} <span class="k">else if</span> (allowedInCrate(stack)) {
+				<span class="k">this</span>.insertItem(stack, <span class="n">0</span>, CRATE_SLOTS, <span class="k">false</span>);
+			}
+
+			<span class="k">if</span> (stack.count == <span class="n">0</span>) {
+				clicked.setStack(<span class="k">null</span>);
+			} <span class="k">else</span> {
+				clicked.markDirty();
+			}
+		}
+
+		<span class="k">return</span> moved;
+	}
+}</code></pre></div>
+
+<p>The custom <code>CrateSlot</code> overrides <code>canInsert</code> to forbid one thing, putting a crate inside a crate, which would be a tidy recursion bomb. That single override is the general pattern for "this slot only accepts fuel," "this slot only accepts armor," and so on. The <code>quickMove</code> method handles shift-click: a stack in a crate slot dumps into your inventory, a stack in your inventory tries the crate (if it's allowed in). The slot indices are everything here, <code>0..11</code> is the crate, the rest is the player.</p>
+
+<h3>The screen, paint, and nothing else</h3>
+<p>The Screen is client-only. It extends <code>HandledScreen</code>, sizes the window, draws the title text in the foreground, and binds the GUI texture in the background. Notice what it does <em>not</em> do: no item logic, no validation. That all lives in the Container, on the server.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCrateScreen.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> org.lwjgl.opengl.GL11;
+
+<span class="k">import</span> net.minecraft.client.gui.screen.ingame.HandledScreen;
+<span class="k">import</span> net.minecraft.entity.player.PlayerInventory;
+
+<span class="k">public class</span> <span class="t">ExampleCrateScreen</span> <span class="k">extends</span> <span class="t">HandledScreen</span> {
+
+	<span class="k">private static final</span> <span class="t">String</span> TEXTURE = <span class="s">"/assets/example_mod/textures/gui/crategui.png"</span>;
+
+	<span class="k">private final</span> <span class="t">String</span> name;
+
+	<span class="k">public</span> ExampleCrateScreen(<span class="t">PlayerInventory</span> playerInventory, <span class="t">ExampleCrateBlockEntity</span> crate) {
+		<span class="k">super</span>(<span class="k">new</span> <span class="t">ExampleCrateContainer</span>(playerInventory, crate));
+		<span class="k">this</span>.name = crate.getName();
+		<span class="k">this</span>.backgroundWidth = <span class="n">176</span>;
+		<span class="k">this</span>.backgroundHeight = <span class="n">222</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> drawForeground() {
+		<span class="c">// Drawn relative to the window's top-left corner.</span>
+		<span class="k">this</span>.textRenderer.draw(<span class="k">this</span>.name, <span class="n">53</span>, <span class="n">14</span>, <span class="n">0x121212</span>);
+		<span class="k">this</span>.textRenderer.draw(<span class="s">"Inventory"</span>, <span class="n">8</span>, <span class="k">this</span>.backgroundHeight - <span class="n">122</span>, <span class="n">0x404040</span>);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> drawBackground(<span class="k">float</span> tickDelta) {
+		<span class="k">int</span> texture = <span class="k">this</span>.minecraft.textureManager.getTextureId(TEXTURE);
+		<span class="t">GL11</span>.glColor4f(<span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);
+		<span class="k">this</span>.minecraft.textureManager.bindTexture(texture);
+		<span class="k">int</span> left = (<span class="k">this</span>.width - <span class="k">this</span>.backgroundWidth) / <span class="n">2</span>;
+		<span class="k">int</span> top = (<span class="k">this</span>.height - <span class="k">this</span>.backgroundHeight) / <span class="n">2</span>;
+		<span class="k">this</span>.drawTexture(left, top, <span class="n">0</span>, <span class="n">0</span>, <span class="k">this</span>.backgroundWidth, <span class="k">this</span>.backgroundHeight);
+	}
+}</code></pre></div>
+
+<p>One thing to file away: GUI textures are <em>not</em> atlased the way block and item textures are. You bind the PNG directly by its classpath path through the texture manager. This is the crate window it binds:</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/crategui.png" width="256" height="256" alt="crategui" style="image-rendering:pixelated"><div class="asset-name">crategui.png</div><a href="assets/crategui.png" download>download</a></div>
+</div>
+
+<h3>Opening it, from either side</h3>
+<p>The block's <code>onUse</code> is a single call:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCrateBlock.java, onUse()</span><pre><code><span class="k">@Override</span>
+<span class="k">public boolean</span> onUse(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">PlayerEntity</span> player) {
+	<span class="t">BlockEntity</span> be = world.getBlockEntity(x, y, z);
+	<span class="k">if</span> (be <span class="k">instanceof</span> <span class="t">ExampleCrateBlockEntity</span>) {
+		<span class="t">ExampleCrateBlockEntity</span> crate = (<span class="t">ExampleCrateBlockEntity</span>) be;
+		<span class="t">RetroGuis</span>.openGUI(player, <span class="t">ExampleMod</span>.id(<span class="s">"crate"</span>), crate,
+			<span class="k">new</span> <span class="t">ExampleCrateContainer</span>(player.inventory, crate));
+	}
+	<span class="k">return true</span>;
+}</code></pre></div>
+
+<p>And the common-side registration sits beside the block entity in <code>init()</code>, but the GUI's <em>client</em> half lives in the client entrypoint, because it names a Screen class a dedicated server must never load:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"crate"</span>), <span class="t">ExampleCrateBlockEntity</span>.<span class="k">class</span>);
+CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleCrateBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
+	.sounds(<span class="t">Block</span>.WOOD_SOUND_GROUP)
+	.strength(<span class="n">2.0f</span>)
+	.alwaysEffectiveTool()
+	.alwaysDrops()
+	.texture(id(<span class="s">"crate_block"</span>))
+	.register(id(<span class="s">"crate_block"</span>));</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="c">// The client half of the crate GUI (the common half is in ExampleMod.init).</span>
+<span class="c">// Two factories: how to build the screen, and how to build a stand-in</span>
+<span class="c">// inventory on remote clients (multiplayer), which have no real block entity.</span>
+<span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"crate"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
+	(player, inventory) -> <span class="k">new</span> <span class="t">ExampleCrateScreen</span>(player.inventory, (<span class="t">ExampleCrateBlockEntity</span>) inventory),
+	<span class="t">ExampleCrateBlockEntity</span>::<span class="k">new</span>));</code></pre></div>
+
+<p>That <code>RetroGuiHandler</code> takes <strong>two</strong> factories, and the second one is the subtle one. The first is the screen builder, given a player and an inventory, make the window. The second is an <em>inventory factory</em>: <code>ExampleCrateBlockEntity::new</code>. On a remote multiplayer client there is no real block entity object, the client never ran the placing logic, so RetroAPI builds a stand-in inventory with this factory, and the synced contents flow into it. Singleplayer has the real block entity and uses it directly; the factory is the bridge for everyone else.</p>
+
+<p>That's why <code>RetroGuis.openGUI(player, id, inventory, container)</code> can be called from common code without an <code>isRemote</code> check. It is side-independent by design: in singleplayer it opens the registered screen directly; on a dedicated server it sends RetroAPI's <code>retroapi:open_gui</code> packet, and the client rebuilds the very same screen from the very same registration. One call, both worlds.</p>
+
+<h2>Part 3, The Freezer</h2>
+<p class="chapter-sub" style="margin-top:-8px">The synced-variables chapter. This is the heart of the whole guide.</p>
+
+<p>Here's the pitch: drop any furnace fuel in the bottom slot, a water bucket in the top, and the machine freezes the water into ice, leaving the empty bucket behind in the input slot. Coal works. Wood works. So does our own Suspicious Substance, because it's registered as fuel (<a href="recipes.html">Chapter 10</a>). It is, in every mechanical way, a furnace that makes cold instead of heat.</p>
+
+<div class="note"><p>The freezer is based on the <strong>Aether's freezer</strong> (<a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">aether-fabric-b1.7.3</a>), a real machine from a real mod, simplified to its essentials.</p></div>
+
+<p>It reuses the crate's three-piece shape exactly: a block entity that holds items and ticks, a container, a client screen. What's new is the part you can't store in an item slot, the <em>live state</em> of a working machine: how far along the freeze is, how much fuel is left, how big the last fuel item was. Three plain integers. Getting those three integers onto every player's screen is the entire lesson.</p>
+
+<div class="note"><p><strong>One render gotcha worth knowing before we start.</strong> The freezer is also a directional block: a single <code>facing</code> state, set from the placer, that a blockstate JSON turns into a y-rotated orientable model so the frosted door always faces you (the same pattern as <a href="blocks.html">Chapter 4</a>'s directional blocks and <a href="models.html">Chapter 15</a>'s models). A plain RetroAPI block gets the MODEL render type wired up automatically once it has a blockstate JSON, but a block with a block entity does NOT, because <code>BlockWithEntity</code> overrides <code>getRenderType()</code> and shadows the value RetroAPI set. So a block-entity block that wants to render a JSON model (rather than a featureless cube, with no front face in the world or the inventory icon) has to return the model render type itself:</p>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlock.java</span><pre><code><span class="k">@Override</span>
+<span class="k">public int</span> getRenderType() {
+	<span class="c">// Render the orientable JSON model (in the world AND the inventory icon),</span>
+	<span class="c">// not the block-entity default. Required because BlockWithEntity overrides</span>
+	<span class="c">// getRenderType and shadows the type RetroAPI wired up from the blockstate.</span>
+	<span class="k">return</span> <span class="t">RenderType</span>.resolve(<span class="t">RenderTypes</span>.MODEL);
+}</code></pre></div></div>
+
+<h3>The block entity, three fields and a tick</h3>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlockEntity.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> com.periut.retroapi.register.recipe.RetroRecipes;
+
+<span class="k">import</span> net.minecraft.block.Block;
+<span class="k">import</span> net.minecraft.block.entity.BlockEntity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.inventory.Inventory;
+<span class="k">import</span> net.minecraft.item.Item;
+<span class="k">import</span> net.minecraft.item.ItemStack;
+<span class="k">import</span> net.minecraft.nbt.NbtCompound;
+<span class="k">import</span> net.minecraft.nbt.NbtList;
+
+<span class="k">public class</span> <span class="t">ExampleFreezerBlockEntity</span> <span class="k">extends</span> <span class="t">BlockEntity</span> <span class="k">implements</span> <span class="t">Inventory</span> {
+
+	<span class="c">/** Ticks of freezing needed to turn one water bucket into ice (10 seconds). */</span>
+	<span class="k">public static final int</span> FREEZE_TICKS = <span class="n">200</span>;
+
+	<span class="c">/** How far the current item has frozen (0..FREEZE_TICKS). Synced as property 0. */</span>
+	<span class="k">public int</span> progress = <span class="n">0</span>;
+	<span class="c">/** Fuel ticks left in the tank. Synced as property 1. */</span>
+	<span class="k">public int</span> fuelRemaining = <span class="n">0</span>;
+	<span class="c">/** Size of the last fuel item, so the flame can drain proportionally. Synced as property 2. */</span>
+	<span class="k">public int</span> fuelTotal = <span class="n">0</span>;
+
+	<span class="k">private</span> <span class="t">ItemStack</span>[] contents = <span class="k">new</span> <span class="t">ItemStack</span>[<span class="n">3</span>];
+
+	<span class="c">/** Burn ticks for a stack: vanilla fuels + RetroRecipes.addFuel fuels, 0 if not fuel. */</span>
+	<span class="k">public static int</span> fuelTime(<span class="t">ItemStack</span> stack) {
+		<span class="k">return</span> <span class="t">RetroRecipes</span>.getTotalFuelTime(stack);
+	}
+
+	<span class="k">public void</span> tick() {
+		<span class="k">boolean</span> wasBurning = <span class="k">this</span>.isBurning();
+
+		<span class="k">if</span> (<span class="k">this</span>.fuelRemaining > <span class="n">0</span>) {
+			<span class="k">this</span>.fuelRemaining--;
+			<span class="k">if</span> (<span class="k">this</span>.canFreeze()) {
+				<span class="k">this</span>.progress++;
+			} <span class="k">else</span> {
+				<span class="k">this</span>.progress = <span class="n">0</span>;
+			}
+		} <span class="k">else</span> {
+			<span class="k">this</span>.progress = <span class="n">0</span>;
+		}
+
+		<span class="k">if</span> (<span class="k">this</span>.world.isRemote) {
+			<span class="k">return</span>; <span class="c">// the server decides everything below; clients only animate</span>
+		}
+
+		<span class="c">// Finished: ice appears in the output, the input becomes an empty bucket.</span>
+		<span class="k">if</span> (<span class="k">this</span>.progress >= FREEZE_TICKS &amp;&amp; <span class="k">this</span>.canFreeze()) {
+			<span class="t">ItemStack</span> out = <span class="k">this</span>.contents[<span class="n">2</span>];
+			<span class="k">if</span> (out == <span class="k">null</span>) {
+				<span class="k">this</span>.contents[<span class="n">2</span>] = <span class="k">new</span> <span class="t">ItemStack</span>(<span class="t">Block</span>.ICE, <span class="n">1</span>);
+			} <span class="k">else</span> {
+				out.count++;
+			}
+			<span class="k">this</span>.contents[<span class="n">0</span>] = <span class="k">new</span> <span class="t">ItemStack</span>(<span class="t">Item</span>.BUCKET); <span class="c">// leave the bucket behind</span>
+			<span class="k">this</span>.progress = <span class="n">0</span>;
+			<span class="k">this</span>.markDirty();
+		}
+
+		<span class="c">// Tank empty but there's work to do and fuel to eat? Consume one fuel item.</span>
+		<span class="k">if</span> (<span class="k">this</span>.fuelRemaining <= <span class="n">0</span> &amp;&amp; <span class="k">this</span>.canFreeze()) {
+			<span class="k">int</span> time = fuelTime(<span class="k">this</span>.contents[<span class="n">1</span>]);
+			<span class="k">if</span> (time > <span class="n">0</span>) {
+				<span class="k">this</span>.fuelRemaining = time;
+				<span class="k">this</span>.fuelTotal = time;
+				<span class="k">this</span>.removeStack(<span class="n">1</span>, <span class="n">1</span>);
+				<span class="k">this</span>.markDirty();
+			}
+		}
+
+		<span class="k">if</span> (wasBurning != <span class="k">this</span>.isBurning()) {
+			<span class="k">this</span>.markDirty();
+		}
+	}
+
+	<span class="c">/** Input is a water bucket and the output has room for more ice. */</span>
+	<span class="k">private boolean</span> canFreeze() {
+		<span class="t">ItemStack</span> in = <span class="k">this</span>.contents[<span class="n">0</span>];
+		<span class="k">if</span> (in == <span class="k">null</span> || in.itemId != <span class="t">Item</span>.WATER_BUCKET.id) {
+			<span class="k">return false</span>;
+		}
+		<span class="t">ItemStack</span> out = <span class="k">this</span>.contents[<span class="n">2</span>];
+		<span class="k">return</span> out == <span class="k">null</span> || (out.itemId == <span class="t">Block</span>.ICE.id &amp;&amp; out.count < <span class="k">this</span>.getMaxCountPerStack());
+	}
+
+	<span class="k">public boolean</span> isBurning() {
+		<span class="k">return this</span>.fuelRemaining > <span class="n">0</span>;
+	}
+
+	<span class="c">// ------------------------------------------------------- GUI progress bars --</span>
+	<span class="c">// Scaled for drawing: map the tick counts onto a bar that is `pixels` long.</span>
+
+	<span class="k">public int</span> getProgressScaled(<span class="k">int</span> pixels) {
+		<span class="k">return this</span>.progress * pixels / FREEZE_TICKS;
+	}
+
+	<span class="k">public int</span> getFuelRemainingScaled(<span class="k">int</span> pixels) {
+		<span class="k">if</span> (<span class="k">this</span>.fuelTotal == <span class="n">0</span>) {
+			<span class="k">return</span> <span class="n">0</span>;
+		}
+		<span class="k">return this</span>.fuelRemaining * pixels / <span class="k">this</span>.fuelTotal;
+	}
+
+	<span class="c">// ------------------------------------------------------ Inventory interface --</span>
+	<span class="c">// (size/getStack/removeStack/setStack/getName/getMaxCountPerStack/canPlayerUse</span>
+	<span class="c">//, identical in shape to the crate's, over a 3-slot array. Trimmed here.)</span>
+
+	<span class="c">// ---------------------------------------------------------------- save/load --</span>
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> writeNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.writeNbt(nbt);
+		nbt.putShort(<span class="s">"Progress"</span>, (<span class="k">short</span>) <span class="k">this</span>.progress);
+		nbt.putShort(<span class="s">"Fuel"</span>, (<span class="k">short</span>) <span class="k">this</span>.fuelRemaining);
+		nbt.putShort(<span class="s">"FuelTotal"</span>, (<span class="k">short</span>) <span class="k">this</span>.fuelTotal);
+		<span class="t">NbtList</span> items = <span class="k">new</span> <span class="t">NbtList</span>();
+		<span class="k">for</span> (<span class="k">int</span> slot = <span class="n">0</span>; slot < <span class="k">this</span>.contents.length; slot++) {
+			<span class="k">if</span> (<span class="k">this</span>.contents[slot] != <span class="k">null</span>) {
+				<span class="t">NbtCompound</span> entry = <span class="k">new</span> <span class="t">NbtCompound</span>();
+				entry.putByte(<span class="s">"Slot"</span>, (<span class="k">byte</span>) slot);
+				<span class="k">this</span>.contents[slot].writeNbt(entry);
+				items.add(entry);
+			}
+		}
+		nbt.put(<span class="s">"Items"</span>, items);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> readNbt(<span class="t">NbtCompound</span> nbt) {
+		<span class="k">super</span>.readNbt(nbt);
+		<span class="k">this</span>.progress = nbt.getShort(<span class="s">"Progress"</span>);
+		<span class="k">this</span>.fuelRemaining = nbt.getShort(<span class="s">"Fuel"</span>);
+		<span class="k">this</span>.fuelTotal = nbt.getShort(<span class="s">"FuelTotal"</span>);
+		<span class="t">NbtList</span> items = nbt.getList(<span class="s">"Items"</span>);
+		<span class="k">this</span>.contents = <span class="k">new</span> <span class="t">ItemStack</span>[<span class="k">this</span>.size()];
+		<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i < items.size(); i++) {
+			<span class="t">NbtCompound</span> entry = (<span class="t">NbtCompound</span>) items.get(i);
+			<span class="k">int</span> slot = entry.getByte(<span class="s">"Slot"</span>) &amp; <span class="n">255</span>;
+			<span class="k">if</span> (slot >= <span class="n">0</span> &amp;&amp; slot < <span class="k">this</span>.contents.length) {
+				<span class="k">this</span>.contents[slot] = <span class="k">new</span> <span class="t">ItemStack</span>(entry);
+			}
+		}
+	}
+}</code></pre></div>
+
+<p>The three fields at the top, <code>progress</code>, <code>fuelRemaining</code>, <code>fuelTotal</code>, are the machine's whole brain. <code>tick()</code> runs them like a furnace: while there's fuel in the tank it counts down and pushes progress forward; when progress fills, ice drops and the bucket empties; when the tank runs dry and there's work to do, it eats one fuel item to refill. Note the <code>this.world.isRemote</code> early return, clients run the animation but the <em>server</em> alone decides when ice appears, so two machines never disagree.</p>
+
+<p>The two scaled getters at the bottom are pure presentation: <code>getProgressScaled(24)</code> maps the 0 to 200 tick count onto a 24-pixel arrow, and <code>getFuelRemainingScaled(12)</code> maps the fuel onto a 12-pixel flame. The screen calls these. They're how three integers become two moving sprites.</p>
+
+<div class="note"><p>"Any fuel" comes from <code>RetroRecipes.getTotalFuelTime(ItemStack)</code> (RetroAPI ≥ 1.0.22), the complete furnace fuel table: coal, wood, sticks, lava buckets, <em>and</em> anything added with <code>RetroRecipes.addFuel</code>. That's why the showcase's Suspicious Substance burns in the freezer. The full fuel story is <a href="recipes.html">Chapter 10</a>.</p></div>
+
+<h3>The container, the synced variables themselves</h3>
+<p>This is the centerpiece of the whole guide, so we'll quote it in full. Read it once, then read the essay that follows it; the two together are the thing to take away from this chapter.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerContainer.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> net.minecraft.entity.player.PlayerEntity;
+<span class="k">import</span> net.minecraft.entity.player.PlayerInventory;
+<span class="k">import</span> net.minecraft.item.ItemStack;
+<span class="k">import</span> net.minecraft.screen.ScreenHandler;
+<span class="k">import</span> net.minecraft.screen.ScreenHandlerListener;
+<span class="k">import</span> net.minecraft.screen.slot.FurnaceOutputSlot;
+<span class="k">import</span> net.minecraft.screen.slot.Slot;
+
+<span class="k">public class</span> <span class="t">ExampleFreezerContainer</span> <span class="k">extends</span> <span class="t">ScreenHandler</span> {
+
+	<span class="k">private final</span> <span class="t">ExampleFreezerBlockEntity</span> freezer;
+
+	<span class="c">// Last values we broadcast, so we only send changes.</span>
+	<span class="k">private int</span> lastProgress = <span class="n">0</span>;
+	<span class="k">private int</span> lastFuelRemaining = <span class="n">0</span>;
+	<span class="k">private int</span> lastFuelTotal = <span class="n">0</span>;
+
+	<span class="k">public</span> ExampleFreezerContainer(<span class="t">PlayerInventory</span> playerInventory, <span class="t">ExampleFreezerBlockEntity</span> freezer) {
+		<span class="k">this</span>.freezer = freezer;
+
+		<span class="c">// The machine's slots; coordinates match textures/gui/freezer.png.</span>
+		<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(freezer, <span class="n">0</span>, <span class="n">56</span>, <span class="n">17</span>));                                  <span class="c">// input (water bucket)</span>
+		<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(freezer, <span class="n">1</span>, <span class="n">56</span>, <span class="n">53</span>));                                  <span class="c">// fuel</span>
+		<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">FurnaceOutputSlot</span>(playerInventory.player, freezer, <span class="n">2</span>, <span class="n">116</span>, <span class="n">35</span>)); <span class="c">// output (take-only)</span>
+
+		<span class="c">// Player inventory + hotbar, vanilla layout.</span>
+		<span class="k">for</span> (<span class="k">int</span> row = <span class="n">0</span>; row < <span class="n">3</span>; row++) {
+			<span class="k">for</span> (<span class="k">int</span> col = <span class="n">0</span>; col < <span class="n">9</span>; col++) {
+				<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(playerInventory, col + row * <span class="n">9</span> + <span class="n">9</span>, <span class="n">8</span> + col * <span class="n">18</span>, <span class="n">84</span> + row * <span class="n">18</span>));
+			}
+		}
+		<span class="k">for</span> (<span class="k">int</span> col = <span class="n">0</span>; col < <span class="n">9</span>; col++) {
+			<span class="k">this</span>.addSlot(<span class="k">new</span> <span class="t">Slot</span>(playerInventory, col, <span class="n">8</span> + col * <span class="n">18</span>, <span class="n">142</span>));
+		}
+	}
+
+	<span class="c">/** SERVER, every tick the GUI is open: broadcast the properties that changed. */</span>
+	<span class="k">@Override</span>
+	<span class="k">public void</span> sendContentUpdates() {
+		<span class="k">super</span>.sendContentUpdates();
+		<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i < <span class="k">this</span>.listeners.size(); i++) {
+			<span class="t">ScreenHandlerListener</span> listener = <span class="k">this</span>.listeners.get(i);
+			<span class="k">if</span> (<span class="k">this</span>.lastProgress != <span class="k">this</span>.freezer.progress) {
+				listener.onPropertyUpdate(<span class="k">this</span>, <span class="n">0</span>, <span class="k">this</span>.freezer.progress);
+			}
+			<span class="k">if</span> (<span class="k">this</span>.lastFuelRemaining != <span class="k">this</span>.freezer.fuelRemaining) {
+				listener.onPropertyUpdate(<span class="k">this</span>, <span class="n">1</span>, <span class="k">this</span>.freezer.fuelRemaining);
+			}
+			<span class="k">if</span> (<span class="k">this</span>.lastFuelTotal != <span class="k">this</span>.freezer.fuelTotal) {
+				listener.onPropertyUpdate(<span class="k">this</span>, <span class="n">2</span>, <span class="k">this</span>.freezer.fuelTotal);
+			}
+		}
+		<span class="k">this</span>.lastProgress = <span class="k">this</span>.freezer.progress;
+		<span class="k">this</span>.lastFuelRemaining = <span class="k">this</span>.freezer.fuelRemaining;
+		<span class="k">this</span>.lastFuelTotal = <span class="k">this</span>.freezer.fuelTotal;
+	}
+
+	<span class="c">/** CLIENT: a property packet arrived, mirror it into our local block entity. */</span>
+	<span class="k">@Override</span>
+	<span class="k">public void</span> setProperty(<span class="k">int</span> id, <span class="k">int</span> value) {
+		<span class="k">if</span> (id == <span class="n">0</span>) {
+			<span class="k">this</span>.freezer.progress = value;
+		} <span class="k">else if</span> (id == <span class="n">1</span>) {
+			<span class="k">this</span>.freezer.fuelRemaining = value;
+		} <span class="k">else if</span> (id == <span class="n">2</span>) {
+			<span class="k">this</span>.freezer.fuelTotal = value;
+		}
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> canUse(<span class="t">PlayerEntity</span> player) {
+		<span class="k">return this</span>.freezer.canPlayerUse(player);
+	}
+
+	<span class="c">/** Shift-click: output goes to the inventory, anything else tries the machine. */</span>
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ItemStack</span> quickMove(<span class="k">int</span> slotIndex) {
+		<span class="t">ItemStack</span> moved = <span class="k">null</span>;
+		<span class="t">Slot</span> clicked = <span class="k">this</span>.slots.get(slotIndex);
+
+		<span class="k">if</span> (clicked != <span class="k">null</span> &amp;&amp; clicked.hasStack()) {
+			<span class="t">ItemStack</span> stack = clicked.getStack();
+			moved = stack.copy();
+			<span class="k">if</span> (slotIndex == <span class="n">2</span>) {
+				<span class="c">// from the output slot into the player inventory</span>
+				<span class="k">this</span>.insertItem(stack, <span class="n">3</span>, <span class="k">this</span>.slots.size(), <span class="k">true</span>);
+			} <span class="k">else if</span> (slotIndex < <span class="n">3</span>) {
+				<span class="c">// from input/fuel into the player inventory</span>
+				<span class="k">this</span>.insertItem(stack, <span class="n">3</span>, <span class="k">this</span>.slots.size(), <span class="k">false</span>);
+			} <span class="k">else if</span> (<span class="t">ExampleFreezerBlockEntity</span>.fuelTime(stack) > <span class="n">0</span>) {
+				<span class="c">// fuel from the inventory into the fuel slot</span>
+				<span class="k">this</span>.insertItem(stack, <span class="n">1</span>, <span class="n">2</span>, <span class="k">false</span>);
+			} <span class="k">else</span> {
+				<span class="c">// everything else tries the input slot</span>
+				<span class="k">this</span>.insertItem(stack, <span class="n">0</span>, <span class="n">1</span>, <span class="k">false</span>);
+			}
+
+			<span class="k">if</span> (stack.count == <span class="n">0</span>) {
+				clicked.setStack(<span class="k">null</span>);
+			} <span class="k">else</span> {
+				clicked.markDirty();
+			}
+		}
+
+		<span class="k">return</span> moved;
+	}
+}</code></pre></div>
+
+<h3>Why synced variables matter</h3>
+
+<p>Here is the problem, stated plainly. The freezer's brain, <code>progress</code>, <code>fuelRemaining</code>, <code>fuelTotal</code>, lives in the block entity, and on a dedicated server that block entity ticks <em>on the server</em>. The client drawing the GUI never runs <code>tick()</code>. It has its own copy of the block entity object, sure, but nothing is incrementing the fields in that copy. So if you do nothing, every remote player who opens the freezer sees an arrow stuck at zero and a flame that never lights, even as the machine merrily makes ice on the server. The logic and the picture are on opposite sides of the network, and by default they never speak.</p>
+
+<p>Vanilla solved this for the furnace decades ago, with a tiny channel built for exactly this: the <strong>container property</strong> protocol. It's three methods, and the freezer overrides all three. On the server, <code>sendContentUpdates()</code> runs every tick the GUI is open. It compares each live value to the last one it sent; if a value changed, it pushes <em>just that one number</em> to every listener with <code>onPropertyUpdate(container, id, value)</code>. On the client, <code>setProperty(id, value)</code> receives that packet and writes the number back into the client's copy of the block entity. Now the client's <code>progress</code> field tracks the server's, and the screen can read it as if it were local. The property ids, 0, 1, 2, are yours to invent; the only rule is that the two methods agree on what each id means.</p>
+
+<p>The elegance is in the word <em>changed</em>. Properties are sent as deltas. A freezer with no fuel and no water sits there with all three values frozen, and <code>sendContentUpdates</code> sends nothing at all, a quiet machine costs zero bandwidth. Only when something moves does a single integer cross the wire. You could have a hundred idle machines on a server and pay nothing for any of them until a player opens one and it starts working. This is the same mechanism that animates the vanilla furnace's progress arrow, and it scales the same way.</p>
+
+<p>So here's the rule to carry out of this chapter, the one sentence worth memorizing: <strong>budget a synced property for every value you visualize.</strong> The filling arrow and the draining flame are what make a machine <em>feel</em> alive, and a machine that feels alive on your screen but dead on everyone else's is a multiplayer bug waiting to be reported. If a number drives a pixel, give it a property id, mirror it in <code>setProperty</code>, and broadcast it in <code>sendContentUpdates</code>. Three small methods, and your machine breathes for every player at once.</p>
+
+<h3>The screen, turning numbers into sprites</h3>
+<p>With the container keeping the client's fields up to date, the screen's job is almost trivial: read <code>progress</code> and <code>fuelRemaining</code> through the scaled getters and blit a partial sprite.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerScreen.java</span><pre><code><span class="k">package</span> com.example.example_mod;
+
+<span class="k">import</span> org.lwjgl.opengl.GL11;
+
+<span class="k">import</span> net.minecraft.client.gui.screen.ingame.HandledScreen;
+<span class="k">import</span> net.minecraft.entity.player.PlayerInventory;
+
+<span class="k">public class</span> <span class="t">ExampleFreezerScreen</span> <span class="k">extends</span> <span class="t">HandledScreen</span> {
+
+	<span class="k">private static final</span> <span class="t">String</span> TEXTURE = <span class="s">"/assets/example_mod/textures/gui/freezer.png"</span>;
+
+	<span class="k">private final</span> <span class="t">ExampleFreezerBlockEntity</span> freezer;
+
+	<span class="k">public</span> ExampleFreezerScreen(<span class="t">PlayerInventory</span> playerInventory, <span class="t">ExampleFreezerBlockEntity</span> freezer) {
+		<span class="k">super</span>(<span class="k">new</span> <span class="t">ExampleFreezerContainer</span>(playerInventory, freezer));
+		<span class="k">this</span>.freezer = freezer;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> drawForeground() {
+		<span class="k">this</span>.textRenderer.draw(<span class="k">this</span>.freezer.getName(), <span class="n">60</span>, <span class="n">6</span>, <span class="n">0x404040</span>);
+		<span class="k">this</span>.textRenderer.draw(<span class="s">"Inventory"</span>, <span class="n">8</span>, <span class="k">this</span>.backgroundHeight - <span class="n">96</span> + <span class="n">2</span>, <span class="n">0x404040</span>);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> drawBackground(<span class="k">float</span> tickDelta) {
+		<span class="k">int</span> texture = <span class="k">this</span>.minecraft.textureManager.getTextureId(TEXTURE);
+		<span class="t">GL11</span>.glColor4f(<span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);
+		<span class="k">this</span>.minecraft.textureManager.bindTexture(texture);
+		<span class="k">int</span> left = (<span class="k">this</span>.width - <span class="k">this</span>.backgroundWidth) / <span class="n">2</span>;
+		<span class="k">int</span> top = (<span class="k">this</span>.height - <span class="k">this</span>.backgroundHeight) / <span class="n">2</span>;
+		<span class="k">this</span>.drawTexture(left, top, <span class="n">0</span>, <span class="n">0</span>, <span class="k">this</span>.backgroundWidth, <span class="k">this</span>.backgroundHeight);
+
+		<span class="c">// The flame: drains downward as fuel runs out (12px tall sprite at u=176,v=0).</span>
+		<span class="k">if</span> (<span class="k">this</span>.freezer.isBurning()) {
+			<span class="k">int</span> flame = <span class="k">this</span>.freezer.getFuelRemainingScaled(<span class="n">12</span>);
+			<span class="k">this</span>.drawTexture(left + <span class="n">57</span>, top + <span class="n">47</span> - flame, <span class="n">176</span>, <span class="n">12</span> - flame, <span class="n">14</span>, flame + <span class="n">2</span>);
+		}
+
+		<span class="c">// The arrow: fills rightward as freezing progresses (24px wide sprite at u=176,v=14).</span>
+		<span class="k">int</span> arrow = <span class="k">this</span>.freezer.getProgressScaled(<span class="n">24</span>);
+		<span class="k">this</span>.drawTexture(left + <span class="n">79</span>, top + <span class="n">35</span>, <span class="n">176</span>, <span class="n">14</span>, arrow + <span class="n">1</span>, <span class="n">16</span>);
+	}
+}</code></pre></div>
+
+<p>Both sprites are partial blits of a region in the GUI texture. The flame draws from <code>scaled</code> pixels tall, anchored at the bottom so it shrinks downward as fuel burns; the arrow draws <code>scaled + 1</code> pixels wide so it grows rightward as the freeze completes. The bar art lives in the same PNG as the window, tucked to the right of the window area at <strong>u ≥ 176</strong>, the same trick vanilla's <code>furnace.png</code> uses.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/freezer.png" width="256" height="256" alt="freezer" style="image-rendering:pixelated"><div class="asset-name">freezer.png</div><a href="assets/freezer.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_block.png" width="64" height="64" alt="freezer_block"><div class="asset-name">freezer_block.png</div><a href="assets/freezer_block.png" download>download</a></div>
+</div>
+
+<h3>The block, and the registrations</h3>
+<p>The block itself is the crate's twin, register the block entity, register the block, open the GUI in <code>onUse</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlock.java, onUse()</span><pre><code><span class="k">@Override</span>
+<span class="k">public boolean</span> onUse(<span class="t">World</span> world, <span class="k">int</span> x, <span class="k">int</span> y, <span class="k">int</span> z, <span class="t">PlayerEntity</span> player) {
+	<span class="t">BlockEntity</span> be = world.getBlockEntity(x, y, z);
+	<span class="k">if</span> (be <span class="k">instanceof</span> <span class="t">ExampleFreezerBlockEntity</span>) {
+		<span class="t">ExampleFreezerBlockEntity</span> freezer = (<span class="t">ExampleFreezerBlockEntity</span>) be;
+		<span class="t">RetroGuis</span>.openGUI(player, <span class="t">ExampleMod</span>.id(<span class="s">"freezer"</span>), freezer,
+			<span class="k">new</span> <span class="t">ExampleFreezerContainer</span>(player.inventory, freezer));
+	}
+	<span class="k">return true</span>;
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"freezer"</span>), <span class="t">ExampleFreezerBlockEntity</span>.<span class="k">class</span>);
+FREEZER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleFreezerBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
+	.sounds(<span class="t">Block</span>.STONE_SOUND_GROUP)
+	.strength(<span class="n">3.5f</span>)
+	.texture(id(<span class="s">"freezer_block"</span>))
+	.register(id(<span class="s">"freezer_block"</span>));</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"freezer"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
+	(player, inventory) -> <span class="k">new</span> <span class="t">ExampleFreezerScreen</span>(player.inventory, (<span class="t">ExampleFreezerBlockEntity</span>) inventory),
+	<span class="t">ExampleFreezerBlockEntity</span>::<span class="k">new</span>));</code></pre></div>
+
+<p>Three machines, one shape. The counter taught you NBT and the stable-id rule; the crate taught you the three-piece container pattern; the freezer taught you the one thing that turns a static window into a living machine, synced properties, one per value you draw.</p>
+
+<p>Your world now has machines that remember, store, and work. Next we give it something that moves on its own: a creature, and the surprisingly deep question of how a server tells everyone it exists.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+# Display names for the mod's content. RetroAPI loads this file automatically
+# (assets/<modid>/lang/en_US.lang). The @ is replaced with your mod id at load
+# time, so these lines work even if you rename the mod.
+#
+# Anything you don't translate gets an auto-generated default from its
+# identifier (example_block -> "Example Block"), so missing lines never crash.
+
+# Blocks: tile.<modid>.<identifier>.name
+tile.@.example_block.name=Example Block
+tile.@.sided_block.name=Sided Block
+tile.@.example_pipe.name=Example Pipe
+tile.@.counter_block.name=Counter Block
+tile.@.crate_block.name=Crate
+tile.@.freezer_block.name=Freezer
+tile.@.example_portal.name=Example Portal
+
+# Items: item.<modid>.<identifier>.name
+item.@.suspicious_substance.name=Suspicious Substance
+item.@.jump_stick.name=Jump Stick
+
+# Achievements: achievement.<name> is the title, achievement.<name>.desc the
+# description, where <name> is the string passed to RetroAchievements.register.
+achievement.example_mod.getting_started=Getting Started
+achievement.example_mod.getting_started.desc=Join a world with the example mod installed.
+achievement.example_mod.jump_for_joy=Jump for Joy
+achievement.example_mod.jump_for_joy.desc=Jump!
+achievement.example_mod.dimensional_traveler=Dimensional Traveler
+achievement.example_mod.dimensional_traveler.desc=Step through the example portal.
+
+# Title of the mod's own achievement page (the < > buttons on the achievements screen).
+gui.retroapi.achievementPage.example_mod.example_page=Example Mod
+
+# Asset platform demos
+tile.@.ruby_ore.name=Ruby Ore
+tile.@.lamp.name=State Lamp
+tile.@.ember_block.name=Ember Block
+item.@.ruby.name=Ruby
+tile.@.pedestal.name=Gem Pedestal
+tile.@.stone_wall.name=Cobblestone Wall
+item.@.ruby_pick.name=Ruby Pick
+tile.@.condensed_dirt.name=Condensed Dirt
+tile.@.packed_log.name=Packed Log
+item.@.candied_apple.name=Candied Apple
+item.@.poisonous_apple.name=Poisonous Apple
+item.@.sample_disc.name=Music Disc (Sample)
+entity.@.aerbunny.name=Aerbunny
+record.@.sample_disc=sample ogg - file-examples.com
+tile.@.pink_flower.name=Pink Flower
+tile.@.curvy_portal.name=Curvy Portal
+tile.@.noisy_portal.name=Noisy Portal
+dimension.@.example_dim.entering=Stepping into the strange green...
+dimension.@.example_dim.leaving=Back to the familiar world
+item.@.counter.name=Counter
+item.@.mood_gem.name=Mood Gem
+item.@.sticked_apple.name=Sticked Apple
+item.@.spectre_staff.name=Spectre Staff
+item.@.zanite_helmet.name=Zanite Helmet
+item.@.zanite_chestplate.name=Zanite Chestplate
+item.@.zanite_leggings.name=Zanite Leggings
+item.@.zanite_boots.name=Zanite Boots
+item.@.zanite_sword.name=Zanite Sword

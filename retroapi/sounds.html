@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 18: The Soundtrack, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 18, The Soundtrack</h1>
+<p class="chapter-sub">Three sound folders, a shuffled music ticker, a jukebox record, and how numbered variants quietly become one event.</p>
+
+<p>Sound in beta is wonderfully low-ceremony: you almost never register anything. <a href="assets.html">Chapter 3</a> already showed the autoloader scanning <code>assets/&lt;modid&gt;/sounds/</code> and turning file paths into event ids; this chapter picks up where that left off and walks the three channels, the background music ticker, jukebox records, and the trailing-digit variant trick the showcase's Aerbunny leans on. There's a little code here, but most of it is just dropping an ogg in the right folder.</p>
+
+<h2>The three sound channels</h2>
+<p>Every sound belongs to one of three channels, and the channel is simply <strong>which subfolder you drop the file in</strong> under <code>sounds/</code>. The folder name is the API, same as everywhere else in RetroAPI:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/sounds, the channel layout</span><pre><code>sounds/
+├── sound/              <span class="c">// short effects, random-variant collapse ON</span>
+│   ├── counter/click.ogg
+│   └── mobs/aerbunny/aerbunnyhurt1.ogg
+├── streaming/          <span class="c">// long tracks: records, forced themes, no collapse</span>
+│   └── sample_disc.ogg
+└── music/              <span class="c">// background tracks fed to beta's shuffle ticker</span>
+    └── aether1.ogg</code></pre></div>
+
+<table>
+<tr><th>Channel</th><th>Folder</th><th>What it's for</th></tr>
+<tr><td><code>SOUND</code></td><td><code>sounds/sound/</code></td><td>short effects: footsteps, clicks, mob hurt/death. Variant collapse <strong>on</strong>.</td></tr>
+<tr><td><code>STREAMING</code></td><td><code>sounds/streaming/</code></td><td>long, streamed-from-disk tracks: jukebox records and forced themes. No collapse.</td></tr>
+<tr><td><code>MUSIC</code></td><td><code>sounds/music/</code></td><td>background tracks handed to beta's random music ticker.</td></tr>
+</table>
+
+<p>The event id is derived from the path inside the channel folder: strip <code>.ogg</code>, turn <code>/</code> into <code>.</code>, lowercase, prefix the mod id. So <code>sound/counter/click.ogg</code> becomes <code>example_mod:counter.click</code>. The autoloader scans all three channels for every loaded mod; the enum is the only place the channels are named in code, and you rarely touch it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/sound/api/RetroSounds.java, the channel enum</span><pre><code><span class="c">/** Vanilla sound channels. SOUND and MUSIC collapse random variants; STREAMING does not. */</span>
+<span class="k">public enum</span> <span class="t">SoundChannel</span> {
+	<span class="c">/** Effect sounds (random-variant collapse enabled). */</span>
+	SOUND,
+	<span class="c">/** Streaming records (no random-variant collapse). */</span>
+	STREAMING,
+	<span class="c">/** Music tracks. */</span>
+	MUSIC
+}</code></pre></div>
+
+<p>There is also a <code>RetroSounds.register(channel, pathId, url)</code> for mods that want to register a sound programmatically, but you almost certainly don't need it. The autoloader covers the file-in-a-folder case completely; this method is convenience sugar for when a sound lives somewhere odd on the classpath. Playing an effect is one line, the same call <a href="assets.html">Chapter 3</a> used for the counter's click:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlock.java, the play line</span><pre><code>world.playSound(x + <span class="n">0.5</span>, y + <span class="n">0.5</span>, z + <span class="n">0.5</span>, <span class="s">"example_mod:counter.click"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
+
+<h2>Shuffled background music</h2>
+<p>There are two completely different ways to play music, and the difference is which channel the file lives in. The easy one needs <strong>no code at all</strong>.</p>
+
+<h3>The lazy way: drop it in <code>music/</code></h3>
+<p>Any ogg under <code>sounds/music/</code> is handed straight to beta's own background music ticker, the thing that plays a random track at random quiet intervals. The showcase ships <code>sounds/music/aether1.ogg</code>, and that's the whole setup: beta now shuffles it into the rotation alongside the vanilla menu and game tracks. You don't choose which track plays or when; you've simply added one more card to the deck the ticker draws from. The client entrypoint says exactly this, and writes no code to do it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, the music comment</span><pre><code><span class="c">// Background music, the vanilla way: aether1.ogg lives in sounds/music/, so beta's</span>
+<span class="c">// own music ticker shuffles it into the random rotation alongside the vanilla</span>
+<span class="c">// tracks (SoundEntry.getSounds() picks randomly across everything registered). No</span>
+<span class="c">// code needed. For a FORCED theme on every world load instead, there is</span>
+<span class="c">// RetroMusic.playOnWorldLoad(streamingId) (puts the track in sounds/streaming/).</span></code></pre></div>
+
+<h3>The forced way: <code>RetroMusic.playOnWorldLoad</code></h3>
+<p>When you want a <em>specific</em> track at a <em>known</em> moment, the moment beta's mod author cares about most being world load, the shuffle ticker is no good: it controls both which and when. So a forced theme goes in the <code>streaming/</code> channel instead and is played outright. <code>RetroMusic.playOnWorldLoad</code> wires that up; call it once from your client entrypoint with a streaming event id:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/sound/api/RetroMusic.java, the registration</span><pre><code><span class="c">/**
+ * Plays streamingEventId once each time a world finishes loading on this client.
+ * The id is a STREAMING-channel event id (file at sounds/streaming/&lt;name&gt;.ogg).
+ */</span>
+<span class="k">public static void</span> playOnWorldLoad(String streamingEventId) {
+	MinecraftClientEvents.READY_WORLD.register(minecraft -&gt; play(minecraft, streamingEventId));
+}</code></pre></div>
+
+<p>So the same audio file behaves very differently depending on its folder: <code>music/theme.ogg</code> joins the random rotation, while <code>streaming/theme.ogg</code> handed to <code>playOnWorldLoad("yourmod:theme")</code> fires on the dot every time a world finishes loading. Pick the folder that matches the intent. Note this whole subsystem is client-only; there's no networking and nothing touches the save.</p>
+
+<h2>Jukebox records</h2>
+<p>A music disc is the one place a sound needs a real item behind it. <code>RetroRecordItem</code> is that item, and it's gloriously thin because it just subclasses vanilla's <code>MusicDiscItem</code>. The whole play mechanism, slotting the disc into a jukebox, firing the world event, broadcasting to other players in multiplayer, is pure vanilla; the record carries a <code>streaming/</code> event id in its <code>sound</code> field and vanilla does the rest. The showcase's <code>SAMPLE_DISC</code> is the entire pattern:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A jukebox record. RetroRecordItem is a vanilla MusicDiscItem under the hood,</span>
+<span class="c">// so dropping it in a vanilla jukebox plays its streamed track exactly like a</span>
+<span class="c">// vanilla disc (including the multiplayer broadcast). The audio is the</span>
+<span class="c">// file-examples.com 1MB sample ogg at sounds/streaming/sample_disc.ogg.</span>
+SAMPLE_DISC = (Item) RetroItemAccess.of(
+		<span class="k">new</span> com.periut.retroapi.sound.api.RetroRecordItem(
+			RetroItemAccess.allocateId(), <span class="s">"example_mod:sample_disc"</span>))
+	.register(id(<span class="s">"sample_disc"</span>));</code></pre></div>
+
+<p>Two things to notice. First, the constructor takes a placeholder id from <code>RetroItemAccess.allocateId()</code> and the <em>streaming event id</em>, <code>"example_mod:sample_disc"</code>, which points at <code>sounds/streaming/sample_disc.ogg</code>. Wrapping a hand-built instance with <code>RetroItemAccess.of(...)</code> is the exact same custom-item pattern from <a href="items.html">Chapter 5</a>; a record is just an item whose class happens to be <code>RetroRecordItem</code>. Second, max stack size is forced to 1 inside the constructor, so you don't set it yourself.</p>
+
+<h3>The "now playing" name</h3>
+<p>Vanilla hard-codes the jukebox overlay to <code>"C418 - " + disc.sound</code>, which for a modded disc would read as the raw streaming id, ugly. <code>RetroRecordItem</code> fixes this by re-setting the overlay right after the vanilla call, pulling the display text from your lang file so it localises. The key is <code>record.&lt;namespace&gt;.&lt;name&gt;</code>, derived from the streaming id by swapping the colon for a dot:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/sound/api/RetroRecordItem.java, the key derivation</span><pre><code><span class="c">// record.&lt;namespace&gt;.&lt;name&gt;, e.g. "record.example_mod.sample_disc".</span>
+<span class="k">this</span>.descriptionKey = <span class="s">"record."</span> + streamingId.replace(<span class="s">':'</span>, <span class="s">'.'</span>);</code></pre></div>
+
+<p>So for <code>example_mod:sample_disc</code> the key is <code>record.example_mod.sample_disc</code>, and the showcase's lang file gives it a friendly title:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/lang/en_US.lang, the record line</span><pre><code>record.@.sample_disc=sample ogg - file-examples.com</code></pre></div>
+
+<p>The <code>@</code> is the namespace placeholder RetroAPI's lang loader expands to your mod id (covered in <a href="assets.html">Chapter 3</a>), so this line registers <code>record.example_mod.sample_disc</code>. If you forget the line entirely nothing breaks: the overlay simply falls back to the raw id. Add it and the jukebox reads "sample ogg - file-examples.com" instead.</p>
+
+<h2>Sound variants</h2>
+<p>The <code>SOUND</code> channel does one quiet, very useful thing the other two don't: it <strong>collapses a trailing digit</strong>. Two files named <code>aerbunnyhurt1.ogg</code> and <code>aerbunnyhurt2.ogg</code> in the same folder register the <em>same</em> event, and the engine picks one at random each time you play it. This is exactly how vanilla ships its own footstep and dig sounds, four numbered oggs behind one event, and you get it for free just by numbering files. The showcase's Aerbunny (the puffy mob from <a href="entities.html">Chapter 7</a>) uses it for its hurt sound:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, getHurtSound()</span><pre><code><span class="k">@Override</span>
+<span class="k">protected</span> String getHurtSound() {
+	<span class="c">// Subfolder + variant sounds: files at sounds/sound/mobs/aerbunny/aerbunnyhurt1.ogg</span>
+	<span class="c">// and aerbunnyhurt2.ogg collapse to one event id, and the engine picks one at</span>
+	<span class="c">// random. The autoloader handles the nesting and the digit collapse for free.</span>
+	<span class="k">return</span> <span class="s">"example_mod:mobs.aerbunny.aerbunnyhurt"</span>;
+}</code></pre></div>
+
+<p>Walk the path through the deriver to see where the event id comes from. The two files live at <code>sounds/sound/mobs/aerbunny/aerbunnyhurt1.ogg</code> and <code>...hurt2.ogg</code>. Inside the <code>sound/</code> channel the relative path is <code>mobs/aerbunny/aerbunnyhurt1</code>; slashes become dots, the trailing <code>1</code> (and the <code>2</code>) is collapsed away, and you're left with the single event <strong><code>example_mod:mobs.aerbunny.aerbunnyhurt</code></strong>. Both files feed it; play it and you hear one or the other at random.</p>
+
+<p>Two caveats worth keeping straight. The collapse is <strong>SOUND-channel only</strong>, by design: a record or a forced theme in <code>streaming/</code> keeps its exact name, because you never want "play a random one of these" for a 1MB track. And the digit must be <em>trailing</em>, so <code>aerbunnyhurt1</code> collapses but <code>aerbunny1hurt</code> would not. Number your variants at the end of the name and nesting them in subfolders, like <code>mobs/aerbunny/</code>, is fine; the autoloader walks the whole tree.</p>
+
+<p>That's the soundtrack: drop files in three folders, and music, records, effects, and random variants all fall out of the path names. With the world now lit, named, and audible, the last big system is the ground itself. Next, <a href="worldgen.html">Chapter 19, New Lands</a>, where we generate custom terrain.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>
