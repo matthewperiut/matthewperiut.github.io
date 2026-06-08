@@ -86,7 +86,7 @@ RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"
 <h2>The full fuel table, for your own machines</h2>
 <p>The furnace knows what burns. So does anyone who registered fuel with <code>addFuel</code>. But what if <em>you</em> build a machine, a freezer, a smelter, a generator, and want it to "burn whatever a furnace burns"? You don't want to hand-maintain a list of coal, wood, sticks, lava buckets, and every mod's fuel item.</p>
 
-<p>RetroAPI gives you the whole table in one call. As of <strong>RetroAPI ≥ 1.0.22</strong>, <code>getTotalFuelTime(ItemStack)</code> returns the burn time for a stack across the <em>entire</em> furnace fuel table, vanilla fuels plus every <code>addFuel</code> entry, or <code>0</code> if it isn't fuel. The showcase's freezer is exactly one line because of it:</p>
+<p>RetroAPI gives you the whole table in one call. As of <strong>RetroAPI ≥ 0.1.3</strong>, <code>getTotalFuelTime(ItemStack)</code> returns the burn time for a stack across the <em>entire</em> furnace fuel table, vanilla fuels plus every <code>addFuel</code> entry, or <code>0</code> if it isn't fuel. The showcase's freezer is exactly one line because of it:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFreezerBlockEntity.java</span><pre><code><span class="c">/** Burn ticks for a stack: vanilla fuels + RetroRecipes.addFuel fuels, 0 if not fuel. */</span>
 <span class="k">public static int</span> fuelTime(<span class="t">ItemStack</span> stack) {

@@ -588,7 +588,7 @@ CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</sp
 
 <p>The two scaled getters at the bottom are pure presentation: <code>getProgressScaled(24)</code> maps the 0 to 200 tick count onto a 24-pixel arrow, and <code>getFuelRemainingScaled(12)</code> maps the fuel onto a 12-pixel flame. The screen calls these. They're how three integers become two moving sprites.</p>
 
-<div class="note"><p>"Any fuel" comes from <code>RetroRecipes.getTotalFuelTime(ItemStack)</code> (RetroAPI ≥ 1.0.22), the complete furnace fuel table: coal, wood, sticks, lava buckets, <em>and</em> anything added with <code>RetroRecipes.addFuel</code>. That's why the showcase's Suspicious Substance burns in the freezer. The full fuel story is <a href="recipes.html">Chapter 11</a>.</p></div>
+<div class="note"><p>"Any fuel" comes from <code>RetroRecipes.getTotalFuelTime(ItemStack)</code> (RetroAPI ≥ 0.1.3), the complete furnace fuel table: coal, wood, sticks, lava buckets, <em>and</em> anything added with <code>RetroRecipes.addFuel</code>. That's why the showcase's Suspicious Substance burns in the freezer. The full fuel story is <a href="recipes.html">Chapter 11</a>.</p></div>
 
 <h3>The container, the synced variables themselves</h3>
 <p>This is the centerpiece of the whole guide, so we'll quote it in full. Read it once, then read the essay that follows it; the two together are the thing to take away from this chapter.</p>

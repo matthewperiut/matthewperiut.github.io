@@ -48,11 +48,13 @@
 	<span class="k">return</span> (x * <span class="n">16</span> + z) * <span class="n">128</span> + y;
 }</code></pre></div>
 
-<p>Once the array is full, you wrap it in a <code>Chunk</code>, build its height map, and hand it back. The whole ceremony is two lines:</p>
+<p>Once the array is full, you wrap it in a <code>Chunk</code>, build its height map, and hand it back. Don't call <code>new Chunk(...)</code> directly: under StationAPI a raw legacy <code>Chunk</code> is unsavable, because StationAPI flattens chunks into its own format. Instead create the chunk through <code>RetroWorldGen.createChunk(...)</code>, which returns the right type for the environment, a StationAPI <code>FlattenedChunk</code> when StationAPI is present, a legacy <code>Chunk</code> otherwise. Your generator stays identical either way. The whole ceremony is still two lines:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/CurvyChunkSource.java, end of getChunk()</span><pre><code><span class="t">Chunk</span> chunk = <span class="k">new</span> <span class="t">Chunk</span>(<span class="k">this</span>.world, blocks, chunkX, chunkZ);
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/CurvyChunkSource.java, end of getChunk()</span><pre><code><span class="t">Chunk</span> chunk = <span class="t">RetroWorldGen</span>.createChunk(<span class="k">this</span>.world, blocks, chunkX, chunkZ);
 chunk.populateHeightMap();
 <span class="k">return</span> chunk;</code></pre></div>
+
+<p><code>RetroWorldGen.createChunk</code> has a companion, <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code>, for writing a single block at chunk-local coordinates (<code>x</code> and <code>z</code> are <code>0</code> to <code>15</code>, <code>y</code> is <code>0</code> to <code>127</code>) into a chunk you got from <code>createChunk</code>. Unlike writing into the raw <code>byte[]</code>, it accepts <strong>any</strong> id, vanilla (<code>&lt; 256</code>) or modded (<code>&gt;= 256</code>), and it's generation-safe under both StationAPI and legacy worlds. Reach for it when you'd rather place blocks through one call than juggle the flat-array index, and especially when a generator needs to drop a modded block while the chunk is still being built rather than waiting for <code>decorate</code>.</p>
 
 <p>A <code>ChunkSource</code> has more methods than that, <code>loadChunk</code>, <code>isChunkLoaded</code>, <code>decorate</code>, <code>save</code>, <code>tick</code>, <code>canSave</code>, <code>getDebugInfo</code>, but for a generator that builds the world from scratch every time, most are one-liners. <code>loadChunk</code> just calls <code>getChunk</code>, <code>isChunkLoaded</code> returns <code>true</code>, and Curvy's <code>decorate</code> is empty on purpose: bare hills are the whole story, so the equation is all there is. Decoration is where the next dimension lives.</p>
 
@@ -70,7 +72,7 @@ chunk.populateHeightMap();
 generateOres(blocks, chunkX, chunkZ);
 carveTunnels(blocks, chunkX, chunkZ);
 
-<span class="t">Chunk</span> chunk = <span class="k">new</span> <span class="t">Chunk</span>(<span class="k">this</span>.world, blocks, chunkX, chunkZ);
+<span class="t">Chunk</span> chunk = <span class="t">RetroWorldGen</span>.createChunk(<span class="k">this</span>.world, blocks, chunkX, chunkZ);
 chunk.populateHeightMap();
 <span class="k">return</span> chunk;</code></pre></div>
 
@@ -150,7 +152,7 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 <h2>Placing modded blocks in worldgen</h2>
 <p>There's a hard wall in the chunk <code>byte[]</code>: a byte holds <code>0</code> to <code>255</code>, and every RetroAPI block gets an id <strong>&gt;= 256</strong> (the id story from <a href="blocks.html">Chapter 4</a>). Vanilla grass, dirt, stone, ore, and water all fit in a byte, which is why the column fill and the ore veins write the array directly. A modded block cannot. Write its id into the byte array and the high bits are simply lost.</p>
 
-<p>The fix is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Chapter 4</a>'s block toolkit:</p>
+<p>There are two ways around the wall. The first, if you only need the block at the moment the chunk is built, is <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code> from the section above: it takes any id, vanilla or modded, and writes it straight into the chunk you got from <code>createChunk</code>, so a generator can place a modded block in <code>getChunk</code> without ever touching the lossy <code>byte[]</code>. The second, used when the placement needs information that only exists once neighbouring chunks are generated, is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Chapter 4</a>'s block toolkit:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFlowerBlock.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleFlowerBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
 
@@ -174,7 +176,7 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 	<span class="k">this</span>.world.setBlock(fx, fy, fz, <span class="t">ExampleMod</span>.PINK_FLOWER.id);
 }</code></pre></div>
 
-<p><code>ExampleMod.PINK_FLOWER.id</code> is the runtime id &gt;= 256. Because it's going through <code>setBlock</code> and not the byte array, it lands correctly and persists. The rule to carry away: <strong>vanilla ids in the array, modded ids through the world.</strong></p>
+<p><code>ExampleMod.PINK_FLOWER.id</code> is the runtime id &gt;= 256. Because it's going through <code>setBlock</code> and not the byte array, it lands correctly and persists, and because the flower needs a cross-chunk top-Y lookup, <code>decorate</code> is the right home for it. The rule to carry away: <strong>never write a modded id into the raw <code>byte[]</code>, route it through <code>RetroWorldGen.setBlockInChunk</code> at build time or through <code>world.setBlock</code> in <code>decorate</code>.</strong></p>
 
 <p>The flower's sprite is a single cross-shaped texture, saved at the path below:</p>
 
