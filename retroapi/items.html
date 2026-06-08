@@ -152,6 +152,20 @@ inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.JUMP_STICK, <
 
 <p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Chapter 11</a>.</p>
 
+<h3>Only new players get the kit</h3>
+<p>A starter kit you hand out on <em>every</em> join would refill the inventory each time you log back in. The showcase wants it once, the first time a player exists. The trick is telling a brand-new player apart from a returning one, and that's a one-line mixin. A player's saved data is read back through <code>readNbt</code>, which only runs when there is something on disk to read; a freshly created player never goes through it. So the showcase marks every player that <em>does</em> load from disk, and <code>ExamplePlayerSetup</code> gives the kit only to the players left unmarked:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/PlayerLoadMixin.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">PlayerEntity</span>.<span class="k">class</span>)
+<span class="k">public class</span> <span class="t">PlayerLoadMixin</span> {
+
+    <span class="k">@Inject</span>(method = <span class="s">"readNbt"</span>, at = <span class="k">@At</span>(<span class="s">"HEAD"</span>))
+    <span class="k">private void</span> exampleMod$markLoadedFromDisk(<span class="t">NbtCompound</span> nbt, <span class="t">CallbackInfo</span> ci) {
+        <span class="t">ExamplePlayerSetup</span>.markLoadedFromDisk((<span class="t">PlayerEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>);
+    }
+}</code></pre></div>
+
+<p>Like every mixin, this one only runs if it's listed in <code>example_mod.mixins.json</code>, where it already sits under <code>"mixins"</code> (the common list, since <code>PlayerEntity</code> exists on both sides). Injecting at <code>HEAD</code> of <code>readNbt</code> means the mark is set before any saved field is parsed, so by the time the setup logic runs the new-vs-returning answer is already known. For the full vocabulary of <code>@Inject</code>, <code>@At</code>, and the <code>(PlayerEntity) (Object) this</code> cast idiom, see <a href="mixins.html">the mixins chapter</a>.</p>
+
 <p>Items done. Next we give blocks a memory: block entities that store data, tick, and open GUIs.</p>
 </div>
 

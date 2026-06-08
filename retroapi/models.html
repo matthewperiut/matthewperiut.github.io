@@ -88,6 +88,13 @@ assets/{ns}/stationapi/blockstates/{block}.json   <span class="c"># StationAPI's
   <span class="s">"textures"</span>: { <span class="s">"all"</span>: <span class="s">"example_mod:block/lamp_off"</span> }
 }</code></pre></div>
 
+<p>Its lit twin is the model the blockstate switches to on <code>lit=true</code>, the same cube pointed at the on-texture:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/lamp_on.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"block/cube_all"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"all"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
+}</code></pre></div>
+
 <p>That <code>"parent": "block/cube_all"</code> is the key trick. The standard parents are <strong>embedded in RetroAPI</strong>, so a resource pack ships none of the vanilla model assets and the chain still resolves. The embedded parents are:</p>
 
 <div class="codeblock"><span class="code-title">embedded standard parents</span><pre><code>block/block          block/cube           block/cube_all
@@ -116,6 +123,58 @@ item/generated       item/handheld</code></pre></div>
         <span class="s">"up"</span>:    { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"up"</span> },
         <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
         <span class="s">"south"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"west"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"east"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> }
+      }
+    }
+  ]
+}</code></pre></div>
+
+<p>The post is only one of the pieces. The multipart file chooses the post when <code>up=true</code> but a <em>side</em> segment per direction it connects, low or tall, so the wall needs those models too. Same idea as the post: a thin <code>stone_wall_side</code> that binds <code>#wall</code> to cobblestone over a shared <code>template_wall_side</code> parent that carries the geometry.</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/stone_wall_side.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"example_mod:block/template_wall_side"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"wall"</span>: <span class="s">"minecraft:block/cobblestone"</span> }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/template_wall_side.json</span><pre><code>{
+  <span class="s">"textures"</span>: {
+    <span class="s">"particle"</span>: <span class="s">"#wall"</span>
+  },
+  <span class="s">"elements"</span>: [
+    {
+      <span class="s">"from"</span>: [<span class="n">5</span>, <span class="n">0</span>, <span class="n">0</span>],
+      <span class="s">"to"</span>: [<span class="n">11</span>, <span class="n">14</span>, <span class="n">8</span>],
+      <span class="s">"faces"</span>: {
+        <span class="s">"down"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"down"</span> },
+        <span class="s">"up"</span>:    { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"north"</span> },
+        <span class="s">"west"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
+        <span class="s">"east"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> }
+      }
+    }
+  ]
+}</code></pre></div>
+
+<p>The tall side is the same wall raised to the full 16 with its top capped, the variant the blockstate applies when the connection runs up to a block above:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/stone_wall_side_tall.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"example_mod:block/template_wall_side_tall"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"wall"</span>: <span class="s">"minecraft:block/cobblestone"</span> }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/template_wall_side_tall.json</span><pre><code>{
+  <span class="s">"textures"</span>: {
+    <span class="s">"particle"</span>: <span class="s">"#wall"</span>
+  },
+  <span class="s">"elements"</span>: [
+    {
+      <span class="s">"from"</span>: [<span class="n">5</span>, <span class="n">0</span>, <span class="n">0</span>],
+      <span class="s">"to"</span>: [<span class="n">11</span>, <span class="n">16</span>, <span class="n">8</span>],
+      <span class="s">"faces"</span>: {
+        <span class="s">"down"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"down"</span> },
+        <span class="s">"up"</span>:    { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"up"</span> },
+        <span class="s">"north"</span>: { <span class="s">"texture"</span>: <span class="s">"#wall"</span>, <span class="s">"cullface"</span>: <span class="s">"north"</span> },
         <span class="s">"west"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> },
         <span class="s">"east"</span>:  { <span class="s">"texture"</span>: <span class="s">"#wall"</span> }
       }

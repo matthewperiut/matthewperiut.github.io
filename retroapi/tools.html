@@ -47,6 +47,15 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 
 <p>The diagonal through-the-fist pose comes free here because the showcase ships a handheld item model at <code>retroapi/models/item/ruby_pick.json</code>; an item without such a model would opt in with <code>.handheld()</code>, the same one-call trick the Jump Stick used in <a href="items.html">Chapter 5</a>.</p>
 
+<p>That model is a plain generated item pointing at its own texture, with the <code>handheld</code> parent supplying the in-hand angle:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/item/ruby_pick.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"minecraft:item/handheld"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"layer0"</span>: <span class="s">"example_mod:item/ruby_pick"</span>
+  }
+}</code></pre></div>
+
 <h3>The vanilla way: the Zanite Sword</h3>
 <p>When a real vanilla tool class already exists, use it. A sword is the cleanest example: <code>SwordItem</code> takes a <code>ToolMaterial</code> and hands you attack damage, durability, and block-breaking speed for nothing. You construct it yourself and wrap it with <code>RetroItemAccess.of(...)</code>, exactly like any custom item class:</p>
 
@@ -103,6 +112,28 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 <p>That is the whole food declaration. Right-click to eat, lose one from the stack, gain two hearts. The candied apple also happens to be a layered texture stacked over vanilla's apple sprite, which is the texture trick from <a href="items.html">Chapter 5</a> rather than anything to do with food; here we care only about the one-word <code>.food(4)</code>.</p>
 
 <p>The showcase also ships an alternate item model for it, <code>retroapi/models/item/candied_apple_glint.json</code>, whose <code>layer0</code> points at a <code>sugar_sparkle</code> sprite to give the apple a glint variant; like the layering above it is purely cosmetic and has nothing to do with the food property.</p>
+
+<p>Three files back the candied apple. The <code>items/</code> file binds the item to a composite model; the base is vanilla's apple, and the glint is the <code>sugar_sparkle</code> overlay variant:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/items/candied_apple.json</span><pre><code>{
+  <span class="s">"model"</span>: {
+    <span class="s">"type"</span>: <span class="s">"minecraft:composite"</span>,
+    <span class="s">"models"</span>: [
+      { <span class="s">"type"</span>: <span class="s">"minecraft:model"</span>, <span class="s">"model"</span>: <span class="s">"example_mod:item/candied_apple_base"</span> },
+      { <span class="s">"type"</span>: <span class="s">"minecraft:model"</span>, <span class="s">"model"</span>: <span class="s">"example_mod:item/candied_apple_glint"</span> }
+    ]
+  }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/item/candied_apple_base.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"minecraft:item/generated"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"layer0"</span>: <span class="s">"minecraft:item/apple"</span> }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/item/candied_apple_glint.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"minecraft:item/generated"</span>,
+  <span class="s">"textures"</span>: { <span class="s">"layer0"</span>: <span class="s">"example_mod:item/sugar_sparkle"</span> }
+}</code></pre></div>
 
 <div class="asset-row">
 <div class="asset-card"><img src="assets/sugar_sparkle.png" width="64" height="64" alt="sugar_sparkle"><div class="asset-name">sugar_sparkle.png</div><a href="assets/sugar_sparkle.png" download>download</a></div>

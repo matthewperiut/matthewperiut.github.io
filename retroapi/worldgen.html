@@ -217,6 +217,36 @@ NOISY_LUSH_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Lu
 	<span class="k">return this</span>.biomeNoise.sample(x / <span class="n">220.0</span>, z / <span class="n">220.0</span>) &gt; <span class="n">0.0</span> ? <span class="k">this</span>.amplified : <span class="k">this</span>.lush;
 }</code></pre></div>
 
+<p><code>NoisyDimension</code> is the <code>Dimension</code> subclass that wires the noise chunk generator to the two-biome source, the same shape as the Curvy dimension but pointing at the noisy pieces:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyDimension.java</span><pre><code><span class="k">public class</span> <span class="t">NoisyDimension</span> <span class="k">extends</span> <span class="t">Dimension</span> {
+
+	<span class="k">public</span> NoisyDimension(<span class="k">int</span> serialId) {
+		<span class="k">this</span>.id = serialId;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> initBiomeSource() {
+		<span class="k">this</span>.biomeSource = <span class="k">new</span> <span class="t">NoisyBiomeSource</span>(<span class="k">this</span>.world.getSeed(),
+			<span class="t">ExampleMod</span>.NOISY_AMPLIFIED_BIOME, <span class="t">ExampleMod</span>.NOISY_LUSH_BIOME);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ChunkSource</span> createChunkGenerator() {
+		<span class="k">return new</span> <span class="t">NoisyChunkSource</span>(<span class="k">this</span>.world);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> hasWorldSpawn() {
+		<span class="k">return true</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> isValidSpawnPoint(<span class="k">int</span> x, <span class="k">int</span> z) {
+		<span class="k">return true</span>;
+	}
+}</code></pre></div>
+
 <div class="note"><p>The biome source and the chunk source <strong>must sample the same noise</strong>. The grass colour at a spot is decided here (by which biome <code>pick</code> returns), but the tree and flower density there is decided in the chunk source's <code>decorate</code> by its own <code>isAmplifiedBiome</code>. If the two disagreed, you'd get orange grass with lush-biome foliage. They don't, because both build an <code>OctavePerlinNoiseSampler</code> from <code>seed + 3</code> with two octaves and sample at <code>/ 220.0</code>. Same seed, same frequency, same answer. When you split a dimension into regions, route both decisions through one shared noise.</p></div>
 
 <h2>Editing existing biomes</h2>

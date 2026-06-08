@@ -105,8 +105,9 @@ LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
 
 	<span class="k">@Override</span>
 	<span class="k">public</span> <span class="t">PortalForcer</span> getTravelAgent(<span class="t">PlayerEntity</span> player) {
-		<span class="c">// The vanilla PortalForcer looks for (or builds) a portal at the destination.</span>
-		<span class="k">return new</span> <span class="t">PortalForcer</span>();
+		<span class="c">// Our own travel agent: finds or places a single Example Portal block on the</span>
+		<span class="c">// ground at the destination, instead of building a vanilla nether portal frame.</span>
+		<span class="k">return new</span> <span class="t">ExamplePortalForcer</span>();
 	}
 }</code></pre></div>
 
@@ -121,7 +122,38 @@ LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
 
 <p><strong><code>getDimension</code> names the destination.</strong> It returns the id of the dimension to travel to, here, <code>EXAMPLE_DIMENSION.getId()</code>. And travel <em>flips</em>: a player already in the example dimension who steps into the same portal is sent back to the overworld. RetroAPI reverses the direction automatically, mirroring exactly how the Nether portal you came through is also the one you leave through. This is verified RetroAPI behavior, not a hopeful description, the round trip works.</p>
 
-<p><strong><code>getTravelAgent</code> finds or builds the landing.</strong> It returns a vanilla <code>PortalForcer</code>, the same object the Nether uses to locate an existing portal at the destination or construct a new one if there isn't one. You inherit decades of arrival-portal logic by handing back the stock class.</p>
+<p><strong><code>getTravelAgent</code> finds or builds the landing.</strong> It returns a <em>custom</em> <code>ExamplePortalForcer</code> that ships with the showcase, not the stock class. Vanilla's <code>PortalForcer</code> searches for, and if it finds nothing, builds a full obsidian nether portal at the destination. Ours is gentler: it reuses an Example Portal block near the arrival point if one already exists, and otherwise places a single portal block on the ground and stands the player in it, no obsidian-portal building at all.</p>
+
+<p>Here is that travel agent. The whole job is one method, <code>moveToPortal</code>, which RetroAPI calls in the destination world after the dimension switch:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExamplePortalForcer.java</span><pre><code><span class="k">public class</span> <span class="t">ExamplePortalForcer</span> <span class="k">extends</span> <span class="t">PortalForcer</span> {
+
+	<span class="k">private static final</span> <span class="k">int</span> SEARCH_RADIUS = <span class="n">16</span>;
+
+	<span class="k">@Override</span>
+	<span class="k">public void</span> moveToPortal(<span class="t">World</span> world, <span class="t">Entity</span> entity) {
+		<span class="k">int</span> ex = <span class="t">MathHelper</span>.floor(entity.x);
+		<span class="k">int</span> ez = <span class="t">MathHelper</span>.floor(entity.z);
+
+		<span class="c">// Reuse a portal placed on an earlier trip if one is nearby.</span>
+		<span class="k">for</span> (<span class="k">int</span> x = ex - SEARCH_RADIUS; x &lt;= ex + SEARCH_RADIUS; x++) {
+			<span class="k">for</span> (<span class="k">int</span> z = ez - SEARCH_RADIUS; z &lt;= ez + SEARCH_RADIUS; z++) {
+				<span class="k">for</span> (<span class="k">int</span> y = <span class="n">127</span>; y &gt;= <span class="n">0</span>; y--) {
+					<span class="k">if</span> (world.getBlockId(x, y, z) == <span class="t">ExampleMod</span>.EXAMPLE_PORTAL.id) {
+						entity.setPositionAndAngles(x + <span class="n">0.5</span>, y + <span class="n">1.5</span>, z + <span class="n">0.5</span>, entity.yaw, entity.pitch);
+						<span class="k">return</span>;
+					}
+				}
+			}
+		}
+
+		<span class="c">// First arrival here: one portal block on the ground, player standing in it.</span>
+		<span class="c">// getTopY gives the first air block above the terrain at this column.</span>
+		<span class="k">int</span> y = world.getTopY(ex, ez);
+		world.setBlock(ex, y, ez, <span class="t">ExampleMod</span>.EXAMPLE_PORTAL.id);
+		entity.setPositionAndAngles(ex + <span class="n">0.5</span>, y + <span class="n">1.5</span>, ez + <span class="n">0.5</span>, entity.yaw, entity.pitch);
+	}
+}</code></pre></div>
 
 <div class="note"><p><code>CustomPortal</code> has one more method with a sensible default: <code>getDimensionScale(player)</code>, which returns <code>1.0</code>, no coordinate scaling. The vanilla Nether overrides this to 8×, so one block in the Nether maps to eight in the Overworld. Override it on your portal if you want the same trick (a compact dimension that covers a vast overworld); leave it alone and the two worlds share coordinates one-to-one.</p></div>
 

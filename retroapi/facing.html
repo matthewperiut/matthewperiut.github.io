@@ -94,6 +94,16 @@
 
 <p>The upright case (<code>axis=y</code>) uses an unrotated model whose parent is <code>minecraft:block/cube_column</code>, the modern pillar model that puts an <code>end</code> texture on the caps and a <code>side</code> texture around the trunk. The two horizontal cases reuse one <code>cube_column_horizontal</code> model and tip it 90 degrees on <code>x</code> to lay it down, with an extra 90 on <code>y</code> for the <code>x</code> axis so the caps point the right way. One state, three variants, the model rotations doing all the orienting. This is the same pattern modern Minecraft's logs use, working unchanged on beta.</p>
 
+<p>The blockstate picks this horizontal model with its x and y rotations for logs on the X or Z axis, and the upright model for the Y axis.</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/packed_log_horizontal.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"minecraft:block/cube_column_horizontal"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"end"</span>: <span class="s">"example_mod:block/packed_log_top"</span>,
+    <span class="s">"side"</span>: <span class="s">"example_mod:block/packed_log"</span>
+  }
+}</code></pre></div>
+
 <p>The log needs two textures, the side grain wrapping the trunk and the end cap on the faces. These live at <code>src/main/resources/assets/example_mod/textures/block/</code>.</p>
 
 <div class="asset-row">

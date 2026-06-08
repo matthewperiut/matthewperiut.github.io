@@ -328,6 +328,28 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 <div class="asset-card"><img src="assets/condensed_dirt.png" width="64" height="64" alt="condensed_dirt"><div class="asset-name">condensed_dirt.png</div><a href="assets/condensed_dirt.png" download>download</a></div>
 </div>
 
+<p>A block built with <code>.texture(...)</code> still ships three resource files: a blockstate that picks a model, a block model that wires the texture onto a cube, and an item-form model so the inventory icon renders. These are condensed dirt's three:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/condensed_dirt.json</span><pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">""</span>: { <span class="s">"model"</span>: <span class="s">"example_mod:block/condensed_dirt"</span> }
+  }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/block/condensed_dirt.json</span><pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"minecraft:block/cube_all"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"all"</span>: <span class="s">"example_mod:block/condensed_dirt"</span>
+  }
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/items/condensed_dirt.json</span><pre><code>{
+  <span class="s">"model"</span>: {
+    <span class="s">"type"</span>: <span class="s">"minecraft:model"</span>,
+    <span class="s">"model"</span>: <span class="s">"example_mod:block/condensed_dirt"</span>
+  }
+}</code></pre></div>
+
 <p>The shovel kind comes from the <code>.mineable(SHOVEL)</code> call; the iron tier comes from listing the block in the same <code>needs_iron_tool</code> tag the ruby ore uses, a one-line data union:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{
