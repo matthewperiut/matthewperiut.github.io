@@ -29,12 +29,30 @@
     },
     {
       "group": "com.periut",
+      "artifact": "retroapi",
+      "version": "1.1.0",
+      "path": "repository/com/periut/retroapi/1.1.0/retroapi-1.1.0.jar",
+      "repo": "matthewperiut/RetroAPI",
+      "branch": "monolithic-biny",
+      "commit": "dcc5abd"
+    },
+    {
+      "group": "com.periut",
       "artifact": "retrocommands",
       "version": "0.6.0+gen2",
       "path": "repository/com/periut/retrocommands/0.6.0+gen2/retrocommands-0.6.0+gen2.jar",
       "repo": "matthewperiut/retrocommands",
       "branch": "master",
       "commit": "74f1245"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "retrocommands",
+      "version": "0.7.2+gen2",
+      "path": "repository/com/periut/retrocommands/0.7.2+gen2/retrocommands-0.7.2+gen2.jar",
+      "repo": "matthewperiut/retrocommands",
+      "branch": "master",
+      "commit": "abc3ef6"
     },
     {
       "group": "com.periut",
@@ -89,15 +107,6 @@
       "repo": "matthewperiut/BHCreative",
       "branch": "ornithe",
       "commit": "48c0f66"
-    },
-    {
-      "group": "com.periut",
-      "artifact": "retroapi",
-      "version": "1.1.0",
-      "path": "repository/com/periut/retroapi/1.1.0/retroapi-1.1.0.jar",
-      "repo": "matthewperiut/RetroAPI",
-      "branch": "monolithic-biny",
-      "commit": "dcc5abd"
     }
   ]
 }

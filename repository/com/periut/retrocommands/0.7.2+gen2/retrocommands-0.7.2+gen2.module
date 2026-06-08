@@ -1,0 +1,370 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut",
+    "module": "retrocommands",
+    "version": "0.7.2+gen2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.3.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "com.periut",
+          "module": "accessory-api",
+          "version": {
+            "requires": "0.8.0+gen2"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "retroapi",
+          "version": {
+            "requires": "1.1.0"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "retrocommands-0.7.2+gen2.jar",
+          "url": "retrocommands-0.7.2+gen2.jar",
+          "size": 127542,
+          "sha512": "acf363ae4079ef48d3996f5ef616b67dbd3179a380c86a144791040c4e2233fcb526ef29c73d6d346ee6752da50547463c8f92abaf94b6e118603fc33dd219d6",
+          "sha256": "d6a935dac5ec22ade5ee4875865c99fe7fcbe0400ccd9a54e7eb4dd7c2acce65",
+          "sha1": "8f81e22e73bce70f2427c43d84a26020670871c5",
+          "md5": "8e2d3efc8de6e59a0c91e2bdb83a6303"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "1.8.0-beta4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-slf4j18-impl",
+          "version": {
+            "requires": "2.17.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "io.github.llamalad7",
+          "module": "mixinextras-fabric",
+          "version": {
+            "requires": "0.2.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "blue.endless",
+          "module": "jankson",
+          "version": {
+            "requires": "1.2.1"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.2.1-jre"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.18.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "core",
+          "version": {
+            "requires": "0.7.1"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "networking-impl",
+          "version": {
+            "requires": "0.1.1+mcb1.5-mc11w48a"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "keybinds",
+          "version": {
+            "requires": "0.2.0+mca1.0.1_01-mcb1.7.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "branding",
+          "version": {
+            "requires": "0.4.2+mca1.2.2-mc14w29b"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "text-components",
+          "version": {
+            "requires": "0.1.0-alpha.1+mca0.1.0-mc1.14.4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "executors",
+          "version": {
+            "requires": "0.1.0+mcin-20100128-2304-mcb1.9-pre2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "entrypoints",
+          "version": {
+            "requires": "0.6.0+mca1.0.1_01-mc1.5.2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "networking",
+          "version": {
+            "requires": "0.9.0+mcb1.0-mc13w39b"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "lifecycle-events",
+          "version": {
+            "requires": "0.6.0+mcb1.3-mcb1.7.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "config",
+          "version": {
+            "requires": "0.6.0+mcb1.3-mcb1.7.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.ornithemc.osl-gen2",
+          "module": "resource-loader",
+          "version": {
+            "requires": "0.6.1+mca1.2.2-mc11w48a"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut.cryonicconfig",
+          "module": "cryonicconfig-ornithe",
+          "version": {
+            "requires": "1.0.0+gen2+mcb1.7.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "starac",
+          "version": {
+            "requires": "1.2.1+mcb1.7.3+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.github.GeyserMC",
+          "module": "MCAuthLib",
+          "version": {
+            "requires": "d9d773e5d50327c33898c65cd545a4f6ef3ba1b5"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "retrocommands-0.7.2+gen2.jar",
+          "url": "retrocommands-0.7.2+gen2.jar",
+          "size": 127542,
+          "sha512": "acf363ae4079ef48d3996f5ef616b67dbd3179a380c86a144791040c4e2233fcb526ef29c73d6d346ee6752da50547463c8f92abaf94b6e118603fc33dd219d6",
+          "sha256": "d6a935dac5ec22ade5ee4875865c99fe7fcbe0400ccd9a54e7eb4dd7c2acce65",
+          "sha1": "8f81e22e73bce70f2427c43d84a26020670871c5",
+          "md5": "8e2d3efc8de6e59a0c91e2bdb83a6303"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "retrocommands-0.7.2+gen2-sources.jar",
+          "url": "retrocommands-0.7.2+gen2-sources.jar",
+          "size": 67286,
+          "sha512": "590de56219924aee3ae9c348ec0708cd7cf23c2331008f34ee6428193558903f051b67e70fd0247cbfe5836b1a122cdf0a6802a5436634142c1df0209b588e16",
+          "sha256": "d1bfd700ba99b1230904d728ec8acca37059984669140d03c37f85ce139b3ffd",
+          "sha1": "db9d86ff38f2921412abcd9bd6dd793d5823f332",
+          "md5": "a68535fe7edd12086346c90d78fa0ce9"
+        }
+      ]
+    }
+  ]
+}
