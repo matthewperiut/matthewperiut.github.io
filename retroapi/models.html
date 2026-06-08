@@ -343,6 +343,34 @@ EMBER_BLOCK = RetroBlockAccess.create(Material.STONE)
 <div class="asset-card"><img src="assets/ember_block.png" width="64" height="256" alt="ember_block"><div class="asset-name">ember_block.png</div><a href="assets/ember_block.png" download>download</a></div>
 </div>
 
+<h3>An animated item: the Spectre Staff</h3>
+<p>The exact same <code>.png.mcmeta</code> mechanism works on item sprites, not just block faces. The Spectre Staff is a tall vertical strip, <code>spectre_staff.png</code> at 16&times;208, which is thirteen 16&times;16 frames stacked, and <code>spectre_staff.png.mcmeta</code> drives the playback frame by frame. The registration is a plain textured item; the <code>.texture()</code> call finds the mcmeta sidecar on the item atlas, the same path the ember block walks, so an animated item needs no extra API, just the strip and its mcmeta:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>SPECTRE_STAFF = RetroItemAccess.create()
+	.maxStackSize(<span class="n">1</span>)
+	.handheld()                        <span class="c">// held like a staff/tool, the through-the-fist pose</span>
+	.texture(id(<span class="s">"spectre_staff"</span>))
+	.register(id(<span class="s">"spectre_staff"</span>));</code></pre></div>
+
+<p>The mcmeta sets <code>frametime</code> 3 as the default, lists the frame order, and gives one frame, index 8, its own longer time of 9 ticks:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/textures/item/spectre_staff.png.mcmeta</span><pre><code>{
+  <span class="s">"animation"</span>: {
+    <span class="s">"frametime"</span>: <span class="n">3</span>,
+    <span class="s">"frames"</span>: [
+      <span class="n">0</span>, <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>, <span class="n">6</span>, <span class="n">7</span>,
+      { <span class="s">"index"</span>: <span class="n">8</span>, <span class="s">"time"</span>: <span class="n">9</span> },
+      <span class="n">9</span>, <span class="n">10</span>, <span class="n">11</span>, <span class="n">12</span>
+    ]
+  }
+}</code></pre></div>
+
+<p>Shown here at 64&times;208, a tall strip of thirteen frames that cycle in game:</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/spectre_staff.png" width="64" height="208" alt="spectre_staff" style="image-rendering:pixelated"><div class="asset-name">spectre_staff.png</div><a href="assets/spectre_staff.png" download>download</a></div>
+</div>
+
 <h2>What we built</h2>
 <p>Blockstate JSONs picked models per state and auto-wired the block to model rendering. Model JSONs gave us embedded parents (so packs ship no vanilla assets), elements, faces, and cullface-aware lighting. Render layers placed blocks in the right beta pass; tint providers colored them per biome; item models layered sprites or borrowed a block's baked look; and a lone <code>.png.mcmeta</code> brought a texture to life. Every one of these is a real modern-pack file, copied in and working.</p>
 

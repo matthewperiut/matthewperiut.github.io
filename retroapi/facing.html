@@ -94,6 +94,13 @@
 
 <p>The upright case (<code>axis=y</code>) uses an unrotated model whose parent is <code>minecraft:block/cube_column</code>, the modern pillar model that puts an <code>end</code> texture on the caps and a <code>side</code> texture around the trunk. The two horizontal cases reuse one <code>cube_column_horizontal</code> model and tip it 90 degrees on <code>x</code> to lay it down, with an extra 90 on <code>y</code> for the <code>x</code> axis so the caps point the right way. One state, three variants, the model rotations doing all the orienting. This is the same pattern modern Minecraft's logs use, working unchanged on beta.</p>
 
+<p>The log needs two textures, the side grain wrapping the trunk and the end cap on the faces. These live at <code>src/main/resources/assets/example_mod/textures/block/</code>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/packed_log.png" width="64" height="64" alt="packed_log"><div class="asset-name">packed_log.png</div><a href="assets/packed_log.png" download>download</a></div>
+<div class="asset-card"><img src="assets/packed_log_top.png" width="64" height="64" alt="packed_log_top"><div class="asset-name">packed_log_top.png</div><a href="assets/packed_log_top.png" download>download</a></div>
+</div>
+
 <h2>Facing the placer</h2>
 <p>The freezer is the other archetype: instead of following the face you click, it turns to face <em>you</em>. The state is a single <code>Facing</code> property (the four-direction enum above), and the work is in converting the placer's yaw into a direction. The enum's <code>fromYaw</code> does the arithmetic:</p>
 
@@ -138,6 +145,14 @@
 
 <p>The model's parent is <code>minecraft:block/orientable</code>, the modern model that paints a distinct <code>front</code> texture on one side and <code>side</code> on the other three, with <code>top</code> on the cap. <code>facing=north</code> is the unrotated baseline; the other three values spin that same model around <code>y</code> by 90, 180, or 270 degrees. One model, four variants, the door pointed four ways. The freezer's actual machine, its block entity, container, and screen, is <a href="blockentities.html">Chapter 6</a>'s subject; here we only care that it points the right way.</p>
 
+<p>The orientable model uses all three of the freezer's textures, the frosted front door, the side wrapping the other three faces, and the top cap. They live alongside the log textures at <code>src/main/resources/assets/example_mod/textures/block/</code>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_side.png" width="64" height="64" alt="freezer_side"><div class="asset-name">freezer_side.png</div><a href="assets/freezer_side.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
+</div>
+
 <h2>The block-entity render gotcha</h2>
 <p>Here is the trap, and it is worth understanding because it produces a baffling symptom. A plain RetroAPI block gets the <strong>model render type wired up for it automatically</strong> the moment it has a blockstate JSON: RetroAPI sets that render type on the base <code>Block</code> during registration, and the JSON-driven look just appears. The packed log relies on exactly this and overrides nothing.</p>
 
@@ -180,17 +195,6 @@
 <p>The <code>.defaultState(...)</code> call, the same optional hook <a href="states.html">Chapter 13</a> introduced, points the default at <code>facing=south</code> so the front lands on a face the isometric icon actually shows, right where the vanilla furnace shows its front. This is a cosmetic choice for the held item alone: a placed freezer never reads the default, because <code>onPlaced</code> immediately overwrites the facing with the one computed from your yaw. The icon and the world block are decided by two completely separate code paths, and <code>.defaultState(...)</code> only touches the icon.</p>
 
 <p>Contrast the log, which doesn't call <code>.defaultState(...)</code> at all (its registration is just <code>.states(ExampleLogBlock.AXIS)</code> plus the usual sounds, strength, and <code>.mineable(RetroTool.AXE)</code>). It gets the right icon for free, because <code>Y</code> being the first enum constant already makes the upright pillar the default, which is exactly what you want to see in hand. Choosing the enum order well can save you a <code>.defaultState(...)</code> call entirely.</p>
-
-<h2>The textures</h2>
-<p>The log uses a side grain and an end cap; the freezer uses a front, a side, and a top. All five are below.</p>
-
-<div class="asset-row">
-<div class="asset-card"><img src="assets/packed_log.png" width="64" height="64" alt="packed_log"><div class="asset-name">packed_log.png</div><a href="assets/packed_log.png" download>download</a></div>
-<div class="asset-card"><img src="assets/packed_log_top.png" width="64" height="64" alt="packed_log_top"><div class="asset-name">packed_log_top.png</div><a href="assets/packed_log_top.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_side.png" width="64" height="64" alt="freezer_side"><div class="asset-name">freezer_side.png</div><a href="assets/freezer_side.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
-</div>
 
 <h2>What we built</h2>
 <p>Two directional blocks, one pattern. Each declares a single enum state property whose constants serialize to lowercase names; each writes that property in <code>onPlaced</code> with one <code>.with(...)</code> and one <code>RetroStates.set</code>; and each gets its rotated look from a blockstate JSON that maps property values to models plus rotations, with zero render code in the block class. The log follows the clicked face and leans on its enum order for a free upright icon. The freezer faces the placer via <code>fromYaw</code>, overrides <code>getRenderType()</code> to survive the <code>BlockWithEntity</code> shadowing trap, and uses <code>.defaultState(...)</code> to aim the inventory icon at a visible face. Orientation, on beta, is just state and data.</p>

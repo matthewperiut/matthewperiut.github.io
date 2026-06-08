@@ -322,6 +322,12 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 	.mineable(com.periut.retroapi.tag.RetroTool.SHOVEL)    <span class="c">// shovel is the matching tool</span>
 	.register(id(<span class="s">"condensed_dirt"</span>));</code></pre></div>
 
+<p>The texture is a single all-sides cube face, saved at the path below.</p>
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/condensed_dirt.png</code></p>
+<div class="asset-row">
+<div class="asset-card"><img src="assets/condensed_dirt.png" width="64" height="64" alt="condensed_dirt"><div class="asset-name">condensed_dirt.png</div><a href="assets/condensed_dirt.png" download>download</a></div>
+</div>
+
 <p>The shovel kind comes from the <code>.mineable(SHOVEL)</code> call; the iron tier comes from listing the block in the same <code>needs_iron_tool</code> tag the ruby ore uses, a one-line data union:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{

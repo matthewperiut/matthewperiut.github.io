@@ -91,6 +91,12 @@ SAMPLE_DISC = (Item) RetroItemAccess.of(
 			RetroItemAccess.allocateId(), <span class="s">"example_mod:sample_disc"</span>))
 	.register(id(<span class="s">"sample_disc"</span>));</code></pre></div>
 
+<p>The record resolves its inventory icon through <code>.texture(id("sample_disc"))</code>, so the disc draws from <code>sample_disc.png</code>, saved at the path below.</p>
+<div class="asset-row">
+<div class="asset-card"><img src="assets/sample_disc.png" width="64" height="64" alt="sample_disc"><div class="asset-name">sample_disc.png</div><a href="assets/sample_disc.png" download>download</a></div>
+</div>
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/item/sample_disc.png</code></p>
+
 <p>Two things to notice. First, the constructor takes a placeholder id from <code>RetroItemAccess.allocateId()</code> and the <em>streaming event id</em>, <code>"example_mod:sample_disc"</code>, which points at <code>sounds/streaming/sample_disc.ogg</code>. Wrapping a hand-built instance with <code>RetroItemAccess.of(...)</code> is the exact same custom-item pattern from <a href="items.html">Chapter 5</a>; a record is just an item whose class happens to be <code>RetroRecordItem</code>. Second, max stack size is forced to 1 inside the constructor, so you don't set it yourself.</p>
 
 <h3>The "now playing" name</h3>

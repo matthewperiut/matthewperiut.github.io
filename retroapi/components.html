@@ -69,6 +69,14 @@ ATTUNEMENT = com.periut.retroapi.component.RetroComponents.register(
 
 <p>That stack now remembers how many times it was clicked, even though a beta <code>ItemStack</code> has nowhere of its own to keep that number. The how lives in the <a href="#h-persistence">Persistence</a> and <a href="#h-multiplayer-sync">Multiplayer sync</a> sections below; for the moment, trust that it sticks.</p>
 
+<p>The Counter item is registered with <code>.texture(id("counter"))</code>, so it needs an item texture named <code>counter.png</code>:</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/counter.png" width="64" height="64" alt="counter"><div class="asset-name">counter.png</div><a href="assets/counter.png" download>download</a></div>
+</div>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/item/counter.png</code></p>
+
 <h2>Tooltips</h2>
 <p>A clicked count is no good if you cannot see it. The catch: beta has <strong>no tooltip system at all</strong>. Hovering an item in the inventory shows its name and nothing more. So RetroAPI adds the multi-line tooltip itself and reads the extra lines from your item. Implement <code>RetroTooltipProvider</code> and override <code>appendTooltip(stack, lines)</code>, adding as many strings as you like; they render under the name. Prefix a line with a section sign for color, the same codes vanilla chat uses (<code>§6</code> is gold, <code>§b</code> aqua, and so on):</p>
 

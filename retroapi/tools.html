@@ -37,6 +37,12 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 	.tier(com.periut.retroapi.tag.RetroToolTier.IRON)
 	.register(id(<span class="s">"ruby_pick"</span>));</code></pre></div>
 
+<div class="asset-row">
+<div class="asset-card"><img src="assets/ruby_pick.png" width="64" height="64" alt="ruby_pick"><div class="asset-name">ruby_pick.png</div><a href="assets/ruby_pick.png" download>download</a></div>
+</div>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/item/ruby_pick.png</code></p>
+
 <p><code>.tool(RetroTool.PICKAXE)</code> declares the <em>kind</em>, this item harvests anything in the <code>mineable/pickaxe</code> tag, and <code>.tier(RetroToolTier.IRON)</code> declares <em>how good</em> it is, so it satisfies <code>needs_iron_tool</code> gating. Both feed the exact same harvest hook the ruby ore uses, so the pick mines the ruby ore it was meant to mine. Vanilla tool classes never call these, they infer the kind from their class and the tier from their <code>ToolMaterial</code>; the two declarations exist precisely for the case where there is no tool class, just an item you want to behave like one. The full tier ladder, the tag JSON, and the harvest rules all live in the tool-tiers section of <a href="blocks.html">Chapter 4</a>; this is the same Ruby Pick seen from the item side.</p>
 
 <p>The diagonal through-the-fist pose comes free here because the showcase ships a handheld item model at <code>retroapi/models/item/ruby_pick.json</code>; an item without such a model would opt in with <code>.handheld()</code>, the same one-call trick the Jump Stick used in <a href="items.html">Chapter 5</a>.</p>
@@ -95,6 +101,14 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 	.register(id(<span class="s">"candied_apple"</span>));</code></pre></div>
 
 <p>That is the whole food declaration. Right-click to eat, lose one from the stack, gain two hearts. The candied apple also happens to be a layered texture stacked over vanilla's apple sprite, which is the texture trick from <a href="items.html">Chapter 5</a> rather than anything to do with food; here we care only about the one-word <code>.food(4)</code>.</p>
+
+<p>The showcase also ships an alternate item model for it, <code>retroapi/models/item/candied_apple_glint.json</code>, whose <code>layer0</code> points at a <code>sugar_sparkle</code> sprite to give the apple a glint variant; like the layering above it is purely cosmetic and has nothing to do with the food property.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/sugar_sparkle.png" width="64" height="64" alt="sugar_sparkle"><div class="asset-name">sugar_sparkle.png</div><a href="assets/sugar_sparkle.png" download>download</a></div>
+</div>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/item/sugar_sparkle.png</code></p>
 
 <h3>The interesting case: the Poisonous Apple</h3>
 <p>Now use the second overload, <code>.food(health, onEaten)</code>, and pass a lambda. The Poisonous Apple heals a single point, then turns around and hurts you:</p>

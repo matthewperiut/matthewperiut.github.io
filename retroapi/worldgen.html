@@ -176,6 +176,14 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 
 <p><code>ExampleMod.PINK_FLOWER.id</code> is the runtime id &gt;= 256. Because it's going through <code>setBlock</code> and not the byte array, it lands correctly and persists. The rule to carry away: <strong>vanilla ids in the array, modded ids through the world.</strong></p>
 
+<p>The flower's sprite is a single cross-shaped texture, saved at the path below:</p>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/pink_flower.png</code></p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/pink_flower.png" width="64" height="64" alt="pink_flower"><div class="asset-name">pink_flower.png</div><a href="assets/pink_flower.png" download>download</a></div>
+</div>
+
 <h2>Biomes</h2>
 <p>A <code>ChunkSource</code> shapes the land; a <code>BiomeSource</code> answers "what biome is at <code>(x, z)</code>?" for grass and sky tint, temperature, and mob spawning. The dimension picks both. Curvy uses the simplest possible biome source, one biome everywhere:</p>
 
@@ -254,6 +262,14 @@ RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class=
 	.sounds(<span class="t">Block</span>.GLASS_SOUND_GROUP)
 	.texture(id(<span class="s">"green_glass"</span>))
 	.register(id(<span class="s">"curvy_portal"</span>));</code></pre></div>
+
+<p>The Noisy dimension's portal is the second instance, identical but for its destination and sprite: the Curvy portal wears <code>green_glass</code> and the Noisy portal wears <code>orange_glass</code>, so the two doorways read apart at a glance.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/green_glass.png" width="64" height="64" alt="green_glass"><div class="asset-name">green_glass.png</div><a href="assets/green_glass.png" download>download</a></div>
+<div class="asset-card"><img src="assets/orange_glass.png" width="64" height="64" alt="orange_glass"><div class="asset-name">orange_glass.png</div><a href="assets/orange_glass.png" download>download</a></div>
+</div>
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/green_glass.png, orange_glass.png</code></p>
 
 <p>The return trip is the part Chapter 9 hand-waved. RetroAPI flips the travel direction for a player already in the dimension, but the portal also has to <em>be there</em> when you arrive. That's the second supplier, <code>portalBlockId</code>, handed to a custom travel agent. <code>getTravelAgent</code> returns a <code>GroundPortalForcer</code> seeded with the portal's own id, and that forcer either reuses a portal from an earlier trip or drops a fresh one on the surface:</p>
 

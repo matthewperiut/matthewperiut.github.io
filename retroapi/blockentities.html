@@ -21,12 +21,6 @@
 
 <p>We'll go in order of nerve: first a block that just counts your clicks, then a crate with its own window, then a fuel-burning freezer whose progress bars actually move on every screen in a multiplayer game. The last one is the whole reason this chapter exists, but the first two earn it.</p>
 
-<div class="asset-row">
-<div class="asset-card"><img src="assets/counter_block.png" width="64" height="64" alt="counter_block"><div class="asset-name">counter_block.png</div><a href="assets/counter_block.png" download>download</a></div>
-<div class="asset-card"><img src="assets/crate_block.png" width="64" height="64" alt="crate_block"><div class="asset-name">crate_block.png</div><a href="assets/crate_block.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
-</div>
-
 <h2>Part 1, The Counter Block</h2>
 <p class="chapter-sub" style="margin-top:-8px">State that saves.</p>
 
@@ -112,6 +106,12 @@ COUNTER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</
 	.strength(<span class="n">1.5f</span>)
 	.texture(id(<span class="s">"counter_block"</span>))
 	.register(id(<span class="s">"counter_block"</span>));</code></pre></div>
+
+<p>Its texture lives at <code>src/main/resources/assets/example_mod/textures/block/counter_block.png</code>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/counter_block.png" width="64" height="64" alt="counter_block"><div class="asset-name">counter_block.png</div><a href="assets/counter_block.png" download>download</a></div>
+</div>
 
 <div class="danger"><p>The string id <code>"counter"</code> passed to <code>RetroBlockEntities.register</code> is written into your world's NBT as the name of every counter's saved data. <strong>Never change it after release.</strong> Rename it and every counter in every existing world becomes an orphan the game can't reconstruct. Pick the name once and live with it forever, exactly the same rule as the NBT keys inside <code>writeNbt</code>.</p></div>
 
@@ -397,6 +397,12 @@ CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</sp
 	.alwaysDrops()
 	.texture(id(<span class="s">"crate_block"</span>))
 	.register(id(<span class="s">"crate_block"</span>));</code></pre></div>
+
+<p>Its texture lives at <code>src/main/resources/assets/example_mod/textures/block/crate_block.png</code>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/crate_block.png" width="64" height="64" alt="crate_block"><div class="asset-name">crate_block.png</div><a href="assets/crate_block.png" download>download</a></div>
+</div>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="c">// The client half of the crate GUI (the common half is in ExampleMod.init).</span>
 <span class="c">// Two factories: how to build the screen, and how to build a stand-in</span>
@@ -759,9 +765,6 @@ CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</sp
 
 <div class="asset-row">
 <div class="asset-card"><img src="assets/freezer.png" width="256" height="256" alt="freezer" style="image-rendering:pixelated"><div class="asset-name">freezer.png</div><a href="assets/freezer.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_side.png" width="64" height="64" alt="freezer_side"><div class="asset-name">freezer_side.png</div><a href="assets/freezer_side.png" download>download</a></div>
-<div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
 </div>
 
 <h3>The block, and the registrations</h3>
@@ -784,6 +787,14 @@ FREEZER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</
 	.strength(<span class="n">3.5f</span>)
 	.texture(id(<span class="s">"freezer_block"</span>))
 	.register(id(<span class="s">"freezer_block"</span>));</code></pre></div>
+
+<p>The orientable block uses three faces, all under <code>src/main/resources/assets/example_mod/textures/block/</code>: the frosted door <code>freezer_front.png</code>, the panels <code>freezer_side.png</code>, and the lid <code>freezer_top.png</code>.</p>
+
+<div class="asset-row">
+<div class="asset-card"><img src="assets/freezer_front.png" width="64" height="64" alt="freezer_front"><div class="asset-name">freezer_front.png</div><a href="assets/freezer_front.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_side.png" width="64" height="64" alt="freezer_side"><div class="asset-name">freezer_side.png</div><a href="assets/freezer_side.png" download>download</a></div>
+<div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
+</div>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"freezer"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
 	(player, inventory) -> <span class="k">new</span> <span class="t">ExampleFreezerScreen</span>(player.inventory, (<span class="t">ExampleFreezerBlockEntity</span>) inventory),
