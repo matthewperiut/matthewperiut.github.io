@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 8: The Aerbunny, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 8, The Aerbunny</h1>
+<p class="chapter-sub">The mob in <a href="entities.html">Chapter 7</a> just stood there. This one rides on your head, glides you safely down, breeds, panics and flees when struck, and grabs on for dear life. To make it work you'll confront real entity AI, the client/server render-state handshake, and honest input networking all at once.</p>
+
+<p><a href="entities.html">Chapter 7</a> built the simplest possible mob: extend <code>LivingEntity</code>, pick a skin, refuse to despawn. It had no brain, and on purpose, the lesson there was the spawn protocol, not behaviour. This chapter is its sequel. We're going to build the showcase's most complex creature, the Aerbunny, a full port of the floaty puffball from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>, and every problem Chapter 7 let us skip comes due here.</p>
+
+<p>An Aerbunny wanders like a passive animal, then layers five behaviours on top. It rides on the player's head when you right-click it and slow-falls them, a glide, with a soft upward boost if they hold jump in the air. It breeds, with a population cap. It panics when a player hits it and pathfinds away. It can be grabbed and held, and when a grabbed one lands it makes nearby monsters turn on it. And it puffs up and tilts as it floats, render state the server computes and must publish to every client. No single piece is hard. Together they teach the three things a living entity actually needs that a static mob never does: an AI base, a render-state channel, and input networking. We'll take them one at a time.</p>
+
+<p>This is a long chapter because it is a complete, reproducible build. By the end you'll have written eleven files, and the last section lists every one so you can check your work. Let's start with the class.</p>
+
+<h2>The class and its brain</h2>
+<p>Chapter 7's mob extended <code>LivingEntity</code> and stood still. The Aerbunny extends <code>AnimalEntity</code>, beta's base class for passive, wandering creatures, the same parent as the cow and the pig. That single choice hands us a working brain for free: idle wandering, looking around, fleeing in a generic way, the whole vanilla passive AI. We then override its tick hooks to add everything the Aether bunny does on top.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code><span class="k">public class</span> <span class="t">AerbunnyEntity</span> <span class="k">extends</span> <span class="t">AnimalEntity</span> <span class="k">implements</span> <span class="t">RetroMobSpawnData</span> {
+
+	<span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> ID = <span class="t">ExampleMod</span>.id(<span class="s">"aerbunny"</span>);
+
+	<span class="c">/** DataTracker slots. 16 holds a packed STATE byte, 17/18 hold floats as bits. */</span>
+	<span class="k">private static final int</span> STATE_SLOT = <span class="n">16</span>;
+	<span class="k">private static final int</span> PUFFINESS_SLOT = <span class="n">17</span>;
+	<span class="k">private static final int</span> VELOCITY_Y_SLOT = <span class="n">18</span>;
+
+	<span class="k">public int</span> age;
+	<span class="k">public int</span> mate;
+	<span class="k">public boolean</span> grab;
+	<span class="k">public boolean</span> fear;
+	<span class="k">public boolean</span> gotRider;
+	<span class="k">public</span> <span class="t">Entity</span> runFrom;
+	<span class="c">/** Local (server-authoritative) puffiness, 0..~1.15, decays each tick. */</span>
+	<span class="k">public float</span> puffiness;
+	<span class="c">/** The rider's jump key, fed in from the client (mount mixin) or the jump packet. */</span>
+	<span class="k">public boolean</span> vehicleJumping;</code></pre></div>
+
+<p>Read those fields like a behaviour list, because that's what they are. <code>age</code> and <code>mate</code> are the breeding counters. <code>grab</code> and <code>fear</code> are the grabbed and panic flags. <code>gotRider</code> remembers across a save that a player was carrying this bunny. <code>runFrom</code> is whoever it's currently fleeing. <code>puffiness</code> is the render-only puff scale, and <code>vehicleJumping</code> is the rider's jump key, which, as we'll see, has to travel over the network to get here on a dedicated server.</p>
+
+<p>The constructor sets the basics and, importantly, the texture, a real PNG you'll ship at the end of this chapter:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">public</span> AerbunnyEntity(<span class="t">World</span> world) {
+		<span class="k">super</span>(world);
+		<span class="k">this</span>.movementSpeed = <span class="n">2.5F</span>;
+		<span class="k">this</span>.texture = <span class="s">"/assets/example_mod/textures/mobs/aerbunny.png"</span>;
+		<span class="k">this</span>.standingEyeHeight = -<span class="n">0.16F</span>;
+		<span class="c">// Match the model's footprint so it sits ON the ground, not hovering above it.</span>
+		<span class="k">this</span>.setBoundingBoxSpacing(<span class="n">0.4F</span>, <span class="n">0.4F</span>);
+		<span class="k">this</span>.health = <span class="n">6</span>;
+		<span class="c">// Render far: a floaty mob is easy to lose track of up close.</span>
+		<span class="k">if</span> (<span class="k">this</span>.renderDistanceMultiplier &lt; <span class="n">5.0</span>) {
+			<span class="k">this</span>.renderDistanceMultiplier = <span class="n">5.0</span>;
+		}
+		<span class="k">this</span>.age = <span class="k">this</span>.random.nextInt(<span class="n">64</span>);
+		<span class="k">this</span>.mate = <span class="n">0</span>;
+	}</code></pre></div>
+
+<p>Two tick hooks carry all the behaviour, and the difference between them matters. <code>tick()</code> runs every tick for every entity, alive or not; the Aerbunny uses it for breeding bookkeeping and for the puffiness decay. <code>tickLiving()</code> runs inside the living-entity update, after the AI has decided where to move; that's where the hop, the glide, the panic, and the grab-landing live. Throughout, <strong><code>this.world.isRemote</code> is the fork in the road</strong>: false on the authoritative side (a dedicated server, or the singleplayer client which <em>is</em> the world), true on a remote client that only watches. Keep that distinction in your head, the whole chapter turns on it.</p>
+
+<h2>Render state over the wire</h2>
+<p>Here is the problem a static mob never has. The Aerbunny's puff and tilt are computed from physics, vertical velocity, whether it's puffing, that only ever runs on the authoritative side. A remote client never simulates the bunny; it only knows position and rotation from the entity tracker. So how does a distant player see the same puff at the same instant the owner does? The answer is the <strong>DataTracker</strong>, the small bag of synced values the engine keeps in step automatically. We claim three slots in it.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">protected void</span> initDataTracker() {
+		<span class="k">super</span>.initDataTracker();
+		<span class="k">this</span>.dataTracker.startTracking(STATE_SLOT, (<span class="k">byte</span>) <span class="n">0</span>);
+		<span class="k">this</span>.dataTracker.startTracking(PUFFINESS_SLOT, <span class="n">0</span>);    <span class="c">// float bits</span>
+		<span class="k">this</span>.dataTracker.startTracking(VELOCITY_Y_SLOT, <span class="n">0</span>);   <span class="c">// float bits</span>
+	}</code></pre></div>
+
+<p>Slots below 16 belong to the engine (on fire, sneaking, and friends); 16 and up are yours. Slot 16 holds a packed <strong>state byte</strong>: bit 1 is "on the ground," bit 2 is "ridden by a player," bit 4 is "grabbed." Slots 17 and 18 each hold a <code>float</code>, but the tracker only carries ints in those slots, so we store the float's raw bits with <code>Float.floatToIntBits</code> and read them back with <code>Float.intBitsToFloat</code>. Slot 17 is the puffiness, slot 18 is the vertical velocity. Once per tick, on the authoritative side, we publish all three:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="c">/** Pack everything the renderer/other clients need into the tracker, once per tick. */</span>
+	<span class="k">private void</span> syncState() {
+		<span class="k">byte</span> state = <span class="n">0</span>;
+		<span class="k">if</span> (<span class="k">this</span>.onGround) state |= <span class="n">1</span>;
+		<span class="k">if</span> (<span class="k">this</span>.vehicle <span class="k">instanceof</span> <span class="t">PlayerEntity</span>) state |= <span class="n">2</span>;
+		<span class="k">if</span> (<span class="k">this</span>.grab) state |= <span class="n">4</span>;
+		<span class="k">this</span>.dataTracker.set(STATE_SLOT, state);
+		<span class="k">this</span>.dataTracker.set(PUFFINESS_SLOT, <span class="t">Float</span>.floatToIntBits(<span class="k">this</span>.puffiness));
+		<span class="k">this</span>.dataTracker.set(VELOCITY_Y_SLOT, <span class="t">Float</span>.floatToIntBits((<span class="k">float</span>) <span class="k">this</span>.velocityY));
+	}</code></pre></div>
+
+<p>This is the <strong>publish/trust split</strong>. The server publishes; the client trusts. Two small reader methods make the trust side honest, each branching on <code>isRemote</code> so the same method works on both sides:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">public boolean</span> isRidingPlayer() {
+		<span class="k">if</span> (<span class="k">this</span>.world.isRemote) {
+			<span class="k">return</span> (<span class="k">this</span>.dataTracker.getByte(STATE_SLOT) &amp; <span class="n">2</span>) != <span class="n">0</span>;
+		}
+		<span class="k">return</span> <span class="k">this</span>.vehicle <span class="k">instanceof</span> <span class="t">PlayerEntity</span>;
+	}
+
+	<span class="c">/** The synced vertical velocity the renderer tilts by (client reads the tracker). */</span>
+	<span class="k">public float</span> getSyncedVelocityY() {
+		<span class="k">return</span> <span class="t">Float</span>.intBitsToFloat(<span class="k">this</span>.dataTracker.getInt(VELOCITY_Y_SLOT));
+	}</code></pre></div>
+
+<p>On the authoritative side <code>isRidingPlayer()</code> checks the real <code>vehicle</code> field; on a remote client there is no live <code>vehicle</code> physics to consult, so it reads the synced bit instead. And <code>getSyncedVelocityY()</code> only ever reads the tracker, because the tilt must match whatever the server published regardless of who's watching. <strong>The model's puff and the renderer's tilt both read these synced values, never a locally simulated field.</strong> That's the entire client/server render lesson the simpler mob couldn't teach, and we'll see the draw side pay it off later.</p>
+
+<p>One subtlety on puffiness, because it shows the seam between publish and trust. The server simply decays it. The client trusts the synced value, but snaps up with a particle burst the instant the server triggers a puff, then decays at the same rate locally between updates so it looks smooth:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code>			<span class="c">// Server: puffiness simply decays.</span>
+			<span class="k">this</span>.puffiness = <span class="t">Math</span>.max(<span class="n">0.0F</span>, <span class="k">this</span>.puffiness - <span class="n">0.1F</span>);
+			syncState();
+		} <span class="k">else</span> {
+			<span class="c">// Client: trust the synced puffiness, snapping up (with a particle burst) when</span>
+			<span class="c">// the server triggers a puff, and decaying locally at the same rate between updates.</span>
+			<span class="k">float</span> serverPuff = <span class="t">Float</span>.intBitsToFloat(<span class="k">this</span>.dataTracker.getInt(PUFFINESS_SLOT));
+			<span class="k">if</span> (serverPuff &gt; <span class="k">this</span>.puffiness + <span class="n">0.2F</span>) {
+				<span class="k">this</span>.puffiness = serverPuff;
+				<span class="k">this</span>.cloudPoop();
+			} <span class="k">else</span> {
+				<span class="k">this</span>.puffiness = <span class="t">Math</span>.max(<span class="n">0.0F</span>, <span class="k">this</span>.puffiness - <span class="n">0.1F</span>);
+			}
+		}</code></pre></div>
+
+<div class="note"><p>The DataTracker is a tiny, fixed bag, integers, bytes, a handful of values. It is exactly right for render state that changes every tick: it rides the entity tracker automatically, no channel to register, no listener to write. Reach for a custom packet (<a href="networking.html">Chapter 12</a>) only when you need something the tracker can't carry, which, as we're about to see with the jump key, does happen.</p></div>
+
+<h2>Riding the player</h2>
+<p>Right-click the bunny and it climbs onto your head. The hook is <code>interact</code>, and the authoritative side does the work, sets the rider, plays a lift sound, gives it a little launch velocity:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="c">/** Right-click to pick up: the bunny mounts the player's head. */</span>
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> interact(<span class="t">PlayerEntity</span> player) {
+		<span class="k">if</span> (<span class="k">this</span>.world.isRemote) {
+			<span class="k">return true</span>;
+		}
+		<span class="k">this</span>.yaw = player.yaw;
+		<span class="k">this</span>.setVehicle(player);
+		<span class="k">if</span> (<span class="k">this</span>.vehicle == <span class="k">null</span>) {
+			<span class="k">this</span>.grab = <span class="k">true</span>; <span class="c">// could not mount (player already has a passenger): hold instead</span>
+		} <span class="k">else</span> {
+			<span class="k">this</span>.world.playSound(<span class="k">this</span>, <span class="s">"example_mod:mobs.aerbunny.aerbunnylift"</span>, <span class="n">1.0F</span>,
+				(<span class="k">this</span>.random.nextFloat() - <span class="k">this</span>.random.nextFloat()) * <span class="n">0.2F</span> + <span class="n">1.0F</span>);
+		}</code></pre></div>
+
+<p>If the player already has a passenger, <code>setVehicle</code> leaves <code>vehicle</code> null and the bunny falls back to being grabbed (held in place) instead of riding. Otherwise it's now on your head. But beta does not auto-send mount packets to the player's client, so on a dedicated server we have to send one by hand. And that send drags in a class-loading trap nasty enough to earn its own subsection.</p>
+
+<h3>The class-loading trap, and the MountSync helper</h3>
+<p>The packet we need to send names <code>ServerPlayerEntity</code>. That class exists <strong>only on a dedicated server</strong>; the client class loader doesn't have it and refuses to load any class that references it. Now look at where we are: <code>interact</code> is common code. On a dedicated server it runs server-side, fine. But in singleplayer the one world is client-side, so <code>interact</code> also runs on the client, where <code>isRemote</code> is <code>false</code>. If this common method named <code>ServerPlayerEntity</code> directly, <strong>even inside a branch it never takes</strong>, the JVM would have to resolve that class the moment it loaded the method, and the singleplayer client would crash on the spot.</p>
+
+<p>The fix is two-layered. First, the call site checks the class <em>by name as a string</em>, not with <code>instanceof</code> (which would itself name the type), and routes the actual send through a separate helper:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, interact()</span><pre><code>		<span class="c">// Beta does not auto-send mount packets, so tell the player's client about it. The</span>
+		<span class="c">// string class-name check (not instanceof) keeps the server-only ServerPlayerEntity</span>
+		<span class="c">// reference out of this common method, which also runs on the singleplayer client; the</span>
+		<span class="c">// actual send lives in MountSync so the class is only loaded server-side. See MountSync.</span>
+		<span class="k">if</span> (player.getClass().getName().endsWith(<span class="s">"ServerPlayerEntity"</span>)) {
+			<span class="t">MountSync</span>.send(player, <span class="k">this</span>, <span class="k">this</span>.vehicle);
+		}</code></pre></div>
+
+<p>Second, the <code>ServerPlayerEntity</code> reference lives alone in <code>MountSync</code>, a class that only loads when <code>send</code> is actually called, which only happens server-side because of the string check above. Read its javadoc; it states the rule plainly:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/MountSync.java</span><pre><code><span class="k">public final class</span> <span class="t">MountSync</span> {
+
+	<span class="k">private</span> MountSync() {
+	}
+
+	<span class="k">public static void</span> send(<span class="t">PlayerEntity</span> player, <span class="t">Entity</span> rider, <span class="t">Entity</span> vehicle) {
+		((<span class="t">ServerPlayerEntity</span>) player).networkHandler.sendPacket(<span class="k">new</span> <span class="t">EntityVehicleSetS2CPacket</span>(rider, vehicle));
+	}
+}</code></pre></div>
+
+<div class="danger"><p><strong>A server-only class must never be named in common code that also runs on the singleplayer client.</strong> The JVM resolves every type a method references the moment it verifies that method, so even an untaken branch that mentions <code>ServerPlayerEntity</code> crashes the client loader. The cure is the two-part pattern here: detect the server with a <strong>string class-name check</strong> (<code>getClass().getName().endsWith("ServerPlayerEntity")</code>) so no type is named, and isolate the actual server-only reference in its own helper class (<code>MountSync</code>) that only loads when called. This is the same sided-loading discipline that keeps <code>LivingEntityRenderer</code> out of the common entrypoint in <a href="entities.html">Chapter 7</a>, applied in the other direction.</p></div>
+
+<p>The rest of <code>interact</code> tidies the bunny for the ride and hands it off:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, interact()</span><pre><code>		<span class="k">this</span>.jumping = <span class="k">false</span>;
+		<span class="k">this</span>.forwardSpeed = <span class="n">0.0F</span>;
+		<span class="k">this</span>.sidewaysSpeed = <span class="n">0.0F</span>;
+		<span class="k">this</span>.setPath(<span class="k">null</span>);
+		<span class="k">this</span>.velocityX = player.velocityX * <span class="n">5.0</span>;
+		<span class="k">this</span>.velocityY = player.velocityY / <span class="n">2.0</span> + <span class="n">0.5</span>;
+		<span class="k">this</span>.velocityZ = player.velocityZ * <span class="n">5.0</span>;
+		<span class="k">return true</span>;
+	}</code></pre></div>
+
+<p>One last touch lets a ridden bunny survive a save. <code>writeNbt</code> flags <code>gotRider</code> if a passenger was present, and on load <code>tick()</code> re-mounts the nearest player:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code>			<span class="c">// A bunny saved while ridden re-mounts the nearest player on load.</span>
+			<span class="k">if</span> (<span class="k">this</span>.gotRider) {
+				<span class="k">this</span>.gotRider = <span class="k">false</span>;
+				<span class="k">if</span> (<span class="k">this</span>.vehicle == <span class="k">null</span>) {
+					<span class="t">PlayerEntity</span> player = (<span class="t">PlayerEntity</span>) <span class="k">this</span>.findPlayerToRunFrom();
+					<span class="k">if</span> (player != <span class="k">null</span> &amp;&amp; <span class="k">this</span>.getDistance(player) &lt; <span class="n">2.0F</span> &amp;&amp; player.passenger == <span class="k">null</span>) {
+						<span class="k">this</span>.setVehicle(player);
+					}
+				}
+			}</code></pre></div>
+
+<h2>The glide, and the networking it needs</h2>
+<p>A ridden bunny slow-falls its rider, that's the glide, and holding jump in the air gives a soft upward boost. The slow-fall logic lives in <code>tickLiving</code>, on the authoritative side only, because the riding client predicts it locally and we must never apply it twice:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tickLiving()</span><pre><code>		} <span class="k">else if</span> (<span class="k">this</span>.vehicle != <span class="k">null</span>) {
+			<span class="c">// Riding a player: glide them. Authoritative side only (the riding client predicts</span>
+			<span class="c">// this in AerbunnyMountClientMixin), so it is never applied twice.</span>
+			<span class="k">if</span> (!<span class="k">this</span>.world.isRemote) {
+				<span class="k">if</span> (<span class="k">this</span>.vehicle.dead) {
+					<span class="k">this</span>.setVehicle(<span class="k">null</span>);
+				} <span class="k">else if</span> (!<span class="k">this</span>.vehicle.onGround &amp;&amp; !<span class="k">this</span>.vehicle.checkWaterCollisions()) {
+					((<span class="t">EntityFallDistanceAccessor</span>) <span class="k">this</span>.vehicle).setFallDistance(<span class="n">0.0F</span>);
+					<span class="k">this</span>.vehicle.velocityY += <span class="n">0.05</span>;
+					<span class="k">if</span> (<span class="k">this</span>.vehicle.velocityY &lt; -<span class="n">0.225</span> &amp;&amp; <span class="k">this</span>.vehicle <span class="k">instanceof</span> <span class="t">LivingEntity</span> &amp;&amp; <span class="k">this</span>.vehicleJumping) {
+						<span class="k">this</span>.vehicle.velocityY = <span class="n">0.125</span>; <span class="c">// jump-while-gliding boost</span>
+						<span class="k">this</span>.cloudPoop();
+						<span class="k">this</span>.puffiness = <span class="n">1.15F</span>;
+					}
+				}
+			}
+		}</code></pre></div>
+
+<p>Two things here cross entity boundaries, and both need help. The bunny zeroes its rider's <code>fallDistance</code> every tick so the player never takes fall damage when they finally land, and it reads <code>this.vehicleJumping</code> to fire the boost. A private field on a <em>different</em> entity (the rider) can't be touched directly; you reach it through an accessor mixin. Here is the one for fall distance:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/EntityFallDistanceAccessor.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">Entity</span>.<span class="k">class</span>)
+<span class="k">public interface</span> <span class="t">EntityFallDistanceAccessor</span> {
+
+	<span class="k">@Accessor</span>(<span class="s">"fallDistance"</span>)
+	<span class="k">void</span> setFallDistance(<span class="k">float</span> fallDistance);
+}</code></pre></div>
+
+<p>And the companion that reads the rider's jump flag, the private <code>jumping</code> boolean that's true while the jump key is held:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/LivingEntityJumpAccessor.java</span><pre><code><span class="k">@Mixin</span>(<span class="t">LivingEntity</span>.<span class="k">class</span>)
+<span class="k">public interface</span> <span class="t">LivingEntityJumpAccessor</span> {
+
+	<span class="k">@Accessor</span>(<span class="s">"jumping"</span>)
+	<span class="k">boolean</span> getJumping();
+}</code></pre></div>
+
+<p>(Accessor mixins are <a href="mixins.html">Chapter 13</a>'s subject; here they're just the only legal way to touch another entity's private fields.)</p>
+
+<h3>Why the jump key has to be shipped</h3>
+<p>Now the hard part. The boost depends on <code>this.vehicleJumping</code>, the rider's jump key. On the singleplayer client the rider is the local player, so we can read the key directly. But on a dedicated server the server has <strong>no idea</strong> whether the player is holding jump, input lives on the client. So the client must ship the jump key up every tick, and the boost must fire authoritatively from that shipped value. This is precisely the case the DataTracker can't cover, and where a custom client-to-server packet earns its place.</p>
+
+<p>We declare the channel in the common <code>ExampleNetworking</code> alongside the welcome/ping pair from <a href="networking.html">Chapter 12</a>. The two booleans are direction: <code>(false, true)</code> means server-to-client off, client-to-server on:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleNetworking.java</span><pre><code>	<span class="c">// Client to server: the rider's jump-key state, so the Aerbunny's glide boost can fire</span>
+	<span class="c">// authoritatively on a dedicated server (where the server can't see the player's input).</span>
+	<span class="c">// One boolean per tick while riding; the listener lives in ExampleModServer.</span>
+	<span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> AERBUNNY_JUMP = ChannelRegistry.register(
+		ChannelIdentifiers.from(ExampleMod.MOD_ID, <span class="s">"aerbunny_jump"</span>), <span class="k">false</span>, <span class="k">true</span>);</code></pre></div>
+
+<p>The server registers a listener for it in <code>ExampleModServer.initServer()</code>. It reads the boolean, hops onto the main thread because it's about to touch live entity state, and hands the key to whatever bunny the sending player is carrying:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java, initServer()</span><pre><code>		<span class="c">// The rider's jump key, shipped by the client every tick while riding an Aerbunny.</span>
+		<span class="c">// We hand it to the Aerbunny the player is carrying so the glide boost fires on the</span>
+		<span class="c">// authoritative side. ensureOnMainThread because we touch live entity state.</span>
+		ServerPlayNetworking.registerListener(ExampleNetworking.AERBUNNY_JUMP, (ctx, buf) -&gt; {
+			<span class="k">boolean</span> jumping = buf.readBoolean();
+			ctx.ensureOnMainThread();
+			<span class="t">ServerPlayerEntity</span> player = ctx.player();
+			<span class="k">if</span> (player != <span class="k">null</span> &amp;&amp; player.passenger <span class="k">instanceof</span> <span class="t">AerbunnyEntity</span> bunny) {
+				bunny.vehicleJumping = jumping;
+			}
+		});</code></pre></div>
+
+<p>And the client half is a mixin on <code>PlayerEntity.tick</code>. Injected at the <code>TAIL</code>, it runs every tick the player is carrying a bunny. Read its branch carefully, it's the whole networking pattern in one method:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/mixin/AerbunnyMountClientMixin.java</span><pre><code>	<span class="k">@Inject</span>(method = <span class="s">"tick"</span>, at = <span class="k">@At</span>(<span class="s">"TAIL"</span>))
+	<span class="k">private void</span> example_mod$aerbunnyRide(<span class="t">CallbackInfo</span> ci) {
+		<span class="t">PlayerEntity</span> self = (<span class="t">PlayerEntity</span>) (<span class="t">Object</span>) <span class="k">this</span>;
+		<span class="k">if</span> (!(self.passenger <span class="k">instanceof</span> <span class="t">AerbunnyEntity</span> bunny)) {
+			<span class="k">return</span>;
+		}
+		<span class="k">boolean</span> jumping = ((<span class="t">LivingEntityJumpAccessor</span>) self).getJumping();
+		<span class="k">if</span> (self.world.isRemote) {
+			ClientPlayNetworking.send(ExampleNetworking.AERBUNNY_JUMP, buf -&gt; buf.writeBoolean(jumping));
+			<span class="k">if</span> (!self.onGround) {
+				((<span class="t">EntityFallDistanceAccessor</span>) self).setFallDistance(<span class="n">0.0F</span>);
+				self.velocityY += <span class="n">0.05</span>;
+				<span class="k">if</span> (self.velocityY &lt; -<span class="n">0.225</span> &amp;&amp; jumping) {
+					self.velocityY = <span class="n">0.125</span>; <span class="c">// jump while gliding: a soft upward boost</span>
+					bunny.cloudPoop();
+					bunny.puffiness = <span class="n">1.15F</span>;
+				}
+			}
+		} <span class="k">else</span> {
+			bunny.vehicleJumping = jumping;
+		}
+	}</code></pre></div>
+
+<p>The fork is the lesson. On a dedicated server (<code>self.world.isRemote</code>) the client does two things: it ships the jump key up the <code>aerbunny_jump</code> channel so the server's authoritative glide can use it, <em>and</em> it predicts the glide locally so the player feels it instantly instead of a network round trip later. In singleplayer (the else branch) the one world is already authoritative, so the client doesn't predict at all, it just feeds the jump key straight into <code>bunny.vehicleJumping</code> and lets the bunny's own <code>tickLiving</code> apply the glide once. Beta simulates the player's movement on the client, so the slow-fall a rider <em>feels</em> has to be applied client-side; the server can't move the player for them. Predict on the remote client, apply once authoritatively, never double-apply: that's the rule.</p>
+
+<h2>Breeding</h2>
+<p>Breeding is a pair of counters and a population cap, all in <code>tick()</code> on the authoritative side. <code>age</code> climbs to 1023 (the bunny grows up), then <code>mate</code> climbs to 127 (it gets ready), then it looks for a partner. First the cap: count Aerbunnies within sixteen blocks, and if there are more than twelve, give up this attempt entirely:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code>			<span class="k">if</span> (<span class="k">this</span>.age &lt; <span class="n">1023</span>) {
+				++<span class="k">this</span>.age;
+			} <span class="k">else if</span> (<span class="k">this</span>.mate &lt; <span class="n">127</span>) {
+				++<span class="k">this</span>.mate;
+			} <span class="k">else</span> {
+				<span class="t">List</span>&lt;?&gt; crowd = <span class="k">this</span>.world.getEntities(<span class="k">this</span>, <span class="k">this</span>.boundingBox.expand(<span class="n">16.0</span>, <span class="n">16.0</span>, <span class="n">16.0</span>));
+				<span class="k">int</span> nearby = <span class="n">0</span>;
+				<span class="k">for</span> (<span class="t">Object</span> o : crowd) {
+					<span class="k">if</span> (o <span class="k">instanceof</span> <span class="t">AerbunnyEntity</span>) ++nearby;
+				}
+				<span class="k">if</span> (nearby &gt; <span class="n">12</span>) {
+					<span class="k">this</span>.proceed();
+					<span class="k">super</span>.tick();
+					<span class="k">return</span>;
+				}</code></pre></div>
+
+<p>If the area isn't crowded, look for an adult neighbour within one block, with no rider, and spawn a baby at this bunny's position. Spawning is the same three-line move from <a href="entities.html">Chapter 7</a>: construct from the world, position, hand to <code>spawnEntity</code>. Both parents then reset their counters via <code>proceed()</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code>				<span class="t">List</span>&lt;?&gt; close = <span class="k">this</span>.world.getEntities(<span class="k">this</span>, <span class="k">this</span>.boundingBox.expand(<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>));
+				<span class="k">boolean</span> mated = <span class="k">false</span>;
+				<span class="k">for</span> (<span class="t">Object</span> o : close) {
+					<span class="k">if</span> (o <span class="k">instanceof</span> <span class="t">AerbunnyEntity</span> other &amp;&amp; other != <span class="k">this</span>
+							&amp;&amp; other.vehicle == <span class="k">null</span> &amp;&amp; other.age &gt;= <span class="n">1023</span>) {
+						<span class="t">AerbunnyEntity</span> baby = <span class="k">new</span> <span class="t">AerbunnyEntity</span>(<span class="k">this</span>.world);
+						baby.setPosition(<span class="k">this</span>.x, <span class="k">this</span>.y, <span class="k">this</span>.z);
+						<span class="k">this</span>.world.spawnEntity(baby);
+						<span class="k">this</span>.world.playSound(<span class="k">this</span>, <span class="s">"mob.chickenplop"</span>, <span class="n">1.0F</span>,
+							(<span class="k">this</span>.random.nextFloat() - <span class="k">this</span>.random.nextFloat()) * <span class="n">0.2F</span> + <span class="n">1.0F</span>);
+						<span class="k">this</span>.proceed();
+						other.proceed();
+						mated = <span class="k">true</span>;
+						<span class="k">break</span>;
+					}
+				}
+				<span class="k">if</span> (!mated) {
+					<span class="k">this</span>.mate = <span class="k">this</span>.random.nextInt(<span class="n">16</span>);
+				}</code></pre></div>
+
+<p><code>proceed()</code> just resets the counters so the cycle can start over:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="c">/** Reset the breeding counters after a birth (or a suppressed attempt). */</span>
+	<span class="k">public void</span> proceed() {
+		<span class="k">this</span>.mate = <span class="n">0</span>;
+		<span class="k">this</span>.age = <span class="k">this</span>.random.nextInt(<span class="n">64</span>);
+	}</code></pre></div>
+
+<h2>Fear and flight</h2>
+<p>Hit the bunny as a player and it panics. The trigger is a one-line override of <code>damage</code>, setting the <code>fear</code> flag whenever the source is a player:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">public boolean</span> damage(<span class="t">Entity</span> source, <span class="k">int</span> amount) {
+		<span class="k">boolean</span> hit = <span class="k">super</span>.damage(source, amount);
+		<span class="k">if</span> (hit &amp;&amp; source <span class="k">instanceof</span> <span class="t">PlayerEntity</span>) {
+			<span class="k">this</span>.fear = <span class="k">true</span>; <span class="c">// a player hit me: panic from now on</span>
+		}
+		<span class="k">return</span> hit;
+	}</code></pre></div>
+
+<p>Once <code>fear</code> is set, <code>tickLiving</code> bolts the bunny away from the nearest player every few ticks. It picks a flee target, pathfinds away with <code>runLikeHell</code>, and looks back at whatever it's fleeing until that thing dies or gets far enough away:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tickLiving()</span><pre><code>			<span class="c">// Panic: once hit by a player, periodically bolt away from the nearest one.</span>
+			<span class="k">if</span> (<span class="k">this</span>.fear &amp;&amp; <span class="k">this</span>.random.nextInt(<span class="n">4</span>) == <span class="n">0</span>) {
+				<span class="k">if</span> (<span class="k">this</span>.runFrom != <span class="k">null</span>) {
+					<span class="k">this</span>.runLikeHell();
+					<span class="k">this</span>.world.addParticle(<span class="s">"splash"</span>, <span class="k">this</span>.x, <span class="k">this</span>.y, <span class="k">this</span>.z, <span class="n">0.0</span>, <span class="n">0.0</span>, <span class="n">0.0</span>);
+					<span class="k">if</span> (!<span class="k">this</span>.hasPath()) {
+						<span class="k">this</span>.lookAt(<span class="k">this</span>.runFrom, <span class="n">30.0F</span>, <span class="n">30.0F</span>);
+					}
+					<span class="k">if</span> (<span class="k">this</span>.runFrom.dead || <span class="k">this</span>.getDistance(<span class="k">this</span>.runFrom) &gt; <span class="n">16.0F</span>) {
+						<span class="k">this</span>.runFrom = <span class="k">null</span>;
+					}
+				} <span class="k">else</span> {
+					<span class="k">this</span>.runFrom = <span class="k">this</span>.findPlayerToRunFrom();
+				}
+			}</code></pre></div>
+
+<p><code>runLikeHell</code> is the actual escape pathing. It computes a direction directly away from the feared entity, jitters it randomly, then tries up to sixteen nearby open spots and pathfinds to the first valid one:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="c">/** Pathfind to a random nearby open spot, away from whatever is being feared. */</span>
+	<span class="k">public void</span> runLikeHell() {
+		<span class="k">double</span> dx = <span class="k">this</span>.x - <span class="k">this</span>.runFrom.x;
+		<span class="k">double</span> dz = <span class="k">this</span>.z - <span class="k">this</span>.runFrom.z;
+		<span class="k">double</span> angle = <span class="t">Math</span>.atan2(dx, dz) + (<span class="k">this</span>.random.nextFloat() - <span class="k">this</span>.random.nextFloat()) * <span class="n">0.75</span>;
+		<span class="k">int</span> tx = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.x + <span class="t">Math</span>.sin(angle) * <span class="n">8.0</span>);
+		<span class="k">int</span> ty = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.boundingBox.minY);
+		<span class="k">int</span> tz = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.z + <span class="t">Math</span>.cos(angle) * <span class="n">8.0</span>);
+		<span class="k">for</span> (<span class="k">int</span> tries = <span class="n">0</span>; tries &lt; <span class="n">16</span>; ++tries) {
+			<span class="k">int</span> i = tx + <span class="k">this</span>.random.nextInt(<span class="n">4</span>) - <span class="k">this</span>.random.nextInt(<span class="n">4</span>);
+			<span class="k">int</span> j = ty + <span class="k">this</span>.random.nextInt(<span class="n">4</span>) - <span class="k">this</span>.random.nextInt(<span class="n">4</span>) - <span class="n">1</span>;
+			<span class="k">int</span> k = tz + <span class="k">this</span>.random.nextInt(<span class="n">4</span>) - <span class="k">this</span>.random.nextInt(<span class="n">4</span>);
+			<span class="k">if</span> (j &gt; <span class="n">4</span> &amp;&amp; (<span class="k">this</span>.world.getBlockId(i, j, k) == <span class="n">0</span> || <span class="k">this</span>.world.getBlockId(i, j, k) == <span class="t">Block</span>.SNOW.id)
+					&amp;&amp; <span class="k">this</span>.world.getBlockId(i, j - <span class="n">1</span>, k) != <span class="n">0</span>) {
+				<span class="k">this</span>.setPath(<span class="k">this</span>.world.findPath(<span class="k">this</span>, i, j, k, <span class="n">16.0F</span>));
+				<span class="k">break</span>;
+			}
+		}
+	}</code></pre></div>
+
+<p>The flee target comes from <code>findPlayerToRunFrom</code>, the nearest player within twelve blocks that the bunny can actually see:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">protected</span> <span class="t">Entity</span> findPlayerToRunFrom() {
+		<span class="t">PlayerEntity</span> player = <span class="k">this</span>.world.getClosestPlayer(<span class="k">this</span>, <span class="n">12.0</span>);
+		<span class="k">return</span> player != <span class="k">null</span> &amp;&amp; <span class="k">this</span>.canSee(player) ? player : <span class="k">null</span>;
+	}</code></pre></div>
+
+<h2>Grab and aggro</h2>
+<p>If you right-click a bunny while you already have a passenger, recall, it can't mount, so <code>interact</code> sets <code>grab</code> instead. A grabbed bunny holds in place: its glide and free-fall code is gated behind <code>!this.grab</code>, so it just hangs. The interesting part is what happens when a grabbed bunny finally touches ground. It releases itself, plays the land sound, and makes <strong>every monster within twelve blocks turn on it</strong>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tickLiving()</span><pre><code>		} <span class="k">else if</span> (<span class="k">this</span>.onGround) {
+			<span class="c">// A grabbed bunny that touches down is released, and every nearby monster aggros it.</span>
+			<span class="k">this</span>.grab = <span class="k">false</span>;
+			<span class="k">this</span>.world.playSound(<span class="k">this</span>, <span class="s">"example_mod:mobs.aerbunny.aerbunnyland"</span>, <span class="n">1.0F</span>,
+				(<span class="k">this</span>.random.nextFloat() - <span class="k">this</span>.random.nextFloat()) * <span class="n">0.2F</span> + <span class="n">1.0F</span>);
+			<span class="t">List</span>&lt;?&gt; list = <span class="k">this</span>.world.getEntities(<span class="k">this</span>, <span class="k">this</span>.boundingBox.expand(<span class="n">12.0</span>, <span class="n">12.0</span>, <span class="n">12.0</span>));
+			<span class="k">for</span> (<span class="t">Object</span> o : list) {
+				<span class="k">if</span> (o <span class="k">instanceof</span> <span class="t">MonsterEntity</span> monster) {
+					monster.setTarget(<span class="k">this</span>);
+				}
+			}
+		}</code></pre></div>
+
+<p>That whole <code>else if (this.onGround)</code> is the partner of the <code>if (!this.grab)</code> that wraps the normal panic logic: a bunny is either behaving normally and possibly fleeing, or it's grabbed and waiting to land. The state byte we published in slot 16 carries the grabbed bit (value 4) so remote clients can reflect it too.</p>
+
+<h2>The model and renderer</h2>
+<p>Chapter 7's mob borrowed the biped model. The Aerbunny needs a custom shape, twelve cubes: a head with two ears and two cheeks, a body, a tail, the puff cube, and four legs. Each cube is one call to a small <code>part</code> helper that builds a <code>ModelPart</code>, adds a cuboid, and sets its pivot:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java</span><pre><code>	<span class="k">public</span> AerbunnyModel() {
+		<span class="k">int</span> y = <span class="n">16</span>;
+		<span class="k">this</span>.head = part(<span class="n">0</span>, <span class="n">0</span>, -<span class="n">2.0F</span>, -<span class="n">1.0F</span>, -<span class="n">4.0F</span>, <span class="n">4</span>, <span class="n">4</span>, <span class="n">6</span>, <span class="n">0.0F</span>, y - <span class="n">1</span>, -<span class="n">4.0F</span>);
+		<span class="k">this</span>.earLeft = part(<span class="n">14</span>, <span class="n">0</span>, -<span class="n">2.0F</span>, -<span class="n">5.0F</span>, -<span class="n">3.0F</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">0.0F</span>, y - <span class="n">1</span>, -<span class="n">4.0F</span>);
+		<span class="k">this</span>.earRight = part(<span class="n">14</span>, <span class="n">0</span>, <span class="n">1.0F</span>, -<span class="n">5.0F</span>, -<span class="n">3.0F</span>, <span class="n">1</span>, <span class="n">4</span>, <span class="n">2</span>, <span class="n">0.0F</span>, y - <span class="n">1</span>, -<span class="n">4.0F</span>);
+		<span class="k">this</span>.cheekLeft = part(<span class="n">20</span>, <span class="n">0</span>, -<span class="n">4.0F</span>, <span class="n">0.0F</span>, -<span class="n">3.0F</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">0.0F</span>, y - <span class="n">1</span>, -<span class="n">4.0F</span>);
+		<span class="k">this</span>.cheekRight = part(<span class="n">20</span>, <span class="n">0</span>, <span class="n">2.0F</span>, <span class="n">0.0F</span>, -<span class="n">3.0F</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">2</span>, <span class="n">0.0F</span>, y - <span class="n">1</span>, -<span class="n">4.0F</span>);
+		<span class="k">this</span>.body = part(<span class="n">0</span>, <span class="n">10</span>, -<span class="n">3.0F</span>, -<span class="n">4.0F</span>, -<span class="n">3.0F</span>, <span class="n">6</span>, <span class="n">8</span>, <span class="n">6</span>, <span class="n">0.0F</span>, y, <span class="n">0.0F</span>);
+		<span class="k">this</span>.tail = part(<span class="n">0</span>, <span class="n">24</span>, -<span class="n">2.0F</span>, <span class="n">4.0F</span>, -<span class="n">2.0F</span>, <span class="n">4</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">0.0F</span>, y, <span class="n">0.0F</span>);
+		<span class="k">this</span>.puff = part(<span class="n">29</span>, <span class="n">0</span>, -<span class="n">3.5F</span>, -<span class="n">3.5F</span>, -<span class="n">3.5F</span>, <span class="n">7</span>, <span class="n">7</span>, <span class="n">7</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>);
+		<span class="k">this</span>.frontLegLeft = part(<span class="n">24</span>, <span class="n">16</span>, -<span class="n">2.0F</span>, <span class="n">0.0F</span>, -<span class="n">1.0F</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">3.0F</span>, y + <span class="n">3</span>, -<span class="n">3.0F</span>);
+		<span class="k">this</span>.frontLegRight = part(<span class="n">24</span>, <span class="n">16</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>, -<span class="n">1.0F</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">2</span>, -<span class="n">3.0F</span>, y + <span class="n">3</span>, -<span class="n">3.0F</span>);
+		<span class="k">this</span>.backLegLeft = part(<span class="n">16</span>, <span class="n">24</span>, -<span class="n">2.0F</span>, <span class="n">0.0F</span>, -<span class="n">4.0F</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">4</span>, <span class="n">3.0F</span>, y + <span class="n">3</span>, <span class="n">4.0F</span>);
+		<span class="k">this</span>.backLegRight = part(<span class="n">16</span>, <span class="n">24</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>, -<span class="n">4.0F</span>, <span class="n">2</span>, <span class="n">2</span>, <span class="n">4</span>, -<span class="n">3.0F</span>, y + <span class="n">3</span>, <span class="n">4.0F</span>);
+	}</code></pre></div>
+
+<p>The helper itself is the reusable bit; the first two ints are the texture UV corner, then the cuboid offset and size, then the pivot:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java</span><pre><code>	<span class="k">private static</span> <span class="t">ModelPart</span> part(<span class="k">int</span> tx, <span class="k">int</span> ty, <span class="k">float</span> fx, <span class="k">float</span> fy, <span class="k">float</span> fz,
+			<span class="k">int</span> w, <span class="k">int</span> h, <span class="k">int</span> d, <span class="k">float</span> px, <span class="k">float</span> py, <span class="k">float</span> pz) {
+		<span class="t">ModelPart</span> p = <span class="k">new</span> <span class="t">ModelPart</span>(tx, ty);
+		p.addCuboid(fx, fy, fz, w, h, d, <span class="n">0.0F</span>);
+		p.setPivot(px, py, pz);
+		<span class="k">return</span> p;
+	}</code></pre></div>
+
+<p>The payoff is in <code>render()</code>. Every part draws at normal scale except the puff, which is wrapped in a GL push/pop and scaled by the synced puffiness. This is the only frame-to-frame visual in the whole showcase that depends on server state, and it's driven entirely by the DataTracker value we read into <code>this.puffiness</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java, render()</span><pre><code>		<span class="c">// The puff: scale the body cube by the synced puffiness, centred so it grows</span>
+		<span class="c">// in every direction. This is the only frame-to-frame visual that depends on</span>
+		<span class="c">// server state, and it is driven entirely by the DataTracker value. The</span>
+		<span class="c">// translate of 1.0 lifts the puff (pivot 0,0,0) onto the body (pivot 0,16,0);</span>
+		<span class="c">// it is a whole GL unit because the surrounding matrix is at entity scale.</span>
+		GL11.glPushMatrix();
+		<span class="k">float</span> s = <span class="n">1.0F</span> + <span class="k">this</span>.puffiness * <span class="n">0.5F</span>;
+		GL11.glTranslatef(<span class="n">0.0F</span>, <span class="n">1.0F</span>, <span class="n">0.0F</span>);
+		GL11.glScalef(s, s, s);
+		<span class="k">this</span>.puff.render(scale);
+		GL11.glPopMatrix();</code></pre></div>
+
+<p><code>setAngles</code> poses the model from the animation inputs: the head group tracks where the bunny is looking, and the four legs paddle as it moves. Note the body, tail, and puff are all pitched a quarter turn so the sheet's vertical body reads as a horizontal one:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java, setAngles()</span><pre><code>		<span class="k">float</span> headPitchRad = -(headPitch / <span class="n">57.29578F</span>);
+		<span class="k">float</span> headYawRad = headYaw / <span class="n">57.29578F</span>;
+		<span class="k">for</span> (<span class="t">ModelPart</span> p : <span class="k">new</span> <span class="t">ModelPart</span>[]{head, earLeft, earRight, cheekLeft, cheekRight}) {
+			p.pitch = headPitchRad;
+			p.yaw = headYawRad;
+		}
+		<span class="k">this</span>.body.pitch = <span class="n">1.570796F</span>;
+		<span class="k">this</span>.tail.pitch = <span class="n">1.570796F</span>;
+		<span class="k">this</span>.puff.pitch = <span class="n">1.570796F</span>;
+		<span class="c">// Legs paddle as the bunny moves.</span>
+		<span class="k">this</span>.frontLegLeft.pitch = <span class="t">MathHelper</span>.cos(limbAngle * <span class="n">0.6662F</span>) * limbDistance;
+		<span class="k">this</span>.frontLegRight.pitch = <span class="t">MathHelper</span>.cos(limbAngle * <span class="n">0.6662F</span>) * limbDistance;
+		<span class="k">this</span>.backLegLeft.pitch = <span class="t">MathHelper</span>.cos(limbAngle * <span class="n">0.6662F</span> + <span class="n">3.141593F</span>) * <span class="n">1.2F</span> * limbDistance;
+		<span class="k">this</span>.backLegRight.pitch = <span class="t">MathHelper</span>.cos(limbAngle * <span class="n">0.6662F</span> + <span class="n">3.141593F</span>) * <span class="n">1.2F</span> * limbDistance;</code></pre></div>
+
+<p>The renderer extends <code>LivingEntityRenderer</code>, which already draws the model, binds the texture from <code>entity.texture</code>, and applies the shadow. We override exactly one method, <code>applyScale</code>, to add the two things that depend on synced state. It reads <code>getSyncedVelocityY()</code> from the tracker, smooths it per entity so velocity jitter doesn't make the bunny twitch, rotates the whole model by that tilt, then hands the synced puffiness to the model:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyRenderer.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">protected void</span> applyScale(<span class="t">LivingEntity</span> entity, <span class="k">float</span> partialTick) {
+		<span class="t">AerbunnyEntity</span> bunny = (<span class="t">AerbunnyEntity</span>) entity;
+
+		<span class="k">float</span> velocityY = bunny.getSyncedVelocityY();
+		<span class="k">float</span> target;
+		<span class="k">if</span> (velocityY &gt; <span class="n">0.5F</span>) {
+			target = <span class="n">15.0F</span>;
+		} <span class="k">else if</span> (velocityY &lt; -<span class="n">0.5F</span>) {
+			target = -<span class="n">15.0F</span>;
+		} <span class="k">else</span> {
+			target = velocityY * <span class="n">30.0F</span>;
+		}
+		<span class="k">float</span> prev = smoothTilt.getOrDefault(bunny, <span class="n">0.0F</span>);
+		<span class="k">float</span> tilt = prev + (target - prev) * <span class="n">0.3F</span>;
+		<span class="k">if</span> (<span class="t">Math</span>.abs(tilt) &lt; <span class="n">0.5F</span>) {
+			tilt = <span class="n">0.0F</span>;
+		}
+		smoothTilt.put(bunny, tilt);
+		GL11.glRotatef(tilt, -<span class="n">1.0F</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>);
+
+		<span class="c">// Hand the synced puffiness to the model for this frame.</span>
+		<span class="k">this</span>.bunnyModel.puffiness = bunny.puffiness;
+	}</code></pre></div>
+
+<p>Both numbers it draws from, <code>getSyncedVelocityY()</code> and <code>bunny.puffiness</code>, came off the wire, never from a field the client simulated. That is the whole point: a remote client never runs the bunny's physics, so the only honest source for the render is what the server told it. The publish/trust split from earlier in the chapter ends here, at the GL call that finally uses it.</p>
+
+<div class="danger"><p><code>AerbunnyModel</code> and <code>AerbunnyRenderer</code> name <code>GL11</code> and <code>LivingEntityRenderer</code>, client-only graphics classes. Both must be registered from <code>initClient()</code> and never touched in common code, the same wall that kept the biped renderer client-side in <a href="entities.html">Chapter 7</a>. The entity class is common; the model and renderer are client. Don't let them cross.</p></div>
+
+<h2>Registering every piece</h2>
+<p>Eleven files only do something once they're wired in. Here is every registration, in the right entrypoint.</p>
+
+<p><strong>The entity</strong>, in the common <code>init()</code>, with the <code>MobFactory</code> cast that marks it as a living entity (the rule from <a href="entities.html">Chapter 7</a>):</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>		AERBUNNY = <span class="t">RetroEntities</span>.register(<span class="t">AerbunnyEntity</span>.ID, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>)
+			.factory((<span class="t">MobFactory</span>) <span class="t">AerbunnyEntity</span>::<span class="k">new</span>);</code></pre></div>
+
+<p><strong>The renderer</strong>, in the client <code>initClient()</code>, passing a fresh <code>AerbunnyModel</code> and a half-block shadow:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code>		<span class="c">// The Aerbunny gets a CUSTOM model + renderer (not the biped). The renderer</span>
+		<span class="c">// reads the entity's server-synced puffiness and velocity to drive the puff</span>
+		<span class="c">// and tilt, the payoff of the DataTracker sync in AerbunnyEntity.</span>
+		<span class="t">RetroEntityRenderers</span>.register(<span class="t">AerbunnyEntity</span>.<span class="k">class</span>,
+			<span class="k">new</span> <span class="t">AerbunnyRenderer</span>(<span class="k">new</span> <span class="t">AerbunnyModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
+
+<p><strong>The jump channel</strong> is declared in <code>ExampleNetworking</code> (shown earlier) and registered by that class's static initializer, which <code>ExampleMod.init()</code> already forces to load via <code>registerChannels()</code> (<a href="networking.html">Chapter 12</a>). The <strong>server listener</strong> for it is in <code>ExampleModServer.initServer()</code> (also shown earlier). The <strong>client sender</strong> is the mount mixin.</p>
+
+<p><strong>The three mixin entries.</strong> The two accessors go in the common <code>"mixins"</code> list (they touch only common classes), and the client mount mixin goes in <code>"client"</code> so it never loads on a dedicated server, where <code>ClientPlayNetworking</code> doesn't exist:</p>
+
+<div class="codeblock"><span class="code-title">src/main/resources/example_mod.mixins.json</span><pre><code>	<span class="s">"mixins"</span>: [
+		<span class="s">"LivingEntityJumpMixin"</span>,
+		<span class="s">"PlayerLoadMixin"</span>,
+		<span class="c">// ... example mixins ...</span>
+		<span class="s">"EntityFallDistanceAccessor"</span>,
+		<span class="s">"LivingEntityJumpAccessor"</span>
+	],
+	<span class="s">"client"</span>: [
+		<span class="s">"PlayerTickMixin"</span>,
+		<span class="c">// ... example mixins ...</span>
+		<span class="s">"AerbunnyMountClientMixin"</span>
+	],</code></pre></div>
+
+<p><strong>The spawn.</strong> The bunny spawns in the Noisy dimension's two biomes, added through the mod-friendly <code>RetroBiomes</code> API, which is additive and de-dupes so it never clobbers another mod's spawns:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code>		<span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
+		<span class="c">// another mod's spawns; here it drops Aerbunnies into both Noisy biomes.</span>
+		<span class="t">RetroBiomes</span>.addPassiveSpawn(NOISY_AMPLIFIED_BIOME, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>, <span class="n">4</span>);
+		<span class="t">RetroBiomes</span>.addPassiveSpawn(NOISY_LUSH_BIOME, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>, <span class="n">4</span>);</code></pre></div>
+
+<p>The biome list is only half the gate. The entity's own <code>canSpawn()</code> refuses to spawn anywhere but the Noisy dimension, and then only on grass:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">public boolean</span> canSpawn() {
+		<span class="k">if</span> (<span class="t">ExampleMod</span>.NOISY_DIMENSION == <span class="k">null</span>
+				|| <span class="k">this</span>.world.dimension.id != <span class="t">ExampleMod</span>.NOISY_DIMENSION.getSerialId()) {
+			<span class="k">return false</span>;
+		}
+		<span class="k">int</span> bx = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.x);
+		<span class="k">int</span> by = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.boundingBox.minY);
+		<span class="k">int</span> bz = <span class="t">MathHelper</span>.floor(<span class="k">this</span>.z);
+		<span class="k">return</span> <span class="k">this</span>.world.getBlockId(bx, by - <span class="n">1</span>, bz) == <span class="t">Block</span>.GRASS_BLOCK.id &amp;&amp; <span class="k">super</span>.canSpawn();
+	}</code></pre></div>
+
+<p>(The Noisy dimension and its biomes are <a href="dimensions.html">Chapter 10</a>'s and <a href="worldgen.html">Chapter 20</a>'s subjects; here we're just placing the bunny into them.)</p>
+
+<h2>The texture and sounds</h2>
+<p>The skin is a single 64x32 sheet. The model's UV corners (the first two ints of every <code>part</code> call) index into it: the head block at 0,0, the ears at 14,0, the puff cube at 29,0, the legs lower down. Ship it at the path the constructor names:</p>
+
+<div class="asset-grid">
+<div class="asset-card"><img src="assets/aerbunny.png" width="128" height="64" alt="aerbunny" style="image-rendering:pixelated"><div class="asset-name">aerbunny.png</div><a href="assets/aerbunny.png" download>download</a></div>
+</div>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/textures/mobs/aerbunny.png</code></p>
+
+<p>The sounds are five OGG files, loaded by the autoloader purely from their folder, no JSON to write (<a href="sounds.html">Chapter 19</a> covers the autoloader in full). They live nested under the mob's own folder:</p>
+
+<p class="filepath"><code>src/main/resources/assets/example_mod/sounds/sound/mobs/aerbunny/</code></p>
+
+<ul>
+<li><code>aerbunnylift.ogg</code>, played when the bunny mounts a player (event <code>example_mod:mobs.aerbunny.aerbunnylift</code>).</li>
+<li><code>aerbunnyland.ogg</code>, played when a grabbed bunny touches down (event <code>example_mod:mobs.aerbunny.aerbunnyland</code>).</li>
+<li><code>aerbunnyhurt1.ogg</code> and <code>aerbunnyhurt2.ogg</code>, two variants that collapse to one hurt event (<code>example_mod:mobs.aerbunny.aerbunnyhurt</code>); the engine picks one at random and the autoloader strips the trailing digit for you.</li>
+<li><code>aerbunnydeath.ogg</code>, the death sound (event <code>example_mod:mobs.aerbunny.aerbunnydeath</code>).</li>
+</ul>
+
+<p>The entity wires the hurt and death events through the two sound overrides; lift, land, and the birth plop are played inline where the action happens:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">@Override</span>
+	<span class="k">protected</span> <span class="t">String</span> getHurtSound() {
+		<span class="c">// Variant sounds: aerbunnyhurt1.ogg and aerbunnyhurt2.ogg collapse to one event id</span>
+		<span class="c">// and the engine picks one at random. The autoloader handles the nesting + the digit.</span>
+		<span class="k">return</span> <span class="s">"example_mod:mobs.aerbunny.aerbunnyhurt"</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected</span> <span class="t">String</span> getDeathSound() {
+		<span class="k">return</span> <span class="s">"example_mod:mobs.aerbunny.aerbunnydeath"</span>;
+	}</code></pre></div>
+
+<h2>Every file you created</h2>
+<p>That's the whole bunny. If you followed along from nothing, you wrote eleven files and edited three. Check them off:</p>
+
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>AerbunnyEntity.java</code></td><td>The common entity: AI base, DataTracker publish, riding, glide, breeding, fear, grab, spawn gate, sounds.</td></tr>
+<tr><td><code>AerbunnyModel.java</code></td><td>The twelve-cube model with the synced puff scale.</td></tr>
+<tr><td><code>AerbunnyRenderer.java</code></td><td>The client renderer: synced tilt + puffiness handoff.</td></tr>
+<tr><td><code>MountSync.java</code></td><td>The server-only mount-packet helper that keeps <code>ServerPlayerEntity</code> out of common code.</td></tr>
+<tr><td><code>mixin/EntityFallDistanceAccessor.java</code></td><td>Accessor for the rider's private <code>fallDistance</code>.</td></tr>
+<tr><td><code>mixin/LivingEntityJumpAccessor.java</code></td><td>Accessor for the rider's private <code>jumping</code> flag.</td></tr>
+<tr><td><code>mixin/AerbunnyMountClientMixin.java</code></td><td>Client tick mixin: predicts the glide and ships the jump key.</td></tr>
+<tr><td><code>textures/mobs/aerbunny.png</code></td><td>The 64x32 skin sheet.</td></tr>
+<tr><td><code>sounds/sound/mobs/aerbunny/*.ogg</code></td><td>The five sounds: lift, land, hurt1, hurt2, death.</td></tr>
+<tr><td><code>ExampleNetworking.java</code> (edit)</td><td>Added the <code>aerbunny_jump</code> client-to-server channel.</td></tr>
+<tr><td><code>ExampleModServer.java</code> (edit)</td><td>Added the jump-key listener.</td></tr>
+<tr><td><code>ExampleMod.java</code> / <code>ExampleModClient.java</code> (edit)</td><td>Registered the entity, the renderer, and the spawn.</td></tr>
+<tr><td><code>example_mod.mixins.json</code> (edit)</td><td>Added the two accessors to <code>"mixins"</code> and the mount mixin to <code>"client"</code>.</td></tr>
+</table>
+
+<p>Look back at how far the entity foundation stretched. The same spawn protocol from <a href="entities.html">Chapter 7</a> carried this mob to clients; the DataTracker carried its render state; one custom channel carried the one input the tracker couldn't; and a careful helper class kept a server-only type out of common code. Each piece was small. Together they're a living creature that rides on your head and floats you home, ported faithfully from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>.</p>
+
+<p>Our world now has machines, a wandering creature, and a floaty companion with a real brain. Next we'll reward the player for finding them: toasts that pop, an achievements page, and granting them from gameplay. On to <a href="achievements.html">Chapter 9</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

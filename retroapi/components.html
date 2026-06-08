@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 20: Item Memory, RetroAPI Guide</title>
+<title>Chapter 21: Item Memory, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 20, Item Memory</h1>
+<h1>Chapter 21, Item Memory</h1>
 <p class="chapter-sub">Beta ItemStacks remember nothing. This chapter gives them typed, persistent data the modern way: declare a component once, then get and set it on any stack.</p>
 
 <p>A beta <code>ItemStack</code> is three numbers: id, count, damage. There is no NBT field, so two stacks of the same item are interchangeable and an item cannot carry anything beyond which item it is and how worn it is. Modern Minecraft moved past that years ago: items hold rich, typed data called <strong>data components</strong>, and <code>stack.get(TYPE)</code> / <code>stack.set(TYPE, value)</code> read and write it. RetroAPI ports that whole idea backwards. You declare a component type once, then read and write it on any stack, and the value persists, copies, and (on a dedicated server) syncs. This is the closest neighbor to <a href="items.html">Chapter 5</a>: components extend items, so if you have not met the item builder yet, start there.</p>
@@ -208,11 +208,11 @@ MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTextu
 	<span class="k">return true</span>;
 }</code></pre></div>
 
-<p>The client bump is a prediction so the tooltip and sprite move the instant you click; the server bump is the authority that persists and, via <code>ComponentWire</code>, reconciles the client. They land on the same number, so there is no flicker. Guard it server-only and the client does nothing, sees no change, and so never tells the server to do anything either, the count just sits still forever. Right-clicking a block routes to <code>useOnBlock</code>, which the server always processes, so it is the rock-solid path when air-clicks feel unreliable. The same logic drives the Mood Gem's color cycle. Setting up and probing a dedicated server is <a href="networking.html">Chapter 11</a> and <a href="testing.html">Chapter 21</a>.</p>
+<p>The client bump is a prediction so the tooltip and sprite move the instant you click; the server bump is the authority that persists and, via <code>ComponentWire</code>, reconciles the client. They land on the same number, so there is no flicker. Guard it server-only and the client does nothing, sees no change, and so never tells the server to do anything either, the count just sits still forever. Right-clicking a block routes to <code>useOnBlock</code>, which the server always processes, so it is the rock-solid path when air-clicks feel unreliable. The same logic drives the Mood Gem's color cycle. Setting up and probing a dedicated server is <a href="networking.html">Chapter 12</a> and <a href="testing.html">Chapter 22</a>.</p>
 
 <p class="credit-note">The Counter and the <code>GemAttunement</code> record are ports of the custom-data-components walkthrough in <a href="https://docs.fabricmc.net/develop/items/custom-data-components">FabricMC's docs</a> (fabric-docs), used under CC BY-NC-SA. RetroAPI carries the same shapes back to beta where <code>ItemStack</code> has no NBT to lean on.</p>
 
-<p>Components give items a memory. Next we make sure all of it actually holds up: running the client and a real dedicated server, offline mode, and the sided gotchas that this chapter's sync rule hints at, in <a href="testing.html">Chapter 21, Proving Grounds</a>.</p>
+<p>Components give items a memory. Next we make sure all of it actually holds up: running the client and a real dedicated server, offline mode, and the sided gotchas that this chapter's sync rule hints at, in <a href="testing.html">Chapter 22, Proving Grounds</a>.</p>
 </div>
 
 <div class="pager"></div>

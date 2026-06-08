@@ -36,7 +36,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <span class="c">//   .sprite(Block.GLASS.getTexture(0)), reuse a vanilla texture instead</span>
 <span class="c">//   .alwaysDrops() / .alwaysEffectiveTool() / .effectiveTool(PickaxeItem.class)</span></code></pre></div>
 
-<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 10</a>; its lang display name is <a href="assets.html">Chapter 3</a>.)</p>
+<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 11</a>; its lang display name is <a href="assets.html">Chapter 3</a>.)</p>
 
 <p>That <code>.texture(id("example_block"))</code> needs an actual image. RetroAPI loads it by name from your mod's block-texture folder, so save a 16x16 PNG at this exact path (<code>example_mod</code> is your mod id, and the file name matches the <code>id(...)</code> you passed to <code>.texture</code>):</p>
 
@@ -337,7 +337,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
   ]
 }</code></pre></div>
 
-<p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Chapter 15</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
+<p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Chapter 16</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
 
 <h2>What we built</h2>
 <p>Three blocks: a plain textured cube, a class-backed cube with a face per side, and a sub-cube pipe with its own renderer. Between them they exercise the whole block builder, custom <code>Block</code> subclasses, the per-face texture API, bounds, non-opacity, and custom render types, and every one of them got a free <code>BlockItem</code> on <code>register</code>, persisted with stable ids, safe in vanilla saves. The ruby ore added one more modern convenience: tag-driven tool gating, copied straight from a 1.21 data pack.</p>

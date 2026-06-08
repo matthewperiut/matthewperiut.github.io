@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 17: The Toolbelt, RetroAPI Guide</title>
+<title>Chapter 18: The Toolbelt, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 17, The Toolbelt</h1>
+<h1>Chapter 18, The Toolbelt</h1>
 <p class="chapter-sub">A pickaxe that is really a tagged stone, a sword that is really a sword, food that bites back, and a full set of violet armor borrowed from the Aether.</p>
 
 <p>Tools, food, and armor are the three things players reach for first, and in beta each is handled differently. A tool is sometimes just an item wearing a tag and sometimes a real vanilla tool class. Food is a <em>property</em> you bolt onto any item, not a subclass. Armor is a genuine <code>ArmorItem</code> that happens to wear your art. This chapter walks all three using the showcase's own gear, and every line of code below is lifted byte-for-byte from <code>ExampleMod.java</code>.</p>
@@ -185,7 +185,7 @@ ZANITE_BOOTS = (Item) RetroItemAccess.of(
 
 <div class="note"><p>The two-arg constructor <code>RetroArmor(material, slot, wornTextureBase)</code> exists too, defaulting the tint to white (<code>0xFFFFFF</code>), in case you would rather the inventory icon show vanilla iron's own gray. Most sets want a color, so the four-arg form is the one you will reach for.</p></div>
 
-<p>Tools that mine, food that heals or bites, armor that wears your colors: the toolbelt is full. Next we hand the world an ear, sound effects, streaming music, and a jukebox record of your own, in <a href="sounds.html">Chapter 18, The Soundtrack</a>.</p>
+<p>Tools that mine, food that heals or bites, armor that wears your colors: the toolbelt is full. Next we hand the world an ear, sound effects, streaming music, and a jukebox record of your own, in <a href="sounds.html">Chapter 19, The Soundtrack</a>.</p>
 </div>
 
 <div class="pager"></div>

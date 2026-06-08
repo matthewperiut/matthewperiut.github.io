@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 11: Wires, RetroAPI Guide</title>
+<title>Chapter 12: Wires, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 11, Wires</h1>
+<h1>Chapter 12, Wires</h1>
 <p class="chapter-sub">A welcome message, a reply, and a careful handshake, custom packets with OSL networking.</p>
 
 <p>Most of what your mod needs to sync, RetroAPI already syncs (we'll list it at the end of this chapter). But sometimes you have a genuinely custom message to send across the wire, a greeting on join, a button press, a bit of machine state vanilla never imagined. That's a custom packet, and OSL's networking layer makes them small and safe.</p>
@@ -40,7 +40,7 @@
  * on a dedicated server, in singleplayer these channels simply stay quiet.
  */</span></code></pre></div>
 
-<div class="note"><p><strong>Beta 1.7.3 has no integrated server.</strong> In modern Minecraft, singleplayer runs a hidden local server and your packets flow between it and your client. Not here, singleplayer in beta runs entirely inside the client (<a href="entrypoints.html">Chapter 2</a>), with no second side to talk to. So these channels stay completely quiet in singleplayer; <strong>custom packets only matter on a dedicated server.</strong> <a href="testing.html">Chapter 21</a> shows how to actually stand one up and test this.</p></div>
+<div class="note"><p><strong>Beta 1.7.3 has no integrated server.</strong> In modern Minecraft, singleplayer runs a hidden local server and your packets flow between it and your client. Not here, singleplayer in beta runs entirely inside the client (<a href="entrypoints.html">Chapter 2</a>), with no second side to talk to. So these channels stay completely quiet in singleplayer; <strong>custom packets only matter on a dedicated server.</strong> <a href="testing.html">Chapter 22</a> shows how to actually stand one up and test this.</p></div>
 
 <h2>Step 1, declare the channels (both sides)</h2>
 <p>A channel is a named pipe with a direction. Both the client and the server must agree the channel exists, so the channel <em>ids</em> live in a class that loads on both sides, the common <code>ExampleNetworking</code>. Crucially, <strong>only the ids live here</strong>: the moment you reference <code>ClientPlayNetworking</code> or <code>ServerPlayNetworking</code> in this class, it would fail to load on the side that lacks those classes. Keep it neutral.</p>
@@ -156,7 +156,7 @@ ClientPlayNetworking.registerListener(ExampleNetworking.WELCOME, (ctx, buf) -> {
     }
 }</code></pre></div>
 
-<p>Mixins are <a href="mixins.html">Chapter 12</a>'s whole subject, for now, notice that this one lives in the <code>"server"</code> list of the mixin config so it never loads on a client, where <code>ServerPlayerEntity</code> doesn't exist. That sided-loading discipline is the recurring theme of networking code.</p>
+<p>Mixins are <a href="mixins.html">Chapter 13</a>'s whole subject, for now, notice that this one lives in the <code>"server"</code> list of the mixin config so it never loads on a client, where <code>ServerPlayerEntity</code> doesn't exist. That sided-loading discipline is the recurring theme of networking code.</p>
 
 <h2>What RetroAPI already syncs for you</h2>
 <p>Before you reach for a custom packet, check whether RetroAPI is already handling it. A huge amount of the multiplayer plumbing that would otherwise be your problem is done:</p>
@@ -164,7 +164,7 @@ ClientPlayNetworking.registerListener(ExampleNetworking.WELCOME, (ctx, buf) -> {
 <table>
 <tr><th>Channel</th><th>What it syncs</th></tr>
 <tr><td><code>id_sync</code></td><td>Block ids, so the server's remapped block ids match the client's.</td></tr>
-<tr><td><code>dim_sync</code></td><td>Dimensions, your registered dimension reaches the client (<a href="dimensions.html">Chapter 9</a>).</td></tr>
+<tr><td><code>dim_sync</code></td><td>Dimensions, your registered dimension reaches the client (<a href="dimensions.html">Chapter 10</a>).</td></tr>
 <tr><td><code>chunk_ext</code></td><td>Extended block data per chunk, beta's block array is small; this carries the overflow.</td></tr>
 <tr><td><code>entity_spawn</code> / <code>entity_mob</code></td><td>Custom entity spawns, so your mob appears on every client (<a href="entities.html">Chapter 7</a>).</td></tr>
 <tr><td><code>open_gui</code></td><td>Container GUIs, opening your crate or freezer on a remote client.</td></tr>

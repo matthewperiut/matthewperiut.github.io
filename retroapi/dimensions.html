@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 9: Other Worlds, RetroAPI Guide</title>
+<title>Chapter 10: Other Worlds, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 9, Other Worlds</h1>
+<h1>Chapter 10, Other Worlds</h1>
 <p class="chapter-sub">Register a whole dimension, then walk into it through a block you can step through like a doorway.</p>
 
 <p>Beta 1.7.3 shipped with two dimensions: the Overworld and the Nether. RetroAPI lets you add a third, a tenth, as many as you like, each with its own save folder, its own terrain, and a portal that arms itself exactly the way the Nether's does. We'll register a dimension that reuses overworld generation (so terrain actually appears), then build a walk-in portal block that ferries the player there and back.</p>
@@ -117,7 +117,7 @@ LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
 
 <p><strong><code>isOpaque</code> returns <code>false</code></strong>, light passes through and, just as importantly, the player standing inside doesn't suffocate or black out. A walk-in block that you can't see out of would be a trap, not a portal.</p>
 
-<p><strong><code>onEntityCollision</code> arms the portal.</strong> This fires every tick an entity is inside the block. It checks the entity is a player and isn't riding or carrying anything, no teleporting boats and their passengers into the void, then does two things. It registers the block as the player's <em>teleportation manager</em> via <code>setTeleportationManager(this)</code>, and it ticks the portal cooldown with <code>tickPortalCooldown()</code>. This is precisely how vanilla Nether portals arm themselves: stand in it, a timer fills, and when it's full the manager switches your dimension. (It also grants the <code>DIMENSIONAL_TRAVELER</code> achievement from <a href="achievements.html">Chapter 8</a> on the way, a nice touch worth pointing at, guarded by <code>!world.isRemote</code> so it only fires on the authoritative side.)</p>
+<p><strong><code>onEntityCollision</code> arms the portal.</strong> This fires every tick an entity is inside the block. It checks the entity is a player and isn't riding or carrying anything, no teleporting boats and their passengers into the void, then does two things. It registers the block as the player's <em>teleportation manager</em> via <code>setTeleportationManager(this)</code>, and it ticks the portal cooldown with <code>tickPortalCooldown()</code>. This is precisely how vanilla Nether portals arm themselves: stand in it, a timer fills, and when it's full the manager switches your dimension. (It also grants the <code>DIMENSIONAL_TRAVELER</code> achievement from <a href="achievements.html">Chapter 9</a> on the way, a nice touch worth pointing at, guarded by <code>!world.isRemote</code> so it only fires on the authoritative side.)</p>
 
 <p><strong><code>getDimension</code> names the destination.</strong> It returns the id of the dimension to travel to, here, <code>EXAMPLE_DIMENSION.getId()</code>. And travel <em>flips</em>: a player already in the example dimension who steps into the same portal is sent back to the overworld. RetroAPI reverses the direction automatically, mirroring exactly how the Nether portal you came through is also the one you leave through. This is verified RetroAPI behavior, not a hopeful description, the round trip works.</p>
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 12: The Scalpel, RetroAPI Guide</title>
+<title>Chapter 13: The Scalpel, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 12, The Scalpel</h1>
+<h1>Chapter 13, The Scalpel</h1>
 <p class="chapter-sub">Beta Minecraft has no events and no hooks. The only way to change anything is to cut into the game itself, so let's learn to cut cleanly.</p>
 
 <p>Every chapter before this one used RetroAPI's friendly front door: <code>RetroBlockAccess</code>, <code>RetroRecipes</code>, <code>RetroEntities</code>. But those APIs exist because someone wrote the mixins underneath them. When you need to change something RetroAPI doesn't wrap, pigs' sounds, fall damage, the color of grass, there is no API. There is only the mixin.</p>
@@ -384,8 +384,8 @@
 
 <ul>
 <li><strong><code>PlayerTickMixin</code></strong> (client list), hooks <code>PlayerEntity.tick()</code> at HEAD to run the one-shot starter kit in singleplayer, where the world lives inside the client.</li>
-<li><strong><code>ServerPlayerTickMixin</code></strong> (server list), the dedicated-server twin, hooking <code>ServerPlayerEntity.tick()</code> to run the starter kit <em>and</em> drive the welcome packet from <a href="networking.html">Chapter 11</a>.</li>
-<li><strong><code>LivingEntityJumpMixin</code></strong> (common list), hooks <code>LivingEntity.jump()</code> to grant the "Jump for Joy" achievement (<a href="achievements.html">Chapter 8</a>) the first time a player jumps, with a <code>!world.isRemote</code> guard so the grant only fires where physics actually run.</li>
+<li><strong><code>ServerPlayerTickMixin</code></strong> (server list), the dedicated-server twin, hooking <code>ServerPlayerEntity.tick()</code> to run the starter kit <em>and</em> drive the welcome packet from <a href="networking.html">Chapter 12</a>.</li>
+<li><strong><code>LivingEntityJumpMixin</code></strong> (common list), hooks <code>LivingEntity.jump()</code> to grant the "Jump for Joy" achievement (<a href="achievements.html">Chapter 9</a>) the first time a player jumps, with a <code>!world.isRemote</code> guard so the grant only fires where physics actually run.</li>
 </ul>
 
 <p>Look at <code>LivingEntityJumpMixin</code> if you want to see every principle in one file: it targets the declaring base class, checks <code>instanceof PlayerEntity</code>, gates on <code>world.isRemote</code>, prefixes its handler and its once-flag, and does exactly one job.</p>
@@ -395,7 +395,7 @@
 
 <ul>
 <li><strong>Targets are matched against biny names and remapped at build time.</strong> You write <code>method = "onLanding"</code> against the mapped name; Loom rewrites it to the obfuscated name in the built jar. You never see the obfuscated names.</li>
-<li><strong>A wrong name is a crash at class-load, and that's good.</strong> With <code>defaultRequire: 1</code>, if a target method or field doesn't exist, the game fails loudly at launch instead of silently doing nothing. Fail fast, fix the name. (<a href="testing.html">Chapter 21</a> shows what that crash looks like in the log.)</li>
+<li><strong>A wrong name is a crash at class-load, and that's good.</strong> With <code>defaultRequire: 1</code>, if a target method or field doesn't exist, the game fails loudly at launch instead of silently doing nothing. Fail fast, fix the name. (<a href="testing.html">Chapter 22</a> shows what that crash looks like in the log.)</li>
 <li><strong>Verify names against the mapped jar</strong> in your Gradle cache, or against the decompiled sources Loom generates. Don't guess a method name, open the class and read it.</li>
 <li><strong>Constructors are targeted as <code>&lt;init&gt;(descriptor)</code></strong> and are only TAIL-injectable, the object must be fully built before you touch it (examples 2 and 9).</li>
 <li><strong>Interface mixins add zero overhead.</strong> <code>@Invoker</code>, <code>@Accessor</code>, and duck interfaces compile down to direct field/method access, they're free.</li>

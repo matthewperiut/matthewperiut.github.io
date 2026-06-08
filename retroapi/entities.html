@@ -147,7 +147,7 @@ world.spawnEntity(mob);</code></pre></div>
 <h3>What syncs after spawn, and what doesn't</h3>
 <p>The spawn frame is a one-time event. After it, the entity's position and rotation ride vanilla's normal entity tracker, ticking out to nearby clients at the period you set. That part is automatic.</p>
 
-<p>What is <em>not</em> automatic is custom state. The DataTracker carries a fixed set of small synced values, "on fire," "sneaking," and a handful of others the engine manages, and those stay in step for free. Anything beyond that bag is yours to sync. If your mob has a custom rage meter or a charge level you want every client to see, the engine will not move it for you; you send it with your own packet (<a href="networking.html">Chapter 11</a>), or, if it's a number you're drawing in a GUI rather than on the entity, with the container properties from <a href="blockentities.html">Chapter 6</a>. The freezer's lesson reappears here: anything you visualize, you budget a sync for.</p>
+<p>What is <em>not</em> automatic is custom state. The DataTracker carries a fixed set of small synced values, "on fire," "sneaking," and a handful of others the engine manages, and those stay in step for free. Anything beyond that bag is yours to sync. If your mob has a custom rage meter or a charge level you want every client to see, the engine will not move it for you; you send it with your own packet (<a href="networking.html">Chapter 12</a>), or, if it's a number you're drawing in a GUI rather than on the entity, with the container properties from <a href="blockentities.html">Chapter 6</a>. The freezer's lesson reappears here: anything you visualize, you budget a sync for.</p>
 
 <div class="note"><p>Need to ship a few extra fields <em>in the spawn packet itself</em>, a variant, a color, a name picked at birth? <code>RetroMobSpawnData</code> has a <code>writeExtra</code>/<code>readExtra</code> hook for exactly that, appending your own bytes after the standard mob payload. It's an advanced pointer; the showcase doesn't need it, but it's there when you do.</p></div>
 
@@ -156,112 +156,7 @@ world.spawnEntity(mob);</code></pre></div>
 
 <p>That's the whole bargain: an easy class on top, a careful spawn protocol underneath, and a sidecar keeping your world portable. You write four lines of mob and RetroAPI handles the rest of the conversation.</p>
 
-<h2>The Aerbunny: syncing render state</h2>
-<p>The mob above taught registration and a renderer. It stands still, so it never had to answer a harder question: what happens when a creature's <em>appearance</em> depends on something only the server knows? The showcase ships a second mob for exactly that lesson, the Aerbunny, a floaty puffball ported from the Aether. It puffs up and tilts as it drifts, and both of those visuals are driven by numbers the server computes and the client has no way to derive on its own.</p>
-
-<p>Here is the trap. A bunny puffs when it's descending and tilts by its vertical velocity. Those are physics quantities, and on a dedicated server the client never runs the bunny's physics; it only receives position updates through the entity tracker, not velocity, not a "puffiness" timer. If the renderer read the entity's own local fields, they'd be zero on the client and the bunny would render flat and level forever. Singleplayer would hide this completely, because there the client <em>is</em> the world and the fields are real, so the bug only shows up the moment a real server is between you and the mob. The fix is the <strong>DataTracker</strong>: the same synced key/value bag the spawn frame already carries, but with two slots of our own that the server keeps publishing every tick.</p>
-
-<h3>Claiming the slots</h3>
-<p>Each entity owns a small numbered table of synced values. <code>LivingEntity</code> reserves the low slots, so modded values start at 17. We claim two and seed them to zero in <code>initDataTracker</code>:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code><span class="c">/** DataTracker slots. 16 is reserved by LivingEntity, so modded slots start at 17. */</span>
-<span class="k">private static final</span> <span class="k">int</span> PUFFINESS_SLOT = <span class="n">17</span>;
-<span class="k">private static final</span> <span class="k">int</span> VELOCITY_Y_SLOT = <span class="n">18</span>;
-
-<span class="k">@Override</span>
-<span class="k">protected void</span> initDataTracker() {
-	<span class="k">super</span>.initDataTracker();
-	<span class="k">this</span>.dataTracker.startTracking(PUFFINESS_SLOT, <span class="n">0</span>); <span class="c">// float bits</span>
-	<span class="k">this</span>.dataTracker.startTracking(VELOCITY_Y_SLOT, <span class="n">0</span>); <span class="c">// float bits</span>
-}</code></pre></div>
-
-<div class="note"><p>Those comments aren't an accident. A DataTracker slot holds an <code>int</code>, but puffiness and velocity are <code>float</code>s. The beta-era trick is to smuggle the float across as its raw 32 bits: <code>Float.floatToIntBits(value)</code> on the way in, <code>Float.intBitsToFloat(slot)</code> on the way out. No precision is lost, you're just reinterpreting the same four bytes; the tracker never knows it's carrying anything but an integer.</p></div>
-
-<h3>The publish side and the trust side</h3>
-<p>The whole handshake lives in one <code>tick()</code> with a <code>world.isRemote</code> fork. The server branch simulates the float, sets the puffiness, and writes both values into the tracker as float bits. The client branch never runs that simulation; it just reads the synced value back out:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code><span class="k">if</span> (!<span class="k">this</span>.world.isRemote) {
-	<span class="c">// SERVER: float gently, puff when descending, then publish the render state.</span>
-	<span class="k">if</span> (<span class="k">this</span>.velocityY &lt; -<span class="n">0.04</span> &amp;&amp; <span class="k">this</span>.puffiness &lt;= <span class="n">0.0F</span>) {
-		<span class="k">this</span>.puffiness = <span class="n">1.0F</span>; <span class="c">// puff on the way down</span>
-	}
-	<span class="k">this</span>.puffiness = <span class="t">Math</span>.max(<span class="n">0.0F</span>, <span class="k">this</span>.puffiness - <span class="n">0.08F</span>);
-
-	<span class="k">this</span>.dataTracker.set(PUFFINESS_SLOT, <span class="t">Float</span>.floatToIntBits(<span class="k">this</span>.puffiness));
-	<span class="k">this</span>.dataTracker.set(VELOCITY_Y_SLOT, <span class="t">Float</span>.floatToIntBits((<span class="k">float</span>) <span class="k">this</span>.velocityY));
-} <span class="k">else</span> {
-	<span class="c">// CLIENT: trust the synced value, with a small local decay between updates.</span>
-	<span class="k">float</span> synced = <span class="t">Float</span>.intBitsToFloat(<span class="k">this</span>.dataTracker.getInt(PUFFINESS_SLOT));
-	<span class="k">this</span>.puffiness = synced &gt; <span class="k">this</span>.puffiness ? synced : <span class="t">Math</span>.max(<span class="n">0.0F</span>, <span class="k">this</span>.puffiness - <span class="n">0.08F</span>);
-}</code></pre></div>
-
-<p>Notice the asymmetry. The server <em>computes</em> puffiness and <em>writes</em> it; the client <em>reads</em> it and only smooths it locally between the tracker's (infrequent) updates so the puff eases out instead of stepping. Velocity gets the same treatment but with no client-side massaging at all, the renderer asks for it raw through a tiny accessor:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code><span class="c">/** The synced vertical velocity the renderer tilts by (client reads the tracker). */</span>
-<span class="k">public</span> <span class="k">float</span> getSyncedVelocityY() {
-	<span class="k">return</span> <span class="t">Float</span>.intBitsToFloat(<span class="k">this</span>.dataTracker.getInt(VELOCITY_Y_SLOT));
-}</code></pre></div>
-
-<h3>The model puffs by the synced value</h3>
-<p>The model is a tree of cubes like any other, but one part, the <code>puff</code> cube, is scaled per frame by the puffiness the renderer hands it. Because that number arrived over the tracker, every client watching sees the same puff at the same instant:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java, render()</span><pre><code><span class="c">// The puff: scale the body cube by the synced puffiness, centred so it grows</span>
-<span class="c">// in every direction. This is the only frame-to-frame visual that depends on</span>
-<span class="c">// server state, and it is driven entirely by the DataTracker value.</span>
-GL11.glPushMatrix();
-<span class="k">float</span> s = <span class="n">1.0F</span> + <span class="k">this</span>.puffiness * <span class="n">0.5F</span>;
-GL11.glTranslatef(<span class="n">0.0F</span>, <span class="n">1.0F</span>, <span class="n">0.0F</span>);
-GL11.glScalef(s, s, s);
-<span class="k">this</span>.puff.render(scale);
-GL11.glPopMatrix();</code></pre></div>
-
-<h3>The renderer tilts by the synced velocity</h3>
-<p>The renderer subclasses <code>LivingEntityRenderer</code>, which already draws the model and binds the texture, only to add the two server-driven touches. In <code>applyScale</code> it reads the synced vertical velocity, maps it to a tilt angle, smooths that per entity, and rotates the whole bunny, then it hands the synced puffiness to the model for the puff above:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyRenderer.java, applyScale()</span><pre><code><span class="t">AerbunnyEntity</span> bunny = (<span class="t">AerbunnyEntity</span>) entity;
-
-<span class="k">float</span> velocityY = bunny.getSyncedVelocityY();
-<span class="k">float</span> target;
-<span class="k">if</span> (velocityY &gt; <span class="n">0.5F</span>) {
-	target = <span class="n">15.0F</span>;
-} <span class="k">else if</span> (velocityY &lt; -<span class="n">0.5F</span>) {
-	target = -<span class="n">15.0F</span>;
-} <span class="k">else</span> {
-	target = velocityY * <span class="n">30.0F</span>;
-}
-<span class="k">float</span> prev = smoothTilt.getOrDefault(bunny, <span class="n">0.0F</span>);
-<span class="k">float</span> tilt = prev + (target - prev) * <span class="n">0.3F</span>;
-smoothTilt.put(bunny, tilt);
-GL11.glRotatef(tilt, -<span class="n">1.0F</span>, <span class="n">0.0F</span>, <span class="n">0.0F</span>);
-
-<span class="c">// Hand the synced puffiness to the model for this frame.</span>
-<span class="k">this</span>.bunnyModel.puffiness = bunny.puffiness;</code></pre></div>
-
-<p>Both halves of the draw, the puff in the model and the tilt in the renderer, read values that originated on the server. Neither touches a field the client simulates, because the client doesn't simulate the bunny at all. That's the lesson in one mob: <strong>anything you render that the client can't recompute, you publish through the DataTracker</strong>, exactly the freezer's "anything you visualize, you budget a sync for" from the <em>What syncs after spawn</em> section above, made concrete.</p>
-
-<h3>Registering the pieces</h3>
-<p>Registration looks like the example mob's, a <code>MobFactory</code> on the common side. The only new wrinkle is the client side, where the Aerbunny gets its own model and renderer instead of the generic biped:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>AERBUNNY = <span class="t">RetroEntities</span>.register(<span class="t">AerbunnyEntity</span>.ID, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>)
-	.factory((<span class="t">MobFactory</span>) <span class="t">AerbunnyEntity</span>::<span class="k">new</span>);</code></pre></div>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="c">// The Aerbunny gets a CUSTOM model + renderer (not the biped). The renderer</span>
-<span class="c">// reads the entity's server-synced puffiness and velocity to drive the puff</span>
-<span class="c">// and tilt, the payoff of the DataTracker sync in AerbunnyEntity.</span>
-<span class="t">RetroEntityRenderers</span>.register(<span class="t">AerbunnyEntity</span>.<span class="k">class</span>,
-	<span class="k">new</span> <span class="t">AerbunnyRenderer</span>(<span class="k">new</span> <span class="t">AerbunnyModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
-
-<h3>Where it lives</h3>
-<p>The Aerbunny doesn't spawn at your feet like the example mob; it belongs to the noisy world. A <code>canSpawn()</code> override gates it to the Noisy dimension (<a href="dimensions.html">Chapter 9</a>) and to grass, and the biome wiring drops it into both Noisy biomes through the additive <code>RetroBiomes.addPassiveSpawn</code> hook (the worldgen side, <a href="worldgen.html">Chapter 19</a>):</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, registerSpawns()</span><pre><code><span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
-<span class="c">// another mod's spawns; here it drops Aerbunnies into both Noisy biomes.</span>
-<span class="t">RetroBiomes</span>.addPassiveSpawn(NOISY_AMPLIFIED_BIOME, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>, <span class="n">4</span>);
-<span class="t">RetroBiomes</span>.addPassiveSpawn(NOISY_LUSH_BIOME, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>, <span class="n">4</span>);</code></pre></div>
-
-<p>It also leans on the sound autoloader for its hurt and death cries, <code>example_mod:mobs.aerbunny.aerbunnyhurt</code> resolves to a folder of numbered <code>.ogg</code> variants the engine picks between at random, which is the <a href="sounds.html">sounds chapter, Chapter 18</a>'s story. One small mob, then, pulls threads from half the book: a dimension to live in, biomes to spawn across, sounds to cry with, and, at its heart, the DataTracker carrying its puff and tilt safely across the wire.</p>
-
-<p>Our world now has machines that work and a creature that wanders it. Time to start rewarding the player for noticing, with toasts, a parent tree, and a page of our own.</p>
+<p>Our world now has machines that work and a simple creature that wanders it. But that mob just stands there. The next chapter takes this same entity foundation and builds the showcase's most COMPLEX mob on it, the Aerbunny: it rides on your head and glides you safely down, breeds, panics and flees when struck, and along the way it teaches the render-state and input networking a living thing actually needs. On to <a href="complex-entity.html">Chapter 8</a>.</p>
 </div>
 
 <div class="pager"></div>

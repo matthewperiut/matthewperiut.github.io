@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 19: New Lands, RetroAPI Guide</title>
+<title>Chapter 20: New Lands, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 19, New Lands</h1>
+<h1>Chapter 20, New Lands</h1>
 <p class="chapter-sub">Stop borrowing the Overworld's terrain and grow your own: a chunk generator from one equation, then a full Perlin world with ores, caves, trees, biomes, and a portal home.</p>
 
-<p><a href="dimensions.html">Chapter 9</a> registered a dimension and walked into it through a portal, and it was honest about reusing overworld generation so the chapter could stay about doorways. This is the other half. Here you bring your own generator into the room, and you learn the second large subject Chapter 9 set aside: chunk generators, biome sources, surface decoration, and the spawn rules that make a world feel alive. The showcase ships two of these. The Curvy dimension is the smallest possible custom generator, a single equation. The Noisy dimension is the real thing, Perlin terrain with everything bolted on. We'll build up from the equation to the full world, then wire the biomes, the spawn caps, and the portal that takes you back.</p>
+<p><a href="dimensions.html">Chapter 10</a> registered a dimension and walked into it through a portal, and it was honest about reusing overworld generation so the chapter could stay about doorways. This is the other half. Here you bring your own generator into the room, and you learn the second large subject Chapter 10 set aside: chunk generators, biome sources, surface decoration, and the spawn rules that make a world feel alive. The showcase ships two of these. The Curvy dimension is the smallest possible custom generator, a single equation. The Noisy dimension is the real thing, Perlin terrain with everything bolted on. We'll build up from the equation to the full world, then wire the biomes, the spawn caps, and the portal that takes you back.</p>
 
 <h2>A chunk generator from one equation</h2>
 <p>A custom dimension overrides one method, <code>createChunkGenerator()</code>, to hand back a <code>ChunkSource</code> of your own. The smallest useful generator has no noise at all, just an equation that says how high the ground is at any <code>(x, z)</code>. The Curvy dimension's surface is a scaled-up <code>sin(x) + cos(z)</code>, which makes a smooth rolling egg-carton of hills:</p>
@@ -242,7 +242,7 @@ RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class=
 <p>You almost never call <code>assign</code> yourself. It runs automatically the moment a mob is added to a biome, whether through <code>BiomeBuilder.passiveEntity</code> or <code>RetroBiomes.addPassiveSpawn</code>, both of which call it under the hood with the right vanilla group. So wiring the Aerbunny into the Noisy biomes above did two jobs at once: it gave the bunny somewhere to spawn, and it taught the animal cap to count it. The bunny lives only in the noisy dimension, exactly because that's the only place it was added.</p>
 
 <h2>Portals between dimensions</h2>
-<p>Two custom dimensions need two ways in, and rather than write two portal classes the showcase writes one configurable <code>DimensionPortalBlock</code> and registers it twice. It's the same <code>CustomPortal</code> pattern from <a href="dimensions.html">Chapter 9</a>, walk into it, a timer fills, your dimension flips, but the destination and the block to place at the far end are passed in:</p>
+<p>Two custom dimensions need two ways in, and rather than write two portal classes the showcase writes one configurable <code>DimensionPortalBlock</code> and registers it twice. It's the same <code>CustomPortal</code> pattern from <a href="dimensions.html">Chapter 10</a>, walk into it, a timer fills, your dimension flips, but the destination and the block to place at the far end are passed in:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/DimensionPortalBlock.java</span><pre><code><span class="k">public</span> DimensionPortalBlock(<span class="k">int</span> id, <span class="t">Supplier</span>&lt;<span class="t">NamespacedIdentifier</span>&gt; destination, <span class="t">Supplier</span>&lt;<span class="t">Integer</span>&gt; portalBlockId) {
 	<span class="k">super</span>(id, <span class="t">Material</span>.GLASS);
@@ -271,7 +271,7 @@ RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class=
 </div>
 <p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/green_glass.png, orange_glass.png</code></p>
 
-<p>The return trip is the part Chapter 9 hand-waved. RetroAPI flips the travel direction for a player already in the dimension, but the portal also has to <em>be there</em> when you arrive. That's the second supplier, <code>portalBlockId</code>, handed to a custom travel agent. <code>getTravelAgent</code> returns a <code>GroundPortalForcer</code> seeded with the portal's own id, and that forcer either reuses a portal from an earlier trip or drops a fresh one on the surface:</p>
+<p>The return trip is the part Chapter 10 hand-waved. RetroAPI flips the travel direction for a player already in the dimension, but the portal also has to <em>be there</em> when you arrive. That's the second supplier, <code>portalBlockId</code>, handed to a custom travel agent. <code>getTravelAgent</code> returns a <code>GroundPortalForcer</code> seeded with the portal's own id, and that forcer either reuses a portal from an earlier trip or drops a fresh one on the surface:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/GroundPortalForcer.java, moveToPortal() tail</span><pre><code><span class="k">int</span> y = world.getTopY(ex, ez);
 world.setBlock(ex, y, ez, <span class="k">this</span>.portalBlockId);
@@ -282,7 +282,7 @@ entity.setPositionAndAngles(ex + <span class="n">0.5</span>, y + <span class="n"
 <h2>What you have now</h2>
 <p>You can grow a world from a single equation, then trade the equation for Perlin noise and add ores, winding caves, lakes, trees, and biomes. You know the one rule that keeps modded blocks out of the chunk byte array, the one rule that keeps biome edits from breaking other mods, and the one registry that keeps your mobs honest about the spawn cap. And you can walk into any of it through a portal that builds its own return trip. That is a complete, self-contained land.</p>
 
-<p>The next chapter turns from worlds back to the smallest unit of all, the item, and gives it a memory: typed data components that ride along on an <code>ItemStack</code>, drive tooltips, and even change an icon. On to <a href="components.html">Chapter 20, Item Memory</a>.</p>
+<p>The next chapter turns from worlds back to the smallest unit of all, the item, and gives it a memory: typed data components that ride along on an <code>ItemStack</code>, drive tooltips, and even change an icon. On to <a href="components.html">Chapter 21, Item Memory</a>.</p>
 </div>
 
 <div class="pager"></div>

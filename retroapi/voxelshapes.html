@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 14: True Shapes, RetroAPI Guide</title>
+<title>Chapter 15: True Shapes, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,14 +14,14 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 14, True Shapes</h1>
+<h1>Chapter 15, True Shapes</h1>
 <p class="chapter-sub">A beta block is one box and it lies about itself. Stairs select as a full cube, a fence collides as a solid pillar, an L-shape claims to be a square. Here is how RetroAPI gives a block a list of boxes that the outline, the raytracer, collision, and even the server all agree on.</p>
 
 <p>Open Beta 1.7.3, look at a staircase, and move your crosshair across it. The selection box that snaps around it is a full cube, top to bottom, corner to corner, because in this game a block has exactly <em>one</em> bounding box and the stair's box is the whole cube. Walk into a fence and you stop a meter away from the rail, because the fence's single box is a fat pillar that fills its footprint. Anything that should be L-shaped or hollow or stepped, in vanilla beta, simply lies: it outlines, collides, and raytraces as the one box it was given, and there is no second box to be had.</p>
 
 <p>RetroAPI's answer is <strong>VoxelShapes</strong>, ported into RetroAPI from <a href="https://github.com/matthewperiut/voxelshapes">matthewperiut/voxelshapes</a> (credit and full source there). A VoxelShape is not one box, it is a <em>list</em> of boxes, and that list is honored by every system that cares about a block's geometry: the mouse-over <strong>selection outline</strong> (drawn per edge, with the interior edges where boxes meet removed), <strong>raytracing</strong> (so you can mine the block sitting behind the gap of a wall corner instead of hitting empty air), <strong>entity collision</strong>, and the dedicated server's <strong>movement verification</strong> (so a shaped block never false-flags a legitimate move). One interface on your block, and all four fall into line.</p>
 
-<div class="note"><p>This is the geometry half of a block. The <em>look</em> of a block, its model and textures, is <a href="models.html">Chapter 15</a>. VoxelShapes is collision and selection: pure code, no assets. The two are independent, a block can have a fancy model and a single vanilla box, or a plain model and a precise multi-box shape, or both.</p></div>
+<div class="note"><p>This is the geometry half of a block. The <em>look</em> of a block, its model and textures, is <a href="models.html">Chapter 16</a>. VoxelShapes is collision and selection: pure code, no assets. The two are independent, a block can have a fancy model and a single vanilla box, or a plain model and a precise multi-box shape, or both.</p></div>
 
 <h2>The API, exactly</h2>
 <p>You opt in by implementing one interface on your <code>Block</code>. Here it is in full:</p>
@@ -205,7 +205,7 @@
 <p>Fences do exactly the same thing with more entries. There are 16 connection combinations (four neighbor directions, each present or not), so the fence mixin builds a 16-entry array of <code>VoxelData</code>, a center post plus one rail box per connected side, and a parallel 16-entry array for collision where every box is grown half a block taller with that <code>add</code> trick so the fence cannot be hopped. The query computes a 4-bit index from the four neighbors and offsets the matching template, the same index-in-offset-out shape as stairs.</p>
 
 <h2>The wall: connection-state-driven shapes</h2>
-<p>The stair indexed by four metadata values. The fence indexed by sixteen connection bits. The showcase wall is the full version of the idea: its shape is a pure function of its <strong>blockstate</strong>, the 162-state connection state you met in <a href="states.html">Chapter 13</a>, and it caches one <code>VoxelData</code> per interned state in a map. Here is the entire voxel-shape section of <code>ExampleWallBlock</code>:</p>
+<p>The stair indexed by four metadata values. The fence indexed by sixteen connection bits. The showcase wall is the full version of the idea: its shape is a pure function of its <strong>blockstate</strong>, the 162-state connection state you met in <a href="states.html">Chapter 14</a>, and it caches one <code>VoxelData</code> per interned state in a map. Here is the entire voxel-shape section of <code>ExampleWallBlock</code>:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleWallBlock.java, voxel shapes</span><pre><code>	<span class="c">// ------------------------------------------------------------ voxel shapes --</span>
 	<span class="c">// The wall's REAL shape: a box per visible piece, built from the same state the</span>
@@ -286,7 +286,7 @@
 
 <p>Read it as the same recipe, scaled up to a real state space. There is one <code>VoxelBox</code> per visible piece: the centered <code>POST</code> (a quarter-to-three-quarters pillar, full height), a low north segment (<code>SIDE_NORTH_LOW</code>, 14 pixels tall, the <code>0.875</code> on its <code>maxY</code>) and a tall north segment (<code>SIDE_NORTH_TALL</code>, the full 16 pixels), both matching the wall_side model geometry exactly. <code>CLIMB_GUARD</code> is the now-familiar half-block lift, zero on every axis except <code>maxY</code>.</p>
 
-<p><code>shapeData</code> is the cache. It keys a <code>HashMap</code> on the <code>RetroBlockState</code> itself, which is safe and fast because states are <strong>interned</strong> (Chapter 13): there is exactly one object per distinct state, so it is a perfect map key with identity hashing. On a cache miss it builds the shape from the state: a post box when <code>up=true</code>, then one segment box per connected side. It calls <code>preCache()</code> for the selection shape so the outline edges are computed once, stores it, and returns it. Every later query for that state is a single map lookup plus a cheap <code>withOffset</code>.</p>
+<p><code>shapeData</code> is the cache. It keys a <code>HashMap</code> on the <code>RetroBlockState</code> itself, which is safe and fast because states are <strong>interned</strong> (Chapter 14): there is exactly one object per distinct state, so it is a perfect map key with identity hashing. On a cache miss it builds the shape from the state: a post box when <code>up=true</code>, then one segment box per connected side. It calls <code>preCache()</code> for the selection shape so the outline edges are computed once, stores it, and returns it. Every later query for that state is a single map lookup plus a cheap <code>withOffset</code>.</p>
 
 <p><code>withSide</code> is where the rotation lives. There is only <em>one</em> template, the north segment; the other three faces are that template spun by <code>rotateY</code> in 90-degree steps, exactly the way the wall's blockstate JSON y-rotates the single side model to face east, south, and west. The collision build path adds <code>CLIMB_GUARD</code> to every box (and to the post), which is why a wall is the unjumpable 1.5 blocks tall to an entity while still drawing its outline at the visual height. The two public methods are tiny: read the state, return <code>null</code> if there is none, otherwise pull the cached <code>VoxelData</code> and offset it onto the block.</p>
 
@@ -313,7 +313,7 @@
 <h2>What we built</h2>
 <p>A beta block had one box and lied about its shape. Now a block can carry a list of boxes that the outline, the raytracer, entity collision, and the dedicated server all honor: one interface for selection, an optional second when collision should stand taller. The recipe is always the same, build a <code>VoxelData</code> once per distinct shape, <code>preCache</code> its outline edges, and <code>withOffset</code> it onto the block per query, whether you index by metadata like the stairs, by connection bits like the fence, or by interned blockstate like the wall.</p>
 
-<p>The wall now has its true silhouette, but it is still wearing no clothes: collision is code, the <em>look</em> is a model and a texture, and we keep mentioning the multipart blockstate JSON that turns those 162 states into post-plus-rotated-side geometry without drawing it. That, JSON block and item models, render layers, tints, and animated textures, all running on a 2011 game, is the last building chapter. The states of the wall came from <a href="states.html">Chapter 13</a>; now let's give it pixels in <a href="models.html">Chapter 15</a>.</p>
+<p>The wall now has its true silhouette, but it is still wearing no clothes: collision is code, the <em>look</em> is a model and a texture, and we keep mentioning the multipart blockstate JSON that turns those 162 states into post-plus-rotated-side geometry without drawing it. That, JSON block and item models, render layers, tints, and animated textures, all running on a 2011 game, is the last building chapter. The states of the wall came from <a href="states.html">Chapter 14</a>; now let's give it pixels in <a href="models.html">Chapter 16</a>.</p>
 </div>
 
 <div class="pager"></div>

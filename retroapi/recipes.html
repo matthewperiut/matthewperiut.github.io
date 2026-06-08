@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 10: Recipes, RetroAPI Guide</title>
+<title>Chapter 11: Recipes, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 10, Recipes</h1>
+<h1>Chapter 11, Recipes</h1>
 <p class="chapter-sub">Four little tables, shaped, shapeless, smelting, fuel, and one rule about wildcards that saves you a debugging afternoon.</p>
 
 <p>You've built blocks, items, a mob, a dimension. Now we close the loop: let players <em>make</em> the things you registered. Recipes in RetroAPI are four one-line calls, and the only subtle part is <em>when</em> you call them, so we'll start there.</p>
@@ -101,7 +101,7 @@ RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"
 <p>Two more tools for the cases that need them. <code>removeRecipe(ItemStack output)</code> strips an existing recipe by what it produces, useful for disabling a vanilla recipe you want to replace. And <code>sortCraftingRecipes()</code> re-runs the priority sort by hand; the registration callback already calls it for you, so you only need it if you've been adding recipes outside the callback for some reason.</p>
 
 <h2>Try it in game</h2>
-<p>With the starter kit in your inventory (<a href="testing.html">Chapter 21</a> covers the dev launch), every one of these is one craft or one smelt away:</p>
+<p>With the starter kit in your inventory (<a href="testing.html">Chapter 22</a> covers the dev launch), every one of these is one craft or one smelt away:</p>
 <table>
 <tr><th>Do this</th><th>Get this</th><th>Which API</th></tr>
 <tr><td>4 cobblestone in a 2&times;2</td><td>1 Example Block</td><td><code>addShaped</code></td></tr>

@@ -99,7 +99,7 @@
 		.maxStackSize(<span class="n">64</span>).texture(id(<span class="s">"suspicious_substance"</span>)).register(id(<span class="s">"suspicious_substance"</span>));
 	<span class="c">// … JUMP_STICK …</span>
 
-	<span class="c">// dimension, Chapter 9</span>
+	<span class="c">// dimension, Chapter 10</span>
 	EXAMPLE_DIMENSION = RetroDimensions.register(id(<span class="s">"example_dim"</span>), ExampleDimension::new);
 	<span class="c">// … EXAMPLE_PORTAL …</span>
 
@@ -107,17 +107,17 @@
 	EXAMPLE_MOB = RetroEntities.register(ExampleEntity.ID, ExampleEntity.class)
 		.factory((MobFactory) ExampleEntity::new);
 
-	<span class="c">// recipes, Chapter 10</span>
+	<span class="c">// recipes, Chapter 11</span>
 	RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);
 
-	<span class="c">// achievements, Chapter 8</span>
+	<span class="c">// achievements, Chapter 9</span>
 	ExampleAchievements.register();
 
-	<span class="c">// networking, Chapter 11</span>
+	<span class="c">// networking, Chapter 12</span>
 	ExampleNetworking.registerChannels();
 }</code></pre></div>
 
-<p>Every line above is one of the next chapters. <a href="blocks.html">Chapter 4</a> takes the blocks, <a href="items.html">Chapter 5</a> the items, <a href="blockentities.html">Chapter 6</a> the block entities, <a href="entities.html">Chapter 7</a> the mob, <a href="achievements.html">Chapter 8</a> the achievements, <a href="dimensions.html">Chapter 9</a> the dimension and portal, <a href="recipes.html">Chapter 10</a> the recipes, <a href="networking.html">Chapter 11</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
+<p>Every line above is one of the next chapters. <a href="blocks.html">Chapter 4</a> takes the blocks, <a href="items.html">Chapter 5</a> the items, <a href="blockentities.html">Chapter 6</a> the block entities, <a href="entities.html">Chapter 7</a> the mob, <a href="achievements.html">Chapter 9</a> the achievements, <a href="dimensions.html">Chapter 10</a> the dimension and portal, <a href="recipes.html">Chapter 11</a> the recipes, <a href="networking.html">Chapter 12</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
 
 <div class="note"><p>Two registrations are deferred behind events rather than run inline. Recipes go through <code>RecipeRegistrationCallback</code> so they land <em>after</em> vanilla's recipe list exists; network <em>channels</em> are opened in <code>init()</code> (both sides must agree they exist), while the <em>listeners</em> that use them are wired up per side. More on both in their chapters.</p></div>
 
@@ -199,7 +199,7 @@
 	}
 }</code></pre></div>
 
-<p>Put a mixin that touches a client class in the <code>"client"</code> list and a dedicated server never tries to load it. Same idea as the entrypoints, same payoff: the wrong class never reaches the wrong side. The full mixin tour, all twelve graded examples, is <a href="mixins.html">Chapter 12</a>.</p>
+<p>Put a mixin that touches a client class in the <code>"client"</code> list and a dedicated server never tries to load it. Same idea as the entrypoints, same payoff: the wrong class never reaches the wrong side. The full mixin tour, all twelve graded examples, is <a href="mixins.html">Chapter 13</a>.</p>
 
 <div class="note"><p><strong>Rule of thumb.</strong> Common code may freely mention shared classes (<code>Block</code>, <code>Item</code>, <code>World</code>, <code>PlayerEntity</code>, your own block/item classes). The moment a type is named <code>...client...</code> or is a <code>Server*</code>, ask "which door does this belong behind?" and put the <em>class that mentions it</em> there.</p></div>
 

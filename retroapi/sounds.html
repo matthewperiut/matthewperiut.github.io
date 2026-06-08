@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 18: The Soundtrack, RetroAPI Guide</title>
+<title>Chapter 19: The Soundtrack, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 18, The Soundtrack</h1>
+<h1>Chapter 19, The Soundtrack</h1>
 <p class="chapter-sub">Three sound folders, a shuffled music ticker, a jukebox record, and how numbered variants quietly become one event.</p>
 
 <p>Sound in beta is wonderfully low-ceremony: you almost never register anything. <a href="assets.html">Chapter 3</a> already showed the autoloader scanning <code>assets/&lt;modid&gt;/sounds/</code> and turning file paths into event ids; this chapter picks up where that left off and walks the three channels, the background music ticker, jukebox records, and the trailing-digit variant trick the showcase's Aerbunny leans on. There's a little code here, but most of it is just dropping an ogg in the right folder.</p>
@@ -126,7 +126,7 @@ SAMPLE_DISC = (Item) RetroItemAccess.of(
 
 <p>Two caveats worth keeping straight. The collapse is <strong>SOUND-channel only</strong>, by design: a record or a forced theme in <code>streaming/</code> keeps its exact name, because you never want "play a random one of these" for a 1MB track. And the digit must be <em>trailing</em>, so <code>aerbunnyhurt1</code> collapses but <code>aerbunny1hurt</code> would not. Number your variants at the end of the name and nesting them in subfolders, like <code>mobs/aerbunny/</code>, is fine; the autoloader walks the whole tree.</p>
 
-<p>That's the soundtrack: drop files in three folders, and music, records, effects, and random variants all fall out of the path names. With the world now lit, named, and audible, the last big system is the ground itself. Next, <a href="worldgen.html">Chapter 19, New Lands</a>, where we generate custom terrain.</p>
+<p>That's the soundtrack: drop files in three folders, and music, records, effects, and random variants all fall out of the path names. With the world now lit, named, and audible, the last big system is the ground itself. Next, <a href="worldgen.html">Chapter 20, New Lands</a>, where we generate custom terrain.</p>
 </div>
 
 <div class="pager"></div>

@@ -125,7 +125,7 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 <p>Overriding <code>getTextureId(damage)</code> returns the item's sprite index directly, and here it returns <code>Item.STICK.getTextureId(0)</code>, vanilla's stick. So the Jump Stick ships <strong>no PNG of its own</strong> and just wears the stick icon. (This is the item-side trick from <a href="assets.html">Chapter 3</a>; the <code>damage</code> argument would let you vary the icon by metadata if you wanted.)</p>
 
 <h3>3. The invoker bridge</h3>
-<p>The actual hop is <code>((Example06JumpInvoker) player).example_mod$jump()</code>. The catch: <code>LivingEntity.jump()</code> is <code>protected</code>, so ordinary code can't call it. <code>Example06JumpInvoker</code> is an <code>@Invoker</code> mixin, an interface mixin makes <code>LivingEntity</code> implement it, turning the protected method into a callable public bridge. Cast the player to the interface, call the bridge, done. How that works mechanically, and why a reusable bridge sometimes belongs in the shared library instead, is <a href="mixins.html">Chapter 12, example 6</a>.</p>
+<p>The actual hop is <code>((Example06JumpInvoker) player).example_mod$jump()</code>. The catch: <code>LivingEntity.jump()</code> is <code>protected</code>, so ordinary code can't call it. <code>Example06JumpInvoker</code> is an <code>@Invoker</code> mixin, an interface mixin makes <code>LivingEntity</code> implement it, turning the protected method into a callable public bridge. Cast the player to the interface, call the bridge, done. How that works mechanically, and why a reusable bridge sometimes belongs in the shared library instead, is <a href="mixins.html">Chapter 13, example 6</a>.</p>
 
 <h2>ItemStacks</h2>
 <p>Once items exist, you move them around as <code>ItemStack</code>s. Beta exposes most of the stack's state as <strong>public fields</strong> rather than getters, which feels blunt but is just how the era worked:</p>
@@ -150,7 +150,7 @@ inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.SUSPICIOUS_SU
 inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.JUMP_STICK, <span class="n">1</span>));
 <span class="c">// … plus the blocks, buckets, and coal so the freezer can run right away …</span></code></pre></div>
 
-<p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Chapter 10</a>.</p>
+<p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Chapter 11</a>.</p>
 
 <p>Items done. Next we give blocks a memory: block entities that store data, tick, and open GUIs.</p>
 </div>
