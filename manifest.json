@@ -55,6 +55,15 @@
       "commit": "b8fc933"
     },
     {
+      "group": "com.periut",
+      "artifact": "starac",
+      "version": "1.2.2+mcb1.7.3+gen2",
+      "path": "repository/com/periut/starac/1.2.2+mcb1.7.3+gen2/starac-1.2.2+mcb1.7.3+gen2.jar",
+      "repo": "matthewperiut/starac",
+      "branch": "retrocenter",
+      "commit": "988b01d"
+    },
+    {
       "group": "net.glasslauncher.mods",
       "artifact": "GlassConfigAPI",
       "version": "3.3.0+gen2",

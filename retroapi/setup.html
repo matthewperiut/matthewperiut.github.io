@@ -74,11 +74,16 @@ dependencies {
 		exclude group: 'net.glasslauncher.mods'
 		exclude group: 'com.github.GeyserMC'
 	}
-	modImplementation "com.periut:starac:${project.starac_version}"
+	<span class="c">// starac brings LWJGL 3, which would clash with vanilla</span>
+	<span class="c">// Minecraft's LWJGL 2 API, so keep it off the compile classpath.</span>
+	modRuntimeOnly "com.periut:starac:${project.starac_version}"
 }
 
-<span class="c">// Exclude Legacy Fabric LWJGL 2 wrapper (starac provides LWJGL 3)</span>
-configurations.configureEach {
+<span class="c">// Exclude the Legacy Fabric LWJGL 2 wrapper at RUNTIME only (starac provides LWJGL 3).</span>
+<span class="c">// It must stay on the compile/minecraft classpath so Condor (Ploceus LVT generator)</span>
+<span class="c">// can resolve org.lwjgl.* classes referenced by b1.7.3 — a blanket exclude here</span>
+<span class="c">// strips LWJGL 2 from minecraftCompileLibraries and crashes LVT generation.</span>
+configurations.matching { it.name.toLowerCase().contains('runtime') }.configureEach {
 	exclude group: 'org.lwjgl.lwjgl'
 }
 
@@ -129,7 +134,7 @@ archives_base_name = example_mod   <span class="c"># ← change me</span>
 # Dependencies
 retroapi_version=0.1.4
 retrocommands_version = 0.7.3+gen2
-starac_version=1.2.1+mcb1.7.3+gen2
+starac_version=1.2.2+mcb1.7.3+gen2
 
 # Ornithe Related Dependencies - check https://ornithemc.net/develop for the latest versions
 minecraft_version = b1.7.3
@@ -164,7 +169,7 @@ osl_version = 0.18.0</code></pre></div>
 	"depends": {
 		"fabricloader": "&gt;=0.17.3",
 		"minecraft": "1.0.0-beta.7.3",
-		"retroapi": "&gt;=1.0.0",
+		"retroapi": "&gt;=0.1.4",
 		"osl-entrypoints": "&gt;=0.4.0"
 	}
 }</code></pre></div>

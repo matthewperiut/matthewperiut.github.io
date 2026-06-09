@@ -287,15 +287,27 @@ RUBY_ORE = RetroBlockAccess.of(<span class="k">new</span> RubyOreBlock(RetroBloc
 <h3>Tool tiers: needs_iron_tool</h3>
 <p>Mineable tags gate <em>which kind</em> of tool; the <code>needs_&lt;tier&gt;_tool</code> family gates <em>how good</em> it has to be, exactly like modern Minecraft. A block in <code>needs_iron_tool</code> drops only when the breaking tool is iron tier or better, AND its kind still has to match the mineable tag. Both gates are enforced in the same harvest hook. The ladder is wood &lt; stone &lt; iron &lt; diamond, and vanilla gold tools mine at wood tier, also like modern.</p>
 
-<p>The data way: a modern-format tag file. The showcase puts its ruby ore behind iron:</p>
+<p>The block side has two equivalent ways to put a block in a <code>needs_&lt;tier&gt;_tool</code> tag, exactly like the mineable tags above: a data file or one call from code. They feed the same tag and union, so reach for whichever fits, no need for both.</p>
+
+<p><strong>The data way</strong>, a modern-format tag file. The showcase puts its ruby ore behind iron:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{
-  "values": [
-    "example_mod:ruby_ore"
+  <span class="s">"values"</span>: [
+    <span class="s">"example_mod:ruby_ore"</span>
   ]
 }</code></pre></div>
 
-<p>That is the whole block side. Now the item side: where does a tool's tier come from? Vanilla tools need nothing, any <code>ToolItem</code> subclass infers its tier from its material's mining level (<code>ToolMaterial.getMiningLevel()</code>), so an iron pickaxe is iron tier the moment the file loads. Custom tools that are plain <code>Item</code>s declare a tier with one chainable builder call, and the kind right next to it:</p>
+<p><strong>The code way</strong>, one call in <code>init()</code> after the block is registered, no file at all. <code>RetroToolTier.IRON.needsTag()</code> hands back the very same <code>needs_iron_tool</code> tag key the file feeds, and <code>RetroTags.addToTag</code> drops the block into it:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The CODE way to set a tool tier on a block: identical effect to listing ruby_ore in</span>
+<span class="c">// data/example_mod/tags/block/needs_iron_tool.json above, and the two union harmlessly.</span>
+<span class="c">// RetroToolTier.IRON.needsTag() is the needs_iron_tool tag key; addToTag puts the block</span>
+<span class="c">// in it, so the ore now drops only for an iron-or-better pickaxe. Runs after RUBY_ORE</span>
+<span class="c">// is registered above, exactly like .mineable(...) is the code twin of mineable/pickaxe.json.</span>
+com.periut.retroapi.tag.RetroTags.addToTag(
+	com.periut.retroapi.tag.RetroToolTier.IRON.needsTag(), RUBY_ORE);</code></pre></div>
+
+<p>Pick one. The data file is the move when you are copying a modern pack or want the gating editable without recompiling; the code call is the move when the tier is a fixed property of a block you are already registering in <code>init()</code>, keeping the rule next to the block. The <em>kind</em> gate has the same pair: <code>.mineable(RetroTool.PICKAXE)</code> is the code twin of <code>mineable/pickaxe.json</code>, and it too sugars to a <code>RetroTags.addToTag(RetroTool.PICKAXE.mineableTag(), block)</code> you could write by hand. Now the item side: where does a tool's tier come from? Vanilla tools need nothing, any <code>ToolItem</code> subclass infers its tier from its material's mining level (<code>ToolMaterial.getMiningLevel()</code>), so an iron pickaxe is iron tier the moment the file loads. Custom tools that are plain <code>Item</code>s declare a tier with one chainable builder call, and the kind right next to it:</p>
 
 <div class="codeblock"><span class="code-title">ExampleMod.java, init(), the Ruby Pick</span><pre><code>// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem
 // subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it
@@ -309,7 +321,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 	.tier(com.periut.retroapi.tag.RetroToolTier.IRON)
 	.register(id("ruby_pick"));</code></pre></div>
 
-<p>Like every builder method it returns the access object, so it slots anywhere in the chain, and it works from a constructor too: <code>RetroItemAccess.of(this).tier(RetroToolTier.IRON)</code>. From code, blocks join a tier tag with <code>RetroTags.addToTag(RetroToolTier.IRON.needsTag(), block)</code>, and you can ask <code>RetroTags.requiredTier(block)</code> or <code>RetroToolTier.of(item)</code> yourself for custom logic.</p>
+<p>Like every builder method it returns the access object, so it slots anywhere in the chain, and it works from a constructor too: <code>RetroItemAccess.of(this).tier(RetroToolTier.IRON)</code>. Both halves, the block's required tier and the tool's own tier, are introspectable: ask <code>RetroTags.requiredTier(block)</code> or <code>RetroToolTier.of(item)</code> yourself for custom harvest logic.</p>
 
 <p>The showcase's starter kit hands you both halves of the demonstration: the stone pickaxe breaks ruby ore but drops nothing, while the ruby pick (or any iron-or-better pickaxe) drops 1 to 2 rubies.</p>
 
@@ -350,7 +362,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
   }
 }</code></pre></div>
 
-<p>The shovel kind comes from the <code>.mineable(SHOVEL)</code> call; the iron tier comes from listing the block in the same <code>needs_iron_tool</code> tag the ruby ore uses, a one-line data union:</p>
+<p>The shovel kind comes from the <code>.mineable(SHOVEL)</code> call right in the builder; the iron tier comes from the same <code>needs_iron_tool</code> tag the ruby ore uses, and either way of joining it works. The data way just adds a second line to the file the ore already shares:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{
   <span class="s">"values"</span>: [
@@ -358,6 +370,12 @@ RUBY_PICK = (Item) RetroItemAccess.create()
     <span class="s">"example_mod:condensed_dirt"</span>
   ]
 }</code></pre></div>
+
+<p>The code way is the same one-liner the ore could have used, swapping the block in:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Same effect as adding "example_mod:condensed_dirt" to needs_iron_tool.json; pick whichever.</span>
+com.periut.retroapi.tag.RetroTags.addToTag(
+	com.periut.retroapi.tag.RetroToolTier.IRON.needsTag(), CONDENSED_DIRT);</code></pre></div>
 
 <p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Chapter 16</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
 
