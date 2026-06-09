@@ -107,6 +107,15 @@
       "repo": "matthewperiut/BHCreative",
       "branch": "ornithe",
       "commit": "48c0f66"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "retroconvert-gradle",
+      "version": "1.0.0",
+      "path": "repository/com/periut/retroconvert-gradle/1.0.0/retroconvert-gradle-1.0.0.jar",
+      "repo": "matthewperiut/retroconvert",
+      "branch": "main",
+      "commit": "8fda3b3"
     }
   ]
 }
