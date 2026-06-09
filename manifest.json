@@ -30,11 +30,11 @@
     {
       "group": "com.periut",
       "artifact": "retroapi",
-      "version": "0.1.4",
-      "path": "repository/com/periut/retroapi/0.1.4/retroapi-0.1.4.jar",
+      "version": "0.2.0",
+      "path": "repository/com/periut/retroapi/0.2.0/retroapi-0.2.0.jar",
       "repo": "matthewperiut/RetroAPI",
-      "branch": "monolithic-biny",
-      "commit": "40f88e0"
+      "branch": "main",
+      "commit": "d7ccd40"
     },
     {
       "group": "com.periut",
