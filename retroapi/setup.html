@@ -33,6 +33,8 @@
 	id 'java'
 	id 'net.fabricmc.fabric-loom-remap' version '1.16.3'
 	id 'ploceus' version '1.16.1'
+	<span class="c">// also builds a babric variant of your mod (build/libs/&lt;name&gt;-babric.jar)</span>
+	id 'com.periut.retroconvert' version "${retroconvert_version}"
 }
 
 base {
@@ -133,8 +135,9 @@ archives_base_name = example_mod   <span class="c"># ← change me</span>
 
 # Dependencies
 retroapi_version=0.2.0
-retrocommands_version = 0.7.3+gen2
+retrocommands_version = 0.7.4
 starac_version=1.3.1
+retroconvert_version = 1.0.1
 
 # Ornithe Related Dependencies - check https://ornithemc.net/develop for the latest versions
 minecraft_version = b1.7.3
