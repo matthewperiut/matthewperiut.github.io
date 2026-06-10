@@ -1,0 +1,172 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut",
+    "module": "accessory-api",
+    "version": "0.9.1+mcb1.7.3",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.4.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "accessory-api-0.9.1+mcb1.7.3.jar",
+          "url": "accessory-api-0.9.1+mcb1.7.3.jar",
+          "size": 81937,
+          "sha512": "2bd8047ef0b1046bb2d8bf2aea8e8cff10bfc556c7c2a59d6aac1b8600815d333a0782fd44d6db9a44022be795538d0ff306f500cdbbe15217935385b8a690c8",
+          "sha256": "51699b56ac079de6898f8d4eed4ae16b514106621021673c9825431b26f883ee",
+          "sha1": "613ee4dbbbf3287e30ec28de3b9ae7872c092ad4",
+          "md5": "4a4ff0544631405800c165d7fddabbb6"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "me.carleslc.Simple-Yaml",
+          "module": "Simple-Yaml",
+          "version": {
+            "requires": "1.8.4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.2.1-jre"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.19.3"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "net.glasslauncher.mods",
+          "module": "GlassConfigAPI",
+          "version": {
+            "requires": "3.3.0+gen2"
+          },
+          "excludes": [
+            {
+              "group": "*",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "retrocommands",
+          "version": {
+            "requires": "0.7.4"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            },
+            {
+              "group": "com.github.GeyserMC",
+              "module": "*"
+            },
+            {
+              "group": "net.modificationstation",
+              "module": "*"
+            },
+            {
+              "group": "net.glasslauncher.mods",
+              "module": "*"
+            }
+          ]
+        },
+        {
+          "group": "com.periut",
+          "module": "starac",
+          "version": {
+            "requires": "1.2.2+mcb1.7.3+gen2"
+          },
+          "excludes": [
+            {
+              "group": "org.lwjgl.lwjgl",
+              "module": "*"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "accessory-api-0.9.1+mcb1.7.3.jar",
+          "url": "accessory-api-0.9.1+mcb1.7.3.jar",
+          "size": 81937,
+          "sha512": "2bd8047ef0b1046bb2d8bf2aea8e8cff10bfc556c7c2a59d6aac1b8600815d333a0782fd44d6db9a44022be795538d0ff306f500cdbbe15217935385b8a690c8",
+          "sha256": "51699b56ac079de6898f8d4eed4ae16b514106621021673c9825431b26f883ee",
+          "sha1": "613ee4dbbbf3287e30ec28de3b9ae7872c092ad4",
+          "md5": "4a4ff0544631405800c165d7fddabbb6"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "accessory-api-0.9.1+mcb1.7.3-sources.jar",
+          "url": "accessory-api-0.9.1+mcb1.7.3-sources.jar",
+          "size": 58388,
+          "sha512": "07b420124c88b9bedb46469900fc051363e7434b6334012af4ba16d28877ad0d46563ec5d457adada12747f1c1a9b3fb018b3e4845158164943ff69cec147a28",
+          "sha256": "c6e20cb488c8694bf502f5d2e3cdd94890fae846bc2b8eb7eb6c2db6b084d23d",
+          "sha1": "2dd7f8eaaec66d748ba519687fab4853d16ce222",
+          "md5": "eeb280bed401e287f3e023570ddf3dab"
+        }
+      ]
+    }
+  ]
+}

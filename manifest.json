@@ -3,11 +3,11 @@
     {
       "group": "com.periut",
       "artifact": "accessory-api",
-      "version": "0.8.0+gen2",
-      "path": "repository/com/periut/accessory-api/0.8.0+gen2/accessory-api-0.8.0+gen2.jar",
+      "version": "0.9.1+mcb1.7.3",
+      "path": "repository/com/periut/accessory-api/0.9.1+mcb1.7.3/accessory-api-0.9.1+mcb1.7.3.jar",
       "repo": "matthewperiut/accessory-api",
       "branch": "master",
-      "commit": "71e95c3"
+      "commit": "5105965"
     },
     {
       "group": "com.periut",
