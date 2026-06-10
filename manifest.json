@@ -39,11 +39,11 @@
     {
       "group": "com.periut",
       "artifact": "retrocommands",
-      "version": "0.7.3+gen2",
-      "path": "repository/com/periut/retrocommands/0.7.3+gen2/retrocommands-0.7.3+gen2.jar",
+      "version": "0.7.4",
+      "path": "repository/com/periut/retrocommands/0.7.4/retrocommands-0.7.4.jar",
       "repo": "matthewperiut/retrocommands",
       "branch": "master",
-      "commit": "abc3ef6"
+      "commit": "88c4392"
     },
     {
       "group": "com.periut",
