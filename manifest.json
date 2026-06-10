@@ -125,6 +125,15 @@
       "repo": "matthewperiut/retroconvert",
       "branch": "main",
       "commit": "3560c64"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "starac",
+      "version": "1.3.2",
+      "path": "repository/com/periut/starac/1.3.2/starac-1.3.2.jar",
+      "repo": "matthewperiut/starac",
+      "branch": "master",
+      "commit": "353ce3e"
     }
   ]
 }
