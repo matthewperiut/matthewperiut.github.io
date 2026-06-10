@@ -116,6 +116,15 @@
       "repo": "matthewperiut/retroconvert",
       "branch": "main",
       "commit": "8fda3b3"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "retroconvert",
+      "version": "1.0.0+mcb1.7.3",
+      "path": "repository/com/periut/retroconvert/1.0.0+mcb1.7.3/retroconvert-1.0.0+mcb1.7.3.jar",
+      "repo": "matthewperiut/retroconvert",
+      "branch": "main",
+      "commit": "3560c64"
     }
   ]
 }
