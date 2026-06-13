@@ -42,7 +42,8 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 <tr><th>Method</th><th>What it does</th></tr>
 <tr><td><code>RetroItemAccess.create()</code></td><td>start a builder for a plain <code>Item</code></td></tr>
 <tr><td><code>RetroItemAccess.of(Item)</code></td><td>wrap a <code>Item</code> subclass instance you constructed yourself</td></tr>
-<tr><td><code>RetroItemAccess.allocateId()</code></td><td>get a fresh numeric id to pass into your subclass constructor</td></tr>
+<tr><td><code>RetroItemAccess.AUTO_ID</code></td><td>pass this into a subclass constructor instead of a real id; RetroAPI allocates a free slot for you, atomically and safely (preferred)</td></tr>
+<tr><td><code>RetroItemAccess.allocateId()</code></td><td>get a fresh numeric id to pass into your subclass constructor (the older, manual form of <code>AUTO_ID</code>)</td></tr>
 <tr><td><code>maxStackSize(int)</code></td><td>how many stack (64 for most, 1 for tools)</td></tr>
 <tr><td><code>texture(NamespacedIdentifier)</code></td><td>load <code>textures/item/&lt;name&gt;.png</code> as the icon</td></tr>
 <tr><td><code>tool(RetroTool)</code></td><td>declare the tool KIND for the <code>mineable/&lt;tool&gt;</code> tag system (vanilla tool classes infer this)</td></tr>
@@ -54,6 +55,8 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 <p>The two tool rows feed the tag system from <a href="blocks.html">Chapter 4</a>: a plain <code>Item</code> chained through <code>.tool(RetroTool.PICKAXE).tier(RetroToolTier.IRON)</code> harvests everything an iron pickaxe would, no <code>ToolItem</code> subclass required. The showcase's Ruby Pick is exactly that, see the tool-tiers section of the blocks chapter.</p>
 
 <p>Same id story as blocks: numeric item ids are allocated above vanilla's range, remapped per-world, and kept safe in vanilla saves, you only ever touch <code>NamespacedIdentifier</code>s. (The full id mechanics are in <a href="blocks.html">Chapter 4</a>.)</p>
+
+<p><b>Subclassing an item? Pass <code>RetroItemAccess.AUTO_ID</code> as the constructor's id.</b> Vanilla's <code>Item(int)</code> constructor writes the new item into the global <code>Item.ITEMS</code> array, so it needs a free slot to construct at all, the classic chicken-and-egg of legacy registration. <code>AUTO_ID</code> is a sentinel: RetroAPI intercepts the constructor and fills in a free, reserved slot for you, in one atomic step, so two items can never collide on a slot. The older <code>allocateId()</code> still works (it now reserves too), but <code>AUTO_ID</code> is the simpler and safer default, just write <code>super(RetroItemAccess.AUTO_ID)</code> and forget about numbers.</p>
 
 <h2>The Jump Stick, a custom item class</h2>
 <p>For anything with behavior, you write an <code>Item</code> subclass and hand it to <code>RetroItemAccess.of(...)</code>. The Jump Stick is the smallest interesting example: right-click it and you hop. Here's the whole class:</p>
@@ -78,8 +81,9 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
  *     code can't call it, the @Invoker interface in
  *     mixin/examples/Example06JumpInvoker makes it callable from outside.
  *
- * Like custom blocks, custom items allocate their id with allocateId() and are
- * wrapped with RetroItemAccess.of(...) in ExampleMod.init().
+ * Like custom blocks, custom items take a placeholder id in their constructor.
+ * Pass RetroItemAccess.AUTO_ID and RetroAPI fills in a free slot for you; the
+ * instance is wrapped with RetroItemAccess.of(...) in ExampleMod.init().
  *
  * No texture file: overriding getTextureId lets it reuse vanilla's stick sprite.
  */</span>
@@ -102,9 +106,9 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 	}
 }</code></pre></div>
 
-<p>And its registration in <code>init()</code>, <code>of(...)</code> around a <code>new JumpStickItem(allocateId())</code>, just like a custom block:</p>
+<p>And its registration in <code>init()</code>, <code>of(...)</code> around a <code>new JumpStickItem(RetroItemAccess.AUTO_ID)</code>, just like a custom block:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>JUMP_STICK = RetroItemAccess.of(<span class="k">new</span> JumpStickItem(RetroItemAccess.allocateId()))
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>JUMP_STICK = RetroItemAccess.of(<span class="k">new</span> JumpStickItem(RetroItemAccess.AUTO_ID))
 	.maxStackSize(<span class="n">1</span>)
 	<span class="c">// Hold it like a tool: the diagonal through-the-fist pose vanilla sticks</span>
 	<span class="c">// get. Items with an item/handheld model JSON (the Ruby Pick below) get</span>

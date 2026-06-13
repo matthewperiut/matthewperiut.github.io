@@ -126,7 +126,19 @@ world.spawnEntity(mob);</code></pre></div>
 <div class="codeblock"><span class="code-title">the non-living variant (illustrative)</span><pre><code><span class="t">RetroEntities</span>.register(MyArrow.ID, MyArrow.<span class="k">class</span>)
 	.factory((<span class="t">EntityFactory</span>) MyArrow::<span class="k">new</span>);</code></pre></div>
 
-<p>And here's the rule that ties the two together: <strong>a registration is living or non-living based on which factory you hand it.</strong> Pass a <code>MobFactory</code> and it's marked living; pass an <code>EntityFactory</code> and it isn't. If you ever need to be explicit, or override the inference, the registration also exposes <code>.living()</code> and <code>.nonLiving()</code>.</p>
+<p>Many non-living entities don't take their position in the constructor, though, they're built from just a <code>World</code> exactly like a mob, and positioned afterward. For those, use the <code>SimpleEntityFactory</code>: it's the <code>extends Entity</code> twin of <code>MobFactory</code>, same one-argument shape, but it returns a plain <code>Entity</code> instead of a <code>LivingEntity</code>. So an entity with a <code>(World)</code> constructor registers just as cleanly as a mob does, no need to make it living just to satisfy the API:</p>
+
+<div class="codeblock"><span class="code-title">com.periut.retroapi.entity.client.SimpleEntityFactory</span><pre><code><span class="k">@FunctionalInterface</span>
+<span class="k">public interface</span> <span class="t">SimpleEntityFactory</span> {
+	<span class="t">Entity</span> create(<span class="t">World</span> world);
+}</code></pre></div>
+
+<div class="codeblock"><span class="code-title">a non-living entity with a (World) constructor</span><pre><code><span class="t">RetroEntities</span>.register(GravelChunk.ID, GravelChunk.<span class="k">class</span>)
+	.factory((<span class="t">SimpleEntityFactory</span>) GravelChunk::<span class="k">new</span>);</code></pre></div>
+
+<p>The cast <code>(SimpleEntityFactory)</code> plays the same role as <code>(MobFactory)</code>: it tells RetroAPI which overload you mean, and it's required only because a class with more than one constructor makes <code>GravelChunk::new</code> ambiguous, a plain lambda <code>(world) -&gt; new GravelChunk(world)</code> needs no cast. The three factory shapes never overlap: a <code>(World)</code> reference returning a <code>LivingEntity</code> is a <code>MobFactory</code>, one returning a plain <code>Entity</code> is a <code>SimpleEntityFactory</code>, and a four-argument one is an <code>EntityFactory</code>.</p>
+
+<p>And here's the rule that ties them together: <strong>a registration is living or non-living based on which factory you hand it.</strong> Pass a <code>MobFactory</code> and it's marked living; pass an <code>EntityFactory</code> or <code>SimpleEntityFactory</code> and it isn't. If you ever need to be explicit, or override the inference, the registration also exposes <code>.living()</code> and <code>.nonLiving()</code>.</p>
 
 <h3>Tracking: how far, how often, with velocity?</h3>
 <p>Once an entity exists on the server, the server has to decide who gets told about it and how chatty those updates are. That's the tracking configuration, and you tune it on the registration:</p>
