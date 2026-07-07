@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's New (0.2.3), RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>What's New in 0.2.3</h1>
+<p class="chapter-sub">Sharper tools that finally work on vanilla blocks, tags for items, layered sprites and facing blocks with no boilerplate, cast-free access, and a clean StationAPI hand-off.</p>
+
+<p>This chapter is a changelog you can read like a chapter. Everything here is new since 0.2.2, and every claim below is exercised by the test mod's headless self-checks, so it is behavior you can rely on, not just intention. The older chapters still describe the shape of the API; this one collects what changed.</p>
+
+<h2>Custom tools now work on vanilla blocks</h2>
+<p>The headline fix. Before, a plain <code>Item</code> told to be a pickaxe (the Ruby Pick from <a href="tools.html">Chapter 18</a>) only mined <em>modded</em> blocks that had been tagged <code>mineable/pickaxe</code>; on vanilla stone or iron ore it did nothing, because no vanilla block was in any RetroAPI tag. RetroAPI now ships the beta-accurate default membership for every vanilla block, generated from beta's own <code>MinecraftPickaxe</code>/<code>Axe</code>/<code>Shovel</code> tables and harvest levels:</p>
+
+<table>
+<tr><th>Tag</th><th>Vanilla blocks (beta-accurate)</th></tr>
+<tr><td><code>mineable/pickaxe</code></td><td>stone, cobblestone, ores, metal/diamond/lapis blocks, obsidian, furnace, rails, …</td></tr>
+<tr><td><code>mineable/axe</code></td><td>planks, logs, bookshelf, chest, crafting table, fences, pumpkins, …</td></tr>
+<tr><td><code>mineable/shovel</code></td><td>dirt, grass, sand, gravel, clay, snow, farmland, soul sand</td></tr>
+<tr><td><code>needs_stone_tool</code></td><td>iron ore/block, lapis ore/block</td></tr>
+<tr><td><code>needs_iron_tool</code></td><td>gold ore/block, diamond ore/block, redstone ore</td></tr>
+<tr><td><code>needs_diamond_tool</code></td><td>obsidian</td></tr>
+</table>
+
+<p>So the exact Ruby Pick from Chapter 18 now mines vanilla iron ore, at iron-tier speed, with no extra work. A custom iron pick reaches iron ore and lapis; a custom diamond pick reaches obsidian; and so on, matching vanilla to the block.</p>
+
+<div class="note"><p><strong>Decoupled semantics (matches modern Minecraft).</strong> A <code>mineable/&lt;tool&gt;</code> tag now grants <em>speed only</em>. Whether a block needs a tool to <em>drop</em> comes from its material (beta's stone/metal rule) or a <code>needs_&lt;tier&gt;_tool</code> tag. That is why axes and shovels can be fast on hand-breakable logs and dirt without those blocks suddenly requiring a tool to drop. If you previously relied on <code>.mineable(...)</code> alone to gate drops on a <em>hand-breakable</em> material, give that block a stone/metal material or a <code>needs_&lt;tier&gt;_tool</code> tag instead.</p></div>
+
+<h2>Tools can be more than one kind, and pick their tier at runtime</h2>
+<p><code>.tool(...)</code> now takes several kinds, so one item can be a pickaxe <em>and</em> an axe (a paxel), mining everything in both tags:</p>
+
+<div class="codeblock"><span class="code-title">a multi-kind tool</span><pre><code>PAXEL = (Item) RetroItemAccess.create()
+    .maxStackSize(<span class="n">1</span>)
+    .tool(RetroTool.PICKAXE, RetroTool.AXE)   <span class="c">// mines mineable/pickaxe AND mineable/axe</span>
+    .tier(RetroToolTier.IRON)
+    .register(id(<span class="s">"paxel"</span>));</code></pre></div>
+
+<p>And <code>.tier(...)</code> now accepts a lambda over the actual <code>ItemStack</code>, so a tool's tier can change at runtime, from its damage, its NBT, whatever you like:</p>
+
+<div class="codeblock"><span class="code-title">a tier that rides the stack</span><pre><code>DYNAMIC_TOOL = (Item) RetroItemAccess.create()
+    .maxStackSize(<span class="n">1</span>)
+    .tool(RetroTool.PICKAXE)
+    <span class="c">// undamaged = diamond-tier, worn = iron-tier; consulted on every harvest</span>
+    .tier(stack -&gt; stack.getDamage() == <span class="n">0</span> ? RetroToolTier.DIAMOND : RetroToolTier.IRON)
+    .register(id(<span class="s">"dynamic_tool"</span>));</code></pre></div>
+
+<p>A declared plain-<code>Item</code> tool now also mines at its <em>tier's</em> speed (wood 2×, stone 4×, iron 6×, diamond 8×), instead of a flat token boost, so <code>.tier(IRON)</code> feels like an iron tool. And <code>RetroTool.SHEARS</code> was added to match StationAPI's tool set.</p>
+
+<h2>Tags for items, and arbitrary tags at runtime</h2>
+<p><code>RetroTags.addToTag</code> used to be blocks-only. Now it takes items too, both block and item tags are queryable, and any tag can be edited at runtime (StationAPI's tags are frozen from resources; RetroAPI's are live):</p>
+
+<div class="codeblock"><span class="code-title">arbitrary item + block tagging, at run time</span><pre><code><span class="k">import</span> com.periut.retroapi.tag.RetroTagKey;
+<span class="k">import</span> com.periut.retroapi.tag.RetroTags;
+
+RetroTagKey GEMS = RetroTagKey.item(<span class="s">"mymod/gems"</span>);
+RetroTags.addToTag(GEMS, RUBY, SAPPHIRE);        <span class="c">// items</span>
+RetroTags.addToTag(RetroTagKey.block(<span class="s">"mymod/bouncy"</span>), SLIME_BLOCK);
+
+<span class="k">boolean</span> isGem = RetroTags.isIn(RUBY, GEMS);      <span class="c">// true, immediately</span>
+Set&lt;Item&gt; gems = RetroTags.itemsIn(GEMS);
+RetroTags.removeFromTag(GEMS, SAPPHIRE);         <span class="c">// also live</span></code></pre></div>
+
+<p>Item tag data files load too, from the same layouts as blocks, including StationAPI's <code>data/&lt;ns&gt;/stationapi/tags/items/&lt;p&gt;.json</code>. Vanilla item names resolve through a flattening map (<code>minecraft:iron_ingot</code>, <code>minecraft:cod</code>/<code>raw_fish</code>, …).</p>
+
+<h2>Layered item sprites with no model JSON</h2>
+<p>Stacking sprites (the candied-apple trick from <a href="items.html">Chapter 5</a>) no longer needs a model or definition JSON. Give the base and overlays straight to the builder:</p>
+
+<div class="codeblock"><span class="code-title">a glinting apple, entirely in code</span><pre><code>CANDIED_APPLE = RetroItemAccess.create()
+    .maxStackSize(<span class="n">16</span>)
+    <span class="c">// base + overlays flattened onto one atlas slot; vanilla or modded, any mix</span>
+    .layers(id(<span class="s">"minecraft"</span>, <span class="s">"apple"</span>), id(<span class="s">"sugar_sparkle"</span>))
+    .food(<span class="n">4</span>)
+    .register(id(<span class="s">"candied_apple"</span>));
+
+<span class="c">// or stack onto an existing .texture(...) with .overlay(...):</span>
+RetroItemAccess.create().texture(id(<span class="s">"wand"</span>)).overlay(id(<span class="s">"wand_glow"</span>)).register(id(<span class="s">"wand"</span>));</code></pre></div>
+
+<p>A model JSON, if one exists, still wins, so nothing you already ship changes.</p>
+
+<h2>Facing blocks with no <code>onPlaced</code></h2>
+<p>The freezer from <a href="facing.html">Chapter 17</a> needed a custom <code>Facing</code> enum and an <code>onPlaced</code> override. Both are now built in. <code>RetroFacing</code> is a ready-made four-direction property, and <code>.facing()</code> declares it <em>and</em> turns the block toward the placer on placement:</p>
+
+<div class="codeblock"><span class="code-title">furnace-like rotation, one call</span><pre><code>FREEZER = RetroBlockAccess.of(<span class="k">new</span> FreezerBlock(RetroBlockAccess.allocateId()))
+    .sounds(Block.STONE_SOUND_GROUP)
+    .strength(<span class="n">3.5f</span>)
+    .facing()   <span class="c">// declares RetroFacing.PROPERTY, orients to the placer, aims the icon south</span>
+    .register(id(<span class="s">"freezer"</span>));</code></pre></div>
+
+<p>You still supply the look with a blockstate JSON that y-rotates one <code>orientable</code>-style model per <code>facing=</code> value (exactly the Chapter 17 JSON), and a <code>BlockWithEntity</code> still overrides <code>getRenderType()</code> to honor it. What is gone is the hand-written enum and the <code>onPlaced</code> math. A fully code-generated <code>.sided(top, side, front)</code> that also builds the model is the next step on this same foundation.</p>
+
+<h2>No more casting, and constructor factories</h2>
+<p><code>Block</code> and <code>Item</code> now carry the RetroAPI access interfaces through <strong>interface injection</strong>, so a mod that depends on RetroAPI (via <code>modImplementation</code>) calls RetroAPI methods on them with no cast:</p>
+
+<div class="codeblock"><span class="code-title">no (RetroBlockAccess) cast needed in a consuming mod</span><pre><code>Block b = Block.STONE;
+<span class="k">if</span> (b.isAlwaysDrops()) { ... }        <span class="c">// was: ((RetroBlockAccess) b).isAlwaysDrops()</span></code></pre></div>
+
+<p>And you can wrap a subclass by its constructor, skipping the id boilerplate:</p>
+
+<div class="codeblock"><span class="code-title">of(Constructor::new)</span><pre><code>COUNTER = RetroBlockAccess.of(CounterBlock::<span class="k">new</span>)          <span class="c">// CounterBlock(int id)</span>
+    .sounds(Block.STONE_SOUND_GROUP).register(id(<span class="s">"counter"</span>));
+
+<span class="c">// with a Material arg:</span>
+RetroBlockAccess.of(MyBlock::<span class="k">new</span>, Material.STONE).register(id(<span class="s">"my_block"</span>));
+
+<span class="c">// items too (AUTO_ID is resolved inside the constructor):</span>
+RetroItemAccess.of(WandItem::<span class="k">new</span>).texture(id(<span class="s">"wand"</span>)).register(id(<span class="s">"wand"</span>));</code></pre></div>
+
+<h2>A reminder when a name is auto-generated</h2>
+<p>Unnamed blocks and items still get a pretty display name for free, but the log now <em>names</em> which ones, so a missing lang entry is a visible reminder rather than a silent default:</p>
+
+<div class="codeblock"><span class="code-title">client log</span><pre><code>Using AUTO-GENERATED names for 2 unnamed block(s)/item(s) (add a lang entry to override):
+  mymod:counter -&gt; "Counter", mymod:gem -&gt; "Gem"</code></pre></div>
+
+<h2>StationAPI: a clean hand-off</h2>
+<p>RetroAPI reads StationAPI's exact tag layouts (<code>data/&lt;ns&gt;/stationapi/tags/blocks|items/**.json</code>) and matches its vanilla flattening names, so the same tag files work in both with no changes. When StationAPI <em>is</em> present, RetroAPI stands back from vanilla harvesting entirely, StationAPI already ships those tags and owns it, and RetroAPI's hooks only act on the modded blocks it tagged itself. The full comparison is in <code>STATIONAPI_TAG_COMPAT.md</code> in the source repo.</p>
+
+<p>That is 0.2.3: the toolbelt from <a href="tools.html">Chapter 18</a> finally bites everywhere it should, tags reach items, and the boilerplate around sprites, facing, and casts is gone.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

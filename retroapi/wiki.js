@@ -29,7 +29,8 @@
         ['sounds.html',       '19', 'The Soundtrack',   'Sound effects, streaming music, and jukebox records'],
         ['worldgen.html',     '20', 'New Lands',        'Dimensions, chunk generators, biomes, and spawn rules'],
         ['components.html',   '21', 'Item Memory',      'Data components: typed item data, tooltips, dynamic textures'],
-        ['testing.html',      '22', 'Proving Grounds',  'Running client & server, offline mode, sided gotchas']
+        ['testing.html',      '22', 'Proving Grounds',  'Running client & server, offline mode, sided gotchas'],
+        ['updates.html',      '23', "What's New",       '0.2.3: tools on vanilla blocks, item tags, layers & facing, no casting']
     ];
 
     // ---------------------------------------------------------------- theme --
