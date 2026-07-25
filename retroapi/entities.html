@@ -60,19 +60,19 @@
 <h2>Registering it</h2>
 <p>Registration is one fluent call in the common entrypoint, and the renderer is one call in the client entrypoint, and they must stay on those two sides.</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code><span class="c">// Register a custom mob. The MobFactory tells RetroAPI (and the multiplayer</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// Register a custom mob. The MobFactory tells RetroAPI (and the multiplayer</span>
 <span class="c">// spawn packet handler on the client) how to construct one from a World.</span>
 <span class="c">// The renderer is registered on the client only, see ExampleModClient.</span>
 EXAMPLE_MOB = <span class="t">RetroEntities</span>.register(<span class="t">ExampleEntity</span>.ID, <span class="t">ExampleEntity</span>.<span class="k">class</span>)
 	.factory((<span class="t">MobFactory</span>) <span class="t">ExampleEntity</span>::<span class="k">new</span>);</code></pre></div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="c">// Tell the client how to draw the example mob: a generic biped (player/zombie</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initRetroClient()</span><pre><code><span class="c">// Tell the client how to draw the example mob: a generic biped (player/zombie</span>
 <span class="c">// shaped) model with a 0.5-block shadow. Write your own EntityRenderer/model</span>
 <span class="c">// subclass for custom shapes.</span>
 <span class="t">RetroEntityRenderers</span>.register(<span class="t">ExampleEntity</span>.<span class="k">class</span>,
 	<span class="k">new</span> <span class="t">LivingEntityRenderer</span>(<span class="k">new</span> <span class="t">BipedEntityModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
 
-<div class="danger"><p>The renderer registration lives in <code>initClient()</code> and <strong>only</strong> there. <code>LivingEntityRenderer</code> and <code>BipedEntityModel</code> are client classes, they touch OpenGL. Put that line in the common <code>init()</code> and a dedicated server crashes the instant it tries to load a graphics class it doesn't have. Logic in common, drawing on the client: the same wall that separated the Container from the Screen in <a href="blockentities.html">Chapter 6</a>.</p></div>
+<div class="danger"><p>The renderer registration lives in <code>initRetroClient()</code> and <strong>only</strong> there. <code>LivingEntityRenderer</code> and <code>BipedEntityModel</code> are client classes, they touch OpenGL. Put that line in the common <code>init()</code> and a dedicated server crashes the instant it tries to load a graphics class it doesn't have. Logic in common, drawing on the client: the same wall that separated the Container from the Screen in <a href="blockentities.html">Chapter 6</a>.</p></div>
 
 <h2>Spawning one</h2>
 <p>Putting a mob into the world is three lines: construct it from the world, place it, and hand it to <code>spawnEntity</code>. The showcase does this in its per-player setup so you find one waiting at your feet on every join.</p>

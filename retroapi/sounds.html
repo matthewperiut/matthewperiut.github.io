@@ -82,7 +82,7 @@
 <h2>Jukebox records</h2>
 <p>A music disc is the one place a sound needs a real item behind it. <code>RetroRecordItem</code> is that item, and it's gloriously thin because it just subclasses vanilla's <code>MusicDiscItem</code>. The whole play mechanism, slotting the disc into a jukebox, firing the world event, broadcasting to other players in multiplayer, is pure vanilla; the record carries a <code>streaming/</code> event id in its <code>sound</code> field and vanilla does the rest. The showcase's <code>SAMPLE_DISC</code> is the entire pattern:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A jukebox record. RetroRecordItem is a vanilla MusicDiscItem under the hood,</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// A jukebox record. RetroRecordItem is a vanilla MusicDiscItem under the hood,</span>
 <span class="c">// so dropping it in a vanilla jukebox plays its streamed track exactly like a</span>
 <span class="c">// vanilla disc (including the multiplayer broadcast). The audio is the</span>
 <span class="c">// file-examples.com 1MB sample ogg at sounds/streaming/sample_disc.ogg.</span>

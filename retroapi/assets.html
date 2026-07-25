@@ -52,7 +52,7 @@
 <h2>Block &amp; item textures: atlased sprites</h2>
 <p>The simplest case is the one from the elevator pitch, a single texture chained onto the builder:</p>
 
-<div class="codeblock"><span class="code-title">in ExampleMod.init()</span><pre><code>EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
+<div class="codeblock"><span class="code-title">in ExampleMod.initRetro()</span><pre><code>EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 	.texture(id(<span class="s">"example_block"</span>))   <span class="c">// → textures/block/example_block.png on all 6 faces</span>
 	.register(id(<span class="s">"example_block"</span>));</code></pre></div>
 

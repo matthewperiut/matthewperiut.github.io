@@ -19,7 +19,7 @@
 
 <p>You've built blocks, items, a mob, a dimension. Now we close the loop: let players <em>make</em> the things you registered. Recipes in RetroAPI are four one-line calls, and the only subtle part is <em>when</em> you call them, so we'll start there.</p>
 
-<h2>Register through the callback, not in init()</h2>
+<h2>When to register: the door decides</h2>
 <p>Vanilla's recipe list doesn't exist yet when your <code>init()</code> runs. If you called <code>RetroRecipes.addShaped(...)</code> directly from <code>init()</code> you'd be appending to a list that the game is about to build and sort around you. So RetroAPI gives you an event that fires <strong>after</strong> vanilla's recipes exist, and re-sorts the whole list afterwards so your recipes land in the right priority order:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="c">// ----------------------------------------------------------------- recipes --</span>
@@ -50,6 +50,14 @@ RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);</code></
 }</code></pre></div>
 
 <div class="note"><p>The callback is also where you'd register recipes that depend on <em>other</em> mods' items existing, by the time it fires, the whole registry has settled.</p></div>
+
+<div class="note"><p><strong>New in 0.3.0.</strong> Behind the <code>retroapi</code> entrypoint (<a href="entrypoints.html">Chapter 2</a>) you can also just call the four methods below <em>inline</em> in <code>initRetro()</code>. That door opens after vanilla's recipe list exists and before RetroAPI sorts it, so recipes added there land in the right order without the callback. The callback still works, and is still the right tool when you must react to other mods' registrations.</p></div>
+
+<div class="warn"><p><strong>The "my recipes randomly don't exist" bug, and why it happened.</strong> A recipe is an <code>ItemStack</code>, and an <code>ItemStack</code> stores a numeric id. Mods register during init, when ids are still <em>provisional</em>; the real ones arrive later, when a world's saved id map (or a server's) is applied. Every recipe built beforehand kept pointing at the old number, so it stayed in the list, count and all, and simply stopped matching, unless this session's provisional ids happened to match the world's, which is exactly why relaunching "fixed" it sometimes. RetroAPI now sweeps its own tables after any id change: crafting recipes, smelting inputs and outputs, fuels, and achievement icons are all repointed. If <em>your</em> mod caches an <code>ItemStack</code> or a raw id in a field, fix it in the same pass:</p>
+<div class="codeblock"><span class="code-title">for mod-held stacks</span><pre><code>IdRemapCallback.EVENT.register(remap -&gt; {
+    remap.fix(ExampleMod.STARTER_KIT);                    <span class="c">// an ItemStack field</span>
+    ExampleMod.magicItemId = remap.map(ExampleMod.magicItemId);   <span class="c">// a raw id</span>
+});</code></pre></div></div>
 
 <h2>The four APIs</h2>
 

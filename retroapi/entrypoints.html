@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 2: Three Doors In, RetroAPI Guide</title>
+<title>Chapter 2: Four Doors In, RetroAPI Guide</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,75 +14,95 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 2, Three Doors In</h1>
-<p class="chapter-sub">Three entrypoints, one rule about which classes meet which side, and why your textures are safe everywhere.</p>
+<h1>Chapter 2, Four Doors In</h1>
+<p class="chapter-sub">The <code>retroapi</code> entrypoint, its client and server halves, one rule about which classes meet which side, and why your textures are safe everywhere.</p>
 
-<p>When the game starts, the loader knocks on up to three doors in your mod and walks through whichever ones it finds. Each door opens onto a different side of the game. Get them straight now and the rest of the guide reads like a list of things you do <em>behind the first door</em>.</p>
+<p>When the game starts, the loader knocks on the doors of your mod and walks through whichever ones it finds. Each door opens onto a different side of the game, and one of them opens at a very specific <em>moment</em>. Get them straight now and the rest of the guide reads like a list of things you do <em>behind the first door</em>.</p>
 
-<p>You already met the entrypoints block in <a href="setup.html">Chapter 1</a>'s <code>fabric.mod.json</code>. Here it is again, all three doors wired up:</p>
+<p>You already met the entrypoints block in <a href="setup.html">Chapter 1</a>'s <code>fabric.mod.json</code>. Here it is again, wired the way every mod in this guide is wired:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/fabric.mod.json</span><pre><code>	<span class="t">"entrypoints"</span>: {
-		<span class="s">"init"</span>: [
+		<span class="s">"retroapi"</span>: [
 			<span class="s">"com.example.example_mod.ExampleMod"</span>
 		],
-		<span class="s">"client-init"</span>: [
+		<span class="s">"retroapi-client"</span>: [
 			<span class="s">"com.example.example_mod.ExampleModClient"</span>
 		],
-		<span class="s">"server-init"</span>: [
+		<span class="s">"retroapi-server"</span>: [
 			<span class="s">"com.example.example_mod.ExampleModServer"</span>
 		]
 	},</code></pre></div>
 
 <table>
 <tr><th>Entrypoint</th><th>Class &amp; method</th><th>Runs on…</th></tr>
-<tr><td><code>init</code></td><td><code>ExampleMod.init()</code></td><td>both sides, client <em>and</em> dedicated server</td></tr>
-<tr><td><code>client-init</code></td><td><code>ExampleModClient.initClient()</code></td><td>the client only</td></tr>
-<tr><td><code>server-init</code></td><td><code>ExampleModServer.initServer()</code></td><td>a dedicated server only</td></tr>
+<tr><td><code>retroapi</code></td><td><code>ExampleMod.initRetro()</code></td><td>both sides, client <em>and</em> dedicated server</td></tr>
+<tr><td><code>retroapi-client</code></td><td><code>ExampleModClient.initRetroClient()</code></td><td>the client only</td></tr>
+<tr><td><code>retroapi-server</code></td><td><code>ExampleModServer.initRetroServer()</code></td><td>a dedicated server only</td></tr>
+<tr><td><code>init</code> / <code>client-init</code> / <code>server-init</code></td><td>OSL's own doors, still there</td><td>same three sides, <em>unordered</em> (see below)</td></tr>
 </table>
 
-<p>Each entrypoint is an OSL interface with exactly one method to implement. The three are <code>ModInitializer.init()</code>, <code>ClientModInitializer.initClient()</code>, and <code>ServerModInitializer.initServer()</code>. You may list <em>several</em> classes under one entrypoint, the loader calls each in turn, but one of each is plenty to start, and that's how the showcase is built.</p>
+<p>Each entrypoint is an interface with exactly one method to implement: <code>RetroModInitializer.initRetro()</code>, <code>RetroClientModInitializer.initRetroClient()</code>, and <code>RetroServerModInitializer.initRetroServer()</code>. You may list several classes under one entrypoint, the loader calls each in turn, but one of each is plenty to start, and that's how the showcase is built.</p>
+
+<h2>Why <code>retroapi</code> and not <code>init</code></h2>
+
+<p>OSL's <code>init</code> door still exists and still works. The difference is <em>when</em> it opens: the loader runs every mod's <code>init</code> in an <strong>unspecified order</strong>, so a mod built on RetroAPI can, and intermittently does, initialize <em>before</em> RetroAPI has finished building the platform its registration calls rely on. That's the root of a whole family of bugs that look like haunted hardware, most famously:</p>
+
+<div class="warn"><p><em>"My recipes just… don't exist. Sometimes some of them work. Relaunching the game sometimes fixes it. The count is right, though."</em></p></div>
+
+<p>The <code>retroapi</code> door opens at exactly one moment, and RetroAPI chooses it. Everything you register from <code>initRetro()</code> is ordered:</p>
+
+<ul>
+<li>after RetroAPI's block and item registries, tag defaults and lang files are ready;</li>
+<li>after vanilla's order-sensitive <code>Block</code>/<code>Item</code>/<code>Stats</code> static-init cycle has been entered from the safe side;</li>
+<li>before RetroAPI's own registration events fire, so anything you register is visible to them;</li>
+<li>before recipes are sorted, so a recipe added here takes part in vanilla's shaped-before-shapeless ordering instead of being appended after it;</li>
+<li>before any world assigns ids, so your content is in the world's id map from the first save.</li>
+</ul>
+
+<p>It also fires <strong>identically with and without StationAPI</strong>. RetroAPI's own block/item/achievement registration events deliberately do not fire when StationAPI is present, because StationAPI owns registration there. The <code>retroapi</code> entrypoint is the one registration hook that behaves the same in both worlds.</p>
+
+<div class="note"><p><strong>Migrating an existing mod</strong> is three lines of JSON and one method rename: <code>"init"</code> → <code>"retroapi"</code>, <code>implements ModInitializer</code> → <code>implements RetroModInitializer</code>, <code>public void init()</code> → <code>public void initRetro()</code>. Same for the client and server halves. Nothing else changes, and you can keep an <code>init</code> entrypoint alongside for work that isn't RetroAPI registration (your own config loading, say).</p></div>
 
 <h2>The skeletons</h2>
 <p>Three small classes, each implementing one interface. This is the whole shape of them; the bodies come later.</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.ModInitializer;
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="k">import</span> com.periut.retroapi.entrypoint.RetroModInitializer;
 
-<span class="k">public class</span> <span class="t">ExampleMod</span> <span class="k">implements</span> <span class="t">ModInitializer</span> {
-	<span class="k">public static final</span> String MOD_ID = <span class="s">"example_mod"</span>;
+<span class="k">public class</span> <span class="t">ExampleMod</span> <span class="k">implements</span> <span class="t">RetroModInitializer</span> {
+    <span class="k">public static final</span> <span class="t">String</span> MOD_ID = <span class="s">"example_mod"</span>;
 
-	<span class="k">@Override</span>
-	<span class="k">public void</span> init() {
-		LOGGER.info(<span class="s">"initializing example mod!"</span>);
-		<span class="c">// … register everything here (see below) …</span>
-	}
+    <span class="a">@Override</span>
+    <span class="k">public void</span> initRetro() {
+        LOGGER.info(<span class="s">"initializing example mod!"</span>);
+        <span class="c">// … register everything here (see below) …</span>
+    }
 }</code></pre></div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.client.ClientModInitializer;
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java</span><pre><code><span class="k">import</span> com.periut.retroapi.entrypoint.RetroClientModInitializer;
 
-<span class="k">public class</span> <span class="t">ExampleModClient</span> <span class="k">implements</span> <span class="t">ClientModInitializer</span> {
-
-	<span class="k">@Override</span>
-	<span class="k">public void</span> initClient() {
-		<span class="c">// renderers, GUI screens, client packet listeners …</span>
-	}
+<span class="k">public class</span> <span class="t">ExampleModClient</span> <span class="k">implements</span> <span class="t">RetroClientModInitializer</span> {
+    <span class="a">@Override</span>
+    <span class="k">public void</span> initRetroClient() {
+        <span class="c">// renderers, GUI screens, particle factories, client packet listeners …</span>
+    }
 }</code></pre></div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">import</span> net.ornithemc.osl.entrypoints.api.server.ServerModInitializer;
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">import</span> com.periut.retroapi.entrypoint.RetroServerModInitializer;
 
-<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
-
-	<span class="k">@Override</span>
-	<span class="k">public void</span> initServer() {
-		<span class="c">// server packet listeners, dedicated-server-only logic …</span>
-	}
+<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">RetroServerModInitializer</span> {
+    <span class="a">@Override</span>
+    <span class="k">public void</span> initRetroServer() {
+        <span class="c">// server packet listeners, dedicated-server-only logic …</span>
+    }
 }</code></pre></div>
 
-<h2>The big idea: register everything in <code>init()</code></h2>
-<p>Here is the rule that shapes every later chapter: <strong>your content is registered in the common <code>init()</code>, on both sides.</strong> Blocks, items, block entities, the dimension, the mob, achievements, recipes, network channels, all of it goes through the one door both sides walk through, so both sides agree on what exists.</p>
+<div class="note"><p>If a mod throws while RetroAPI is running these, the crash names the mod and the entrypoint it failed in, rather than surfacing as an anonymous stack trace inside RetroAPI. Handy when three mods are in the pile.</p></div>
 
-<p>That makes <code>ExampleMod.init()</code> the table of contents for the whole mod. Read it top to bottom and you've read the syllabus:</p>
+<h2>The big idea: register everything in <code>initRetro()</code></h2>
+<p>Here is the rule that shapes every later chapter: your content is registered in the common <code>initRetro()</code>, on both sides. Blocks, items, block entities, the dimension, the mob, achievements, recipes, world features, network channels, all of it goes through the one door both sides walk through, so both sides agree on what exists.</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init(), trimmed</span><pre><code><span class="k">public void</span> init() {
+<p>That makes <code>ExampleMod.initRetro()</code> the table of contents for the whole mod. Read it top to bottom and you've read the syllabus:</p>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro(), trimmed</span><pre><code><span class="k">public void</span> initRetro() {
 	LOGGER.info(<span class="s">"initializing example mod!"</span>);
 
 	<span class="c">// blocks, Chapter 4</span>
@@ -107,8 +127,11 @@
 	EXAMPLE_MOB = RetroEntities.register(ExampleEntity.ID, ExampleEntity.class)
 		.factory((MobFactory) ExampleEntity::new);
 
-	<span class="c">// recipes, Chapter 11</span>
-	RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);
+	<span class="c">// recipes, Chapter 11 (safe to call inline: this door opens before the sort)</span>
+	registerRecipes();
+
+	<span class="c">// world features, Chapter 20</span>
+	RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
 
 	<span class="c">// achievements, Chapter 9</span>
 	ExampleAchievements.register();
@@ -119,7 +142,7 @@
 
 <p>Every line above is one of the next chapters. <a href="blocks.html">Chapter 4</a> takes the blocks, <a href="items.html">Chapter 5</a> the items, <a href="blockentities.html">Chapter 6</a> the block entities, <a href="entities.html">Chapter 7</a> the mob, <a href="achievements.html">Chapter 9</a> the achievements, <a href="dimensions.html">Chapter 10</a> the dimension and portal, <a href="recipes.html">Chapter 11</a> the recipes, <a href="networking.html">Chapter 12</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
 
-<div class="note"><p>Two registrations are deferred behind events rather than run inline. Recipes go through <code>RecipeRegistrationCallback</code> so they land <em>after</em> vanilla's recipe list exists; network <em>channels</em> are opened in <code>init()</code> (both sides must agree they exist), while the <em>listeners</em> that use them are wired up per side. More on both in their chapters.</p></div>
+<div class="note"><p>Recipes are called <em>inline</em> here, which is new. Behind the old <code>init</code> door they had to go through <code>RecipeRegistrationCallback</code>, because vanilla's recipe list might not exist yet and your recipes would land after it was sorted. The <code>retroapi</code> door opens late enough that neither is true, so a plain method call works, and the callback still works too if you prefer it (or need to react to another mod's registrations). Network <em>channels</em> are opened here as well, because both sides must agree they exist; the <em>listeners</em> that use them are wired up per side. More on both in their chapters.</p></div>
 
 <h2>The thing about Beta 1.7.3: there is no integrated server</h2>
 <p>Modern Minecraft runs a hidden "integrated server" inside singleplayer, a real server thread the client talks to over an in-memory connection. Beta 1.7.3 has no such thing. Singleplayer is just the client, simulating the world directly, by itself.</p>
@@ -128,16 +151,16 @@
 
 <ul>
 <li><strong>Singleplayer is the client.</strong> The world ticks, mobs spawn, blocks save, all inside the client process. So <code>client-init</code> runs in singleplayer, and <code>server-init</code> does <em>not</em>.</li>
-<li><strong>"Server" means a dedicated server</strong>, a separate, headless process with no window, launched with <code>runServer</code> or a server jar. That's the only place <code>initServer()</code> ever fires.</li>
+<li><strong>"Server" means a dedicated server</strong>, a separate, headless process with no window, launched with <code>runServer</code> or a server jar. That's the only place <code>initRetroServer()</code> ever fires.</li>
 <li><strong><code>world.isRemote</code> tells you "am I a remote multiplayer client?"</strong> In singleplayer it is <code>false</code>, you are the authority, the same way a server is. It's <code>true</code> only on a client connected to a remote server, where the world is a shadow of the server's.</li>
 </ul>
 
 <div class="warn"><p>If you're coming from modern Fabric/Forge, retrain this reflex: <strong>"client-side" and "logical server-side" are not two threads in singleplayer here, they're the same code.</strong> Gameplay logic guarded by <code>if (!world.isRemote)</code> runs in singleplayer (good, it's the authority) and on a dedicated server, but is skipped on a remote multiplayer client.</p></div>
 
 <h2>Why your textures are safe on a server (the question everyone asks)</h2>
-<p>Look back at the <code>init()</code> table of contents: it calls <code>.texture(id("example_block"))</code> and, in <a href="blocks.html">Chapter 4</a>'s sided block, <code>RetroTextures.addBlockTexture(...)</code>. Those run on a dedicated server too, there's no window there, no GPU, no atlas. Does the server try to decode a PNG and fall over?</p>
+<p>Look back at the <code>initRetro()</code> table of contents: it calls <code>.texture(id("example_block"))</code> and, in <a href="blocks.html">Chapter 4</a>'s sided block, <code>RetroTextures.addBlockTexture(...)</code>. Those run on a dedicated server too, there's no window there, no GPU, no atlas. Does the server try to decode a PNG and fall over?</p>
 
-<p>No. And this is by design. <strong>A texture call in common <code>init()</code> is pure bookkeeping.</strong> It records a <code>RetroTexture</code> handle and reserves a sprite slot (a number ≥ 256), that's all. No file is opened, no pixels are read. The actual PNG decoding and atlas compositing happen <em>client-side only</em>, much later, when the texture atlas is being built for rendering.</p>
+<p>No. And this is by design. <strong>A texture call in common <code>initRetro()</code> is pure bookkeeping.</strong> It records a <code>RetroTexture</code> handle and reserves a sprite slot (a number ≥ 256), that's all. No file is opened, no pixels are read. The actual PNG decoding and atlas compositing happen <em>client-side only</em>, much later, when the texture atlas is being built for rendering.</p>
 
 <p>That's exactly why texture registration does <em>not</em> need to move into <code>client-init</code>. The bookkeeping has to happen on both sides anyway, so that both sides assign the same sprite slots and stay in sync. The server keeps the ledger; only the client ever paints from it.</p>
 
@@ -155,11 +178,11 @@
 <h3>Client-only stays behind the client door</h3>
 <p><code>ExampleCrateScreen</code> extends a <code>net.minecraft.client</code> class, so it must never be classloaded on a server. It isn't, it's only ever <em>named</em> inside a lambda registered in <code>ExampleModClient</code>, and lambdas don't load their bodies' classes until they actually run (which, on a server, is never):</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient(), trimmed</span><pre><code>RetroGuiRegistry.register(ExampleMod.id(<span class="s">"crate"</span>), <span class="k">new</span> RetroGuiHandler(
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initRetroClient(), trimmed</span><pre><code>RetroGuiRegistry.register(ExampleMod.id(<span class="s">"crate"</span>), <span class="k">new</span> RetroGuiHandler(
 	(player, inventory) -> <span class="k">new</span> ExampleCrateScreen(player.inventory, (ExampleCrateBlockEntity) inventory),
 	ExampleCrateBlockEntity::new));</code></pre></div>
 
-<p>The common <code>init()</code> never types the word <code>ExampleCrateScreen</code>. A server loads <code>ExampleMod</code> happily, because nothing in it points at a client class.</p>
+<p>The common <code>initRetro()</code> never types the word <code>ExampleCrateScreen</code>. A server loads <code>ExampleMod</code> happily, because nothing in it points at a client class.</p>
 
 <h3>Server-only stays behind the server door</h3>
 <p>Symmetrically, <code>ServerPlayerEntity</code> appears only in <code>ExampleModServer</code> and in a mixin listed under <code>"server"</code> (its <code>ServerPlayerTickMixin</code>). The client never loads either:</p>
@@ -167,7 +190,7 @@
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java, trimmed</span><pre><code><span class="k">import</span> net.minecraft.entity.player.ServerPlayerEntity;
 <span class="k">import</span> net.ornithemc.osl.networking.api.server.ServerPlayNetworking;
 
-<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
+<span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">RetroServerModInitializer</span> {
 	<span class="k">public static void</span> welcomeOnceReady(ServerPlayerEntity player) {
 		<span class="c">// … server-only types live here, and only here …</span>
 		ServerPlayNetworking.send(player, ExampleNetworking.WELCOME, buf ->
@@ -203,7 +226,7 @@
 
 <div class="note"><p><strong>Rule of thumb.</strong> Common code may freely mention shared classes (<code>Block</code>, <code>Item</code>, <code>World</code>, <code>PlayerEntity</code>, your own block/item classes). The moment a type is named <code>...client...</code> or is a <code>Server*</code>, ask "which door does this belong behind?" and put the <em>class that mentions it</em> there.</p></div>
 
-<p>Three doors, one ledger shared between them. Next we walk through the first door's quietest job: turning PNGs and text files into sprites, names, and sounds.</p>
+<p>Four doors, one ledger shared between them. Next we walk through the first door's quietest job: turning PNGs and text files into sprites, names, and sounds.</p>
 </div>
 
 <div class="pager"></div>

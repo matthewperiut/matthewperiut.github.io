@@ -22,7 +22,7 @@
 <h2>The simplest item</h2>
 <p>Here is <code>SUSPICIOUS_SUBSTANCE</code> from <code>init()</code>, three lines, the same shape as a block:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The simplest possible item. Texture: assets/example_mod/textures/item/suspicious_substance.png</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// The simplest possible item. Texture: assets/example_mod/textures/item/suspicious_substance.png</span>
 <span class="c">// Display name: "item.@.suspicious_substance.name" in the lang file.</span>
 SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 	.maxStackSize(<span class="n">64</span>)
@@ -83,7 +83,7 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
  *
  * Like custom blocks, custom items take a placeholder id in their constructor.
  * Pass RetroItemAccess.AUTO_ID and RetroAPI fills in a free slot for you; the
- * instance is wrapped with RetroItemAccess.of(...) in ExampleMod.init().
+ * instance is wrapped with RetroItemAccess.of(...) in ExampleMod.initRetro().
  *
  * No texture file: overriding getTextureId lets it reuse vanilla's stick sprite.
  */</span>
@@ -108,7 +108,7 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 
 <p>And its registration in <code>init()</code>, <code>of(...)</code> around a <code>new JumpStickItem(RetroItemAccess.AUTO_ID)</code>, just like a custom block:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>JUMP_STICK = RetroItemAccess.of(<span class="k">new</span> JumpStickItem(RetroItemAccess.AUTO_ID))
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>JUMP_STICK = RetroItemAccess.of(<span class="k">new</span> JumpStickItem(RetroItemAccess.AUTO_ID))
 	.maxStackSize(<span class="n">1</span>)
 	<span class="c">// Hold it like a tool: the diagonal through-the-fist pose vanilla sticks</span>
 	<span class="c">// get. Items with an item/handheld model JSON (the Ruby Pick below) get</span>

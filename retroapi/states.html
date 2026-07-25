@@ -86,6 +86,27 @@
 
 <div class="note"><p>Writing a custom render type? Reach the current state from inside the render lambda with <code>ctx.getState()</code>. That is how a renderer draws "lit" differently from "not lit" without touching the world again.</p></div>
 
+<h2>Characters as state values</h2>
+
+<p>Some blocks are naturally lettered: a keyboard, a sign wall, a word puzzle. Storing those as <code>0..25</code> and converting on every read is the kind of code that gets one <code>+ 'a'</code> wrong at 3am. <code>RetroCharProperty</code> stores the character:</p>
+
+<div class="codeblock"><span class="code-title">letters, digits, or an explicit set</span><pre><code><span class="k">static final</span> <span class="t">RetroCharProperty</span> LETTER = RetroCharProperty.letters(<span class="s">"letter"</span>);   <span class="c">// 'a'..'z'</span>
+<span class="k">static final</span> <span class="t">RetroCharProperty</span> DIGIT  = RetroCharProperty.digits(<span class="s">"digit"</span>);     <span class="c">// '0'..'9'</span>
+<span class="k">static final</span> <span class="t">RetroCharProperty</span> VOWEL  = RetroCharProperty.of(<span class="s">"vowel"</span>, <span class="s">'a'</span>, <span class="s">'e'</span>, <span class="s">'i'</span>, <span class="s">'o'</span>, <span class="s">'u'</span>);
+
+LETTER_BLOCK = RetroBlockAccess.create(Material.STONE).states(LETTER).register(id(<span class="s">"letter"</span>));
+
+RetroStates.set(world, x, y, z, RetroStates.getDefault(LETTER_BLOCK).with(LETTER, <span class="s">'q'</span>));
+<span class="k">char</span> shown = state.get(LETTER);</code></pre></div>
+
+<p>Values serialize as the character itself, so a blockstate JSON matches on <code>"letter=q"</code> and model variant keys read the way you'd write them.</p>
+
+<h2>Wide states survive being broken and replaced</h2>
+
+<p>A stack carries block data in its damage value, and vanilla feeds that straight into <code>setBlock</code>, which has only the 4-bit metadata nibble to put it in. So a block with more than 16 states, whose extra bits live in the region sidecar, used to lose everything above the nibble the moment it was broken and placed again: it dropped a stack that knew its state and then placed a block that didn't.</p>
+
+<div class="note"><p><strong>Fixed in 0.3.0.</strong> After vanilla places the block, RetroAPI decodes the stack's damage as a flattened state index and writes it back through <code>RetroStates</code>, nibble and sidecar together. Only blocks with an explicit state definition are touched, so vanilla blocks and plain-metadata blocks behave exactly as before. The break → drop → place round trip is now lossless for wide states.</p></div>
+
 <h2>Storage and sync, the one honest paragraph</h2>
 <p>You will never touch any of this, but you should know it exists. The world save's inventory sidecar moves to <strong>format v3</strong>, which adds an <em>optional</em> xmeta array per chunk; a v2 world (no mod, or an older mod) loads completely unchanged, and chunks with no state above 15 never grow the array. The full-chunk network packet carries that xmeta alongside the metadata; a single-block change instead rides a small dedicated packet on the <code>retroapi:state_sync</code> channel, which is what <code>RetroStates.set</code> broadcasts on a dedicated server. And when StationAPI is present, the xmeta store keeps working through it. None of these words ever appear in your mod. You call <code>get</code> and <code>set</code>; the sidecar, the packet, and the channel are RetroAPI's problem.</p>
 
@@ -152,7 +173,7 @@
 
 <p>The registration is where the twenty states are declared, with <code>.states(LIT, AGE)</code>:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Flattened blockstates + JSON models: the lamp declares 20 states in code</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Flattened blockstates + JSON models: the lamp declares 20 states in code</span>
 <span class="c">// and gets its two looks from blockstates/lamp.json. See ExampleLampBlock.</span>
 LAMP = RetroBlockAccess.of(<span class="k">new</span> ExampleLampBlock(RetroBlockAccess.allocateId()))
 	.sounds(Block.STONE_SOUND_GROUP)
@@ -298,7 +319,7 @@ LAMP = RetroBlockAccess.of(<span class="k">new</span> ExampleLampBlock(RetroBloc
 
 <p>Registration declares the five properties with <code>.states(...)</code>, in the order that fixes the flattened index, and overrides the default so a lone wall stands as a post:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// THE blockstate workout: a cobblestone wall ported from</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// THE blockstate workout: a cobblestone wall ported from</span>
 <span class="c">// matthewperiut/stonewalls-fabric-b1.7.3. Five properties (up + a</span>
 <span class="c">// none/low/tall shape per side) make 162 states; connections are</span>
 <span class="c">// recomputed from the neighborhood on placement and on every block</span>

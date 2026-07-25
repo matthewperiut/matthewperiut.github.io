@@ -38,7 +38,7 @@
 <h3>Registering it</h3>
 <p>Registration is one call in <code>init()</code>. The factory is the interesting part:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>EXAMPLE_DIMENSION = <span class="t">RetroDimensions</span>.register(id(<span class="s">"example_dim"</span>), <span class="t">ExampleDimension</span>::<span class="k">new</span>);
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>EXAMPLE_DIMENSION = <span class="t">RetroDimensions</span>.register(id(<span class="s">"example_dim"</span>), <span class="t">ExampleDimension</span>::<span class="k">new</span>);
 LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
 	EXAMPLE_DIMENSION.getId(), EXAMPLE_DIMENSION.getSerialId());</code></pre></div>
 
@@ -160,7 +160,7 @@ LOGGER.info(<span class="s">"registered dimension {} (serial id {})"</span>,
 <h3>Registering the portal block</h3>
 <p>The portal is a normal block registration, with one shortcut worth noticing, it reuses the vanilla glass sprite rather than shipping its own texture:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code><span class="c">// A walk-in portal block that sends the player to the dimension above.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// A walk-in portal block that sends the player to the dimension above.</span>
 <span class="c">// See ExamplePortalBlock, it implements RetroAPI's CustomPortal interface.</span>
 EXAMPLE_PORTAL = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExamplePortalBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
 	.sounds(<span class="t">Block</span>.GLASS_SOUND_GROUP)

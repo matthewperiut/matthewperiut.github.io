@@ -9,7 +9,7 @@
     var CHAPTERS = [
         ['index.html',        '·',  'Welcome',          'What RetroAPI is, and the two template downloads'],
         ['setup.html',        '1',  'The Workshop',     'Environment setup: gradle, biny mappings, fabric.mod.json'],
-        ['entrypoints.html',  '2',  'Three Doors In',   'init, client-init, server-init, and what runs where'],
+        ['entrypoints.html',  '2',  'Four Doors In',    'The retroapi entrypoint, its client/server halves, and what runs where'],
         ['assets.html',       '3',  'Pixels & Words',   'Textures, sprite ids, GUI art, lang files, sounds'],
         ['blocks.html',       '4',  'Blocks',           'From one cube to render types and multi-sided faces'],
         ['items.html',        '5',  'Items',            'Simple items and the Jump Stick (custom classes)'],
@@ -29,8 +29,10 @@
         ['sounds.html',       '19', 'The Soundtrack',   'Sound effects, streaming music, and jukebox records'],
         ['worldgen.html',     '20', 'New Lands',        'Dimensions, chunk generators, biomes, and spawn rules'],
         ['components.html',   '21', 'Item Memory',      'Data components: typed item data, tooltips, dynamic textures'],
-        ['testing.html',      '22', 'Proving Grounds',  'Running client & server, offline mode, sided gotchas'],
-        ['updates.html',      '23', "What's New",       '0.2.3: tools on vanilla blocks, item tags, layers & facing, no casting']
+        ['particles.html',    '22', 'Little Sparks',    'The particle registry: custom particles, sprite particles, multiplayer'],
+        ['multiblocks.html',  '23', 'Bigger Than One',  'Positions, directions, multiblock patterns, and the load pass'],
+        ['testing.html',      '24', 'Proving Grounds',  'Running client & server, offline mode, sided gotchas'],
+        ['updates.html',      '25', "What's New",       '0.3.0: the retroapi entrypoint, particles, world features, tool stats']
     ];
 
     // ---------------------------------------------------------------- theme --

@@ -153,7 +153,7 @@ biny_nests_build = 2
 osl_version = 0.18.0</code></pre></div>
 
 <h3>fabric.mod.json, your passport</h3>
-<p>Two lines change from the stock template, and one is added: the Minecraft version becomes beta (note the loader's spelling: <code>1.0.0-beta.7.3</code>), and the mod now <em>depends</em> on RetroAPI so the loader refuses to launch without it, a crash at the door beats a crash in the basement:</p>
+<p>Three things change from the stock template: the Minecraft version becomes beta (note the loader's spelling: <code>1.0.0-beta.7.3</code>), the mod now <em>depends</em> on RetroAPI so the loader refuses to launch without it (a crash at the door beats a crash in the basement), and the entrypoint key becomes <code>retroapi</code> rather than <code>init</code>:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/fabric.mod.json</span><pre><code>{
 	"schemaVersion": 1,
@@ -166,7 +166,7 @@ osl_version = 0.18.0</code></pre></div>
 	"icon": "assets/example_mod/icon.png",
 	"environment": "*",
 	"entrypoints": {
-		"init": [ "com.example.example_mod.ExampleMod" ]
+		"retroapi": [ "com.example.example_mod.ExampleMod" ]
 	},
 	"mixins": [ "example_mod.mixins.json" ],
 	"depends": {
@@ -177,12 +177,14 @@ osl_version = 0.18.0</code></pre></div>
 	}
 }</code></pre></div>
 
+<div class="note"><p><strong>Why <code>retroapi</code> and not <code>init</code>?</strong> Both exist and both work, but the loader runs <code>init</code> entrypoints in an <em>unspecified order</em>, so your mod can start registering before RetroAPI has finished building the platform you are registering into. The <code>retroapi</code> door is opened by RetroAPI itself, at the one moment when everything you might touch is ready. It is the difference between "my recipes exist" and "my recipes exist on some launches". <a href="entrypoints.html">Chapter 2</a> covers it, and its client and server halves, properly.</p></div>
+
 <div class="note"><p><code>settings.gradle</code> stays exactly as the template ships it, it already knows about the Fabric and Ornithe mavens that host the Gradle plugins.</p></div>
 
 <h2>Light the forge</h2>
 <p>That's the whole conversion. Prove it:</p>
 <div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew runClient</code></pre></div>
-<p>First run downloads the game, remaps it with biny, and decompile-links everything, give it a minute. Then Beta 1.7.3 opens with your mod loaded. Check the log for the line your <code>ExampleMod.init()</code> printed. To produce a shippable jar:</p>
+<p>First run downloads the game, remaps it with biny, and decompile-links everything, give it a minute. Then Beta 1.7.3 opens with your mod loaded. Check the log for the line your <code>ExampleMod.initRetro()</code> printed. To produce a shippable jar:</p>
 <div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew build
 <span class="c"># → build/libs/example_mod-1.0.0+mcb1.7.3.jar</span></code></pre></div>
 

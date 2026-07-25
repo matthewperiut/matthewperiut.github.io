@@ -270,7 +270,7 @@ item/generated       item/handheld</code></pre></div>
 
 <p>The block registration is a plain block, the model does all the visual work, but two builder calls still matter because <em>collision is a code concern, models are purely visual</em>. <code>.nonOpaque()</code> stops the pedestal from hiding its neighbors' touching faces, and <code>.bounds(...)</code> gives it a one-block-tall, slightly-inset hitbox that matches the base:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A COMPLEX model: three elements (a slab base with cullfaces and custom UVs,</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// A COMPLEX model: three elements (a slab base with cullfaces and custom UVs,</span>
 <span class="c">// a column of free quads, and a 45-degree-rotated gem with tintindex 0, whose</span>
 <span class="c">// color comes from the provider registered in ExampleModClient). Everything</span>
 <span class="c">// lives in retroapi/models/block/pedestal.json; this class is a plain block.</span>
@@ -283,7 +283,7 @@ PEDESTAL = RetroBlockAccess.create(Material.STONE)
 
 <p>The gem's <code>tintindex 0</code> is satisfied by a tint provider registered on the client, the same <code>RetroBlockColors.register</code> call from the Tints section, here returning a steady ruby red instead of sampling the biome:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, in initClient()</span><pre><code><span class="c">// Tint provider for the pedestal's gem faces (tintindex 0 in the model JSON):</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, in initRetroClient()</span><pre><code><span class="c">// Tint provider for the pedestal's gem faces (tintindex 0 in the model JSON):</span>
 <span class="c">// a steady ruby red. Providers can also sample the world, see</span>
 <span class="c">// RetroBlockColors.GRASS / .FOLIAGE for the biome colormap versions.</span>
 com.periut.retroapi.client.render.RetroBlockColors.register(ExampleMod.PEDESTAL,
@@ -344,7 +344,7 @@ RetroRenderLayers.set(MY_BLOCK, RetroRenderLayer.TRANSLUCENT);
 
 <p>The ruby registers with no <code>.texture()</code> call at all, the model is found by the item's id:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Layered item model: models/item/ruby.json (parent item/generated) stacks</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Layered item model: models/item/ruby.json (parent item/generated) stacks</span>
 <span class="c">// layer0 + layer1 into one sprite at atlas build. No .texture() call at all;</span>
 <span class="c">// the model JSON is found by the item's id at registration.</span>
 RUBY = RetroItemAccess.create()
@@ -376,7 +376,7 @@ RUBY = RetroItemAccess.create()
 
 <p>And the block that wears it is an ordinary textured block, the animation is entirely in the asset:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Animated texture, zero code: ember_block.png is a 4-frame vertical strip</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Animated texture, zero code: ember_block.png is a 4-frame vertical strip</span>
 <span class="c">// and ember_block.png.mcmeta sets frametime 6 + interpolate. The ordinary</span>
 <span class="c">// .texture() call picks the animation up automatically.</span>
 EMBER_BLOCK = RetroBlockAccess.create(Material.STONE)
@@ -405,7 +405,7 @@ EMBER_BLOCK = RetroBlockAccess.create(Material.STONE)
 <h3>An animated item: the Spectre Staff</h3>
 <p>The exact same <code>.png.mcmeta</code> mechanism works on item sprites, not just block faces. The Spectre Staff is a tall vertical strip, <code>spectre_staff.png</code> at 16&times;208, which is thirteen 16&times;16 frames stacked, and <code>spectre_staff.png.mcmeta</code> drives the playback frame by frame. The registration is a plain textured item; the <code>.texture()</code> call finds the mcmeta sidecar on the item atlas, the same path the ember block walks, so an animated item needs no extra API, just the strip and its mcmeta:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>SPECTRE_STAFF = RetroItemAccess.create()
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>SPECTRE_STAFF = RetroItemAccess.create()
 	.maxStackSize(<span class="n">1</span>)
 	.handheld()                        <span class="c">// held like a staff/tool, the through-the-fist pose</span>
 	.texture(id(<span class="s">"spectre_staff"</span>))

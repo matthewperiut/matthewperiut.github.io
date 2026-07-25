@@ -99,7 +99,7 @@
 
 <p>Both halves are registered together in <code>init()</code>, and the order matters: register the block entity class first, then the block whose <code>createBlockEntity()</code> returns one.</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code><span class="c">// ...then register the block whose createBlockEntity() returns one.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// ...then register the block whose createBlockEntity() returns one.</span>
 RetroBlockEntities.register(id(<span class="s">"counter"</span>), <span class="t">ExampleCounterBlockEntity</span>.<span class="k">class</span>);
 COUNTER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleCounterBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
 	.sounds(<span class="t">Block</span>.STONE_SOUND_GROUP)
@@ -389,7 +389,7 @@ COUNTER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</
 
 <p>And the common-side registration sits beside the block entity in <code>init()</code>, but the GUI's <em>client</em> half lives in the client entrypoint, because it names a Screen class a dedicated server must never load:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"crate"</span>), <span class="t">ExampleCrateBlockEntity</span>.<span class="k">class</span>);
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"crate"</span>), <span class="t">ExampleCrateBlockEntity</span>.<span class="k">class</span>);
 CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleCrateBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
 	.sounds(<span class="t">Block</span>.WOOD_SOUND_GROUP)
 	.strength(<span class="n">2.0f</span>)
@@ -404,7 +404,7 @@ CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</sp
 <div class="asset-card"><img src="assets/crate_block.png" width="64" height="64" alt="crate_block"><div class="asset-name">crate_block.png</div><a href="assets/crate_block.png" download>download</a></div>
 </div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="c">// The client half of the crate GUI (the common half is in ExampleMod.init).</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initRetroClient()</span><pre><code><span class="c">// The client half of the crate GUI (the common half is in ExampleMod.init).</span>
 <span class="c">// Two factories: how to build the screen, and how to build a stand-in</span>
 <span class="c">// inventory on remote clients (multiplayer), which have no real block entity.</span>
 <span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"crate"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
@@ -781,7 +781,7 @@ CRATE_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</sp
 	<span class="k">return true</span>;
 }</code></pre></div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"freezer"</span>), <span class="t">ExampleFreezerBlockEntity</span>.<span class="k">class</span>);
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>RetroBlockEntities.register(id(<span class="s">"freezer"</span>), <span class="t">ExampleFreezerBlockEntity</span>.<span class="k">class</span>);
 FREEZER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</span> <span class="t">ExampleFreezerBlock</span>(<span class="t">RetroBlockAccess</span>.allocateId()))
 	.sounds(<span class="t">Block</span>.STONE_SOUND_GROUP)
 	.strength(<span class="n">3.5f</span>)
@@ -796,7 +796,7 @@ FREEZER_BLOCK = <span class="t">RetroBlockAccess</span>.of(<span class="k">new</
 <div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
 </div>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code><span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"freezer"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initRetroClient()</span><pre><code><span class="t">RetroGuiRegistry</span>.register(<span class="t">ExampleMod</span>.id(<span class="s">"freezer"</span>), <span class="k">new</span> <span class="t">RetroGuiHandler</span>(
 	(player, inventory) -> <span class="k">new</span> <span class="t">ExampleFreezerScreen</span>(player.inventory, (<span class="t">ExampleFreezerBlockEntity</span>) inventory),
 	<span class="t">ExampleFreezerBlockEntity</span>::<span class="k">new</span>));</code></pre></div>
 

@@ -25,7 +25,7 @@
 <h3>The tag way: the Ruby Pick</h3>
 <p>The Ruby Pick is not a <code>ToolItem</code> at all. It is a perfectly plain <code>Item</code> that has been <em>told</em> it counts as an iron-tier pickaxe, through the same mineable-tag and tool-tier system you wired up for blocks back in <a href="blocks.html">Chapter 4</a>. Two chained calls do it:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem</span>
 <span class="c">// subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it</span>
 <span class="c">// harvests anything in mineable/pickaxe up through needs_iron_tool, including</span>
 <span class="c">// the ruby ore above. Vanilla tools never need this, they infer kind from</span>
@@ -61,7 +61,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 <h3>The vanilla way: the Zanite Sword</h3>
 <p>When a real vanilla tool class already exists, use it. A sword is the cleanest example: <code>SwordItem</code> takes a <code>ToolMaterial</code> and hands you attack damage, durability, and block-breaking speed for nothing. You construct it yourself and wrap it with <code>RetroItemAccess.of(...)</code>, exactly like any custom item class:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A custom TOOL the vanilla way: a SwordItem subclass. Unlike the ruby pick (which is</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// A custom TOOL the vanilla way: a SwordItem subclass. Unlike the ruby pick (which is</span>
 <span class="c">// a plain item TAGGED as a pickaxe), a sword is a real vanilla tool class, so it comes</span>
 <span class="c">// with attack damage, durability, and the block-breaking speed of its ToolMaterial</span>
 <span class="c">// (IRON tier here) built in. Texture is the Aether's zanite sword art.</span>
@@ -77,6 +77,39 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 <div class="asset-row">
 <div class="asset-card"><img src="assets/zanite_sword.png" width="64" height="64" alt="zanite_sword"><div class="asset-name">zanite_sword.png</div><a href="assets/zanite_sword.png" download>download</a></div>
 </div>
+
+<h2>A tool with no material</h2>
+
+<p>Vanilla's <code>ToolMaterial</code> is an <em>enum</em>: wood, stone, iron, diamond, gold, and no way for a mod to add a sixth. That's why custom tools in beta always ended up either impersonating a vanilla material or subclassing a vanilla tool class. RetroAPI lets you skip the material and give the numbers directly, on any item:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>DRILL = RetroItemAccess.create()
+    .tool(RetroTool.PICKAXE, RetroTool.SHOVEL)   <span class="c">// what KINDS of block it's for</span>
+    .tier(RetroToolTier.IRON)                    <span class="c">// how good it must be to drop them</span>
+    .miningSpeed(<span class="n">9.0F</span>)                          <span class="c">// wood 2, stone 4, iron 6, diamond 8, gold 12</span>
+    .attackDamage(<span class="n">4</span>)                            <span class="c">// sword 4-7, pickaxe 2-5, fist 1</span>
+    .durability(<span class="n">750</span>)                            <span class="c">// uses before it breaks</span>
+    .handheld()                                  <span class="c">// held at a tool angle, not flat</span>
+    .texture(id(<span class="s">"drill"</span>))
+    .register(id(<span class="s">"drill"</span>));</code></pre></div>
+
+<p>Those five calls replace a material. The item wears down as it mines (turn that off with <code>.damageOnMine(false)</code>), hits for its declared damage, and, crucially, <em>vanilla itself</em> now agrees it is the right tool: RetroAPI answers beta's own "is this item effective here?" question from the <code>mineable</code> tags plus the tool's tier, so drops, breaking speed and the correct-tool check all give the same answer.</p>
+
+<div class="warn"><p><strong>The bug this fixes.</strong> A custom tool that subclassed neither <code>PickaxeItem</code> nor <code>ToolItem</code> could not harvest a modded block at all, and a modded stone-material block could not be harvested by a <em>vanilla</em> pickaxe either. Both came from the same place: beta's hardcoded effectiveness lists. Declare <code>.tool(...)</code> on the item, and let the block's material or <code>.mineable(...)</code> speak for the block, and the pair now works in every combination.</p></div>
+
+<h2>A tier that depends on what you're mining</h2>
+
+<p>A tier can be a constant, computed from the stack, or computed from the stack <em>and the block</em>. The last one is what lets a single tool be worth different levels on different materials:</p>
+
+<div class="codeblock"><span class="code-title">three shapes of tier</span><pre><code>.tier(RetroToolTier.IRON)                              <span class="c">// constant</span>
+
+.tier(stack -&gt; stack.getDamage() &lt; <span class="n">100</span>                  <span class="c">// per stack: a tool that dulls</span>
+    ? RetroToolTier.DIAMOND : RetroToolTier.IRON)
+
+.tier((stack, block) -&gt;                                <span class="c">// per stack AND block</span>
+    block.material == Material.STONE ? RetroToolTier.DIAMOND
+                                     : RetroToolTier.WOOD)</code></pre></div>
+
+<p>The block-aware form is consulted per harvest, ahead of the other two, so "diamond-tier on stone, wood-tier on everything else", a drill bit that only bites certain ores, or a tool that is weaker in another dimension are all one lambda.</p>
 
 <h2>Food</h2>
 <p>Food in RetroAPI is a <strong>property, not a subclass</strong>. You do not write a <code>FoodItem</code>; you chain <code>.food(...)</code> onto whatever item builder you already have, the same way modern Minecraft attaches a <code>FoodComponent</code>. The registry behind it is small enough to read in one sitting:</p>
@@ -106,7 +139,7 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 <h3>The simple case: the Candied Apple</h3>
 <p>One call, one number. The Candied Apple is edible and heals four points, two hearts, and that is all it does:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CANDIED_APPLE = RetroItemAccess.create()
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CANDIED_APPLE = RetroItemAccess.create()
 	.maxStackSize(<span class="n">16</span>)
 	.food(<span class="n">4</span>)                       <span class="c">// eat to heal 4 (two hearts)</span>
 	.register(id(<span class="s">"candied_apple"</span>));</code></pre></div>
@@ -146,7 +179,7 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 <h3>The interesting case: the Poisonous Apple</h3>
 <p>Now use the second overload, <code>.food(health, onEaten)</code>, and pass a lambda. The Poisonous Apple heals a single point, then turns around and hurts you:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A food with a CUSTOM ON-EAT EFFECT: the Poisonous Apple heals a little, then bites</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// A food with a CUSTOM ON-EAT EFFECT: the Poisonous Apple heals a little, then bites</span>
 <span class="c">// back. The .food(health, onEaten) overload runs our callback the instant it is eaten;</span>
 <span class="c">// beta has no poison effect, so we just deal damage for a net-harmful bite. The</span>
 <span class="c">// callback is the whole reason the food API exists: food that does more than heal.</span>
@@ -172,7 +205,7 @@ POISONOUS_APPLE = RetroItemAccess.create()
 <h2>Armor</h2>
 <p>A full armor set is the showcase's most involved item, and yet the code is short, because <code>RetroArmor</code> does the heavy lifting. It is a real vanilla <code>ArmorItem</code>, so it equips into the armor slots, soaks up damage, and takes durability exactly like iron or diamond. What makes it modded is that it also implements <code>RetroArmorTexture</code>, so the renderer draws <em>your</em> art on the player instead of a vanilla material's. The showcase's set is Zanite, ported from <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">aether-fabric-b1.7.3</a>.</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Custom ARMOR: a full zanite set, ported from aether-fabric-b1.7.3. RetroArmor is a</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Custom ARMOR: a full zanite set, ported from aether-fabric-b1.7.3. RetroArmor is a</span>
 <span class="c">// vanilla ArmorItem (material 2 = iron-tier protection and durability) that draws OUR</span>
 <span class="c">// worn texture on the player through RetroArmorTexture; the inventory icons are the</span>
 <span class="c">// vanilla armor sprites tinted zanite violet, so the set needs only the two worn</span>

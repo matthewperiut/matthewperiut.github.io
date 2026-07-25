@@ -163,6 +163,33 @@
 <div class="asset-card"><img src="assets/freezer_top.png" width="64" height="64" alt="freezer_top"><div class="asset-name">freezer_top.png</div><a href="assets/freezer_top.png" download>download</a></div>
 </div>
 
+<h2>Six ways, and the helpers that come with them</h2>
+
+<p><code>.facing()</code> is the horizontal four. When a block should also be placeable pointing up or down, the dispenser and piston rule, use <code>.facingAll()</code>:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>DISPENSER_LIKE = RetroBlockAccess.create(Material.STONE)
+    .facingAll()                                  <span class="c">// RetroDirection.PROPERTY: down/up/north/south/west/east</span>
+    .sided(id(<span class="s">"disp_top"</span>), id(<span class="s">"disp_side"</span>), id(<span class="s">"disp_front"</span>))
+    .register(id(<span class="s">"dispenser_like"</span>));</code></pre></div>
+
+<p>Look steeply up or down as you place it and the block points there; otherwise it behaves like the four-way version. Both properties are named <code>facing</code>, so blockstate JSONs and model variant keys read the same either way, and <code>.sided(...)</code> understands both.</p>
+
+<p>The values themselves now do the arithmetic that used to live in every directional block:</p>
+
+<div class="codeblock"><span class="code-title">no more hand-written direction switches</span><pre><code><span class="t">RetroFacing</span> facing = state.get(RetroFacing.PROPERTY);
+
+<span class="t">RetroVec3i</span> inFront = RetroVec3i.of(x, y, z).offset(facing);   <span class="c">// or facing.offset(x, y, z)</span>
+<span class="k">if</span> (inFront.isAir(world)) inFront.setBlock(world, Block.TORCH);
+
+<span class="t">RetroFacing</span> back  = facing.opposite();
+<span class="t">RetroFacing</span> right = facing.rotateRight();
+<span class="k">int</span> frontFace     = facing.face();      <span class="c">// the index getTexture(side, meta) is asked about</span>
+<span class="t">RetroDirection</span> six = facing.toDirection();</code></pre></div>
+
+<div class="note"><p><strong>Fixed in 0.3.0:</strong> calling <code>.states(...)</code> <em>after</em> <code>.facing()</code> used to silently drop the facing property, so the block turned to face you but had nowhere to store it. The two declarations now merge in either order, and you never add <code>RetroFacing.PROPERTY</code> to your own <code>.states(...)</code> list by hand.</p></div>
+
+<p>The full six-direction toolkit, rotations, vectors, nearest-direction-from-a-delta, and the position type they pair with, is <a href="multiblocks.html">Chapter 23</a>.</p>
+
 <h2>The block-entity render gotcha</h2>
 <p>Here is the trap, and it is worth understanding because it produces a baffling symptom. A plain RetroAPI block gets the <strong>model render type wired up for it automatically</strong> the moment it has a blockstate JSON: RetroAPI sets that render type on the base <code>Block</code> during registration, and the JSON-driven look just appears. The packed log relies on exactly this and overrides nothing.</p>
 
@@ -192,7 +219,7 @@
 
 <p>So the registration overrides the default state, purely to aim the icon:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>FREEZER_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleFreezerBlock(RetroBlockAccess.allocateId()))
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>FREEZER_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleFreezerBlock(RetroBlockAccess.allocateId()))
 	.sounds(Block.STONE_SOUND_GROUP)
 	.strength(<span class="n">3.5f</span>)
 	.states(ExampleFreezerBlock.FACING)

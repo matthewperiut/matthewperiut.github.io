@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 23: Bigger Than One, RetroAPI Guide</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Chapter 23, Bigger Than One</h1>
+<p class="chapter-sub">A position type, six directions with opinions, multiblock patterns drawn as ASCII, and the load pass that runs when the world is actually there.</p>
+
+<p>Beta passes positions around as three loose <code>int</code>s. That's fine for one block. The moment a block cares about what is <em>next to</em> it, or is part of something larger, mod code fills up with <code>world.setBlock(x + dx, y + dy, z + dz, …)</code> and hand-written direction switches that are wrong in exactly one rotation. This chapter is the toolkit for that.</p>
+
+<h2>RetroVec3i, the block position b1.7.3 never had</h2>
+
+<p>An immutable integer vector. Every operation returns a new one, so it's safe to share, and equal coordinates are <code>equals</code> and hash alike, so it works as a <code>HashMap</code> key for machine networks and multiblock parts.</p>
+
+<div class="codeblock"><span class="code-title">position maths</span><pre><code><span class="t">RetroVec3i</span> pos   = RetroVec3i.of(x, y, z);
+<span class="t">RetroVec3i</span> above = pos.up();
+<span class="t">RetroVec3i</span> far   = pos.add(<span class="n">2</span>, <span class="n">0</span>, <span class="n">-3</span>).multiply(<span class="n">2</span>).subtract(RetroVec3i.UP);
+
+<span class="c">// and it can read and write itself</span>
+<span class="k">if</span> (above.isAir(world)) above.setBlock(world, Block.TORCH);
+<span class="k">int</span> id = pos.blockId(world);
+<span class="t">RetroBlockState</span> state = pos.state(world);
+<span class="t">BlockEntity</span> be = pos.blockEntity(world);
+
+<span class="c">// distances, without writing the arithmetic again</span>
+<span class="k">if</span> (pos.distanceSquared(other) &lt;= <span class="n">64</span>) { … }        <span class="c">// within 8 blocks</span>
+<span class="k">if</span> (pos.isWithin(other, <span class="n">3</span>)) { … }                    <span class="c">// inside a 7×7×7 cube</span>
+<span class="k">int</span> steps = pos.manhattanDistance(other);</code></pre></div>
+
+<h2>RetroDirection, all six of them</h2>
+
+<p>The four-value <code>RetroFacing</code> from <a href="facing.html">Chapter 17</a> is the horizontal one a furnace uses. <code>RetroDirection</code> is the full six, with the offsets, rotations and face indices spelled out:</p>
+
+<div class="codeblock"><span class="code-title">directions with opinions</span><pre><code><span class="t">RetroDirection</span> facing = RetroDirection.fromPlacer(player);  <span class="c">// includes up/down</span>
+<span class="t">RetroDirection</span> back   = facing.opposite();
+<span class="t">RetroDirection</span> right  = facing.rotateRight();               <span class="c">// clockwise from above</span>
+
+<span class="t">RetroVec3i</span> inFront = pos.offset(facing);                   <span class="c">// one block along it</span>
+<span class="t">RetroVec3i</span> reach   = pos.offset(facing, <span class="n">3</span>);                <span class="c">// three blocks along it</span>
+
+<span class="k">int</span> face = facing.face();      <span class="c">// 0 down, 1 up, 2 north, 3 south, 4 west, 5 east</span>
+<span class="k">boolean</span> flat = facing.isHorizontal();
+<span class="k">char</span> axis = facing.axis();      <span class="c">// 'X', 'Y' or 'Z'</span>
+
+<span class="c">// which face did that hit come from?</span>
+<span class="t">RetroDirection</span> hit = RetroDirection.nearest(dx, dy, dz);</code></pre></div>
+
+<p><code>RetroFacing</code> gained the same helpers, so horizontal-only blocks don't have to convert: <code>opposite()</code>, <code>rotateLeft()</code>, <code>rotateRight()</code>, <code>offsetX()</code>, <code>offsetZ()</code>, <code>vector()</code>, <code>offset(x, y, z)</code> and <code>toDirection()</code>.</p>
+
+<div class="note"><p>The face indices are the same numbers <code>getTexture(side, meta)</code> and the render context are asked about, so <code>facing.face()</code> is directly usable when you're deciding what a face looks like.</p></div>
+
+<h2>Multiblocks: draw the shape, don't code it</h2>
+
+<p>A multiblock is a shape plus a test. Written by hand, the test is a page of neighbour checks; written twice (once per rotation) it's a page of bugs. <code>RetroMultiblock</code> takes the shape as ASCII layers and a legend, the way you'd sketch it on paper:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMultiblocks.java</span><pre><code><span class="k">public static final</span> <span class="t">RetroMultiblock</span> FURNACE_TOWER = RetroMultiblock.builder()
+    .layer(<span class="s">"BBB"</span>,             <span class="c">// y = 0, bottom layer, rows run north → south</span>
+           <span class="s">"BCB"</span>,
+           <span class="s">"BBB"</span>)
+    .layer(<span class="s">" F "</span>,             <span class="c">// y = 1</span>
+           <span class="s">"F F"</span>,
+           <span class="s">" F "</span>)
+    .where(<span class="s">'B'</span>, Block.BRICKS)
+    .where(<span class="s">'C'</span>, ExampleMod.CORE_BLOCK)
+    .where(<span class="s">'F'</span>, Block.IRON_BLOCK)
+    .anchor(<span class="s">'C'</span>)               <span class="c">// the cell you match FROM (usually the controller)</span>
+    .build();</code></pre></div>
+
+<p>Then ask whether it's standing. <code>matchAnyRotation</code> tries all four horizontal facings, so the player can build it whichever way they like:</p>
+
+<div class="codeblock"><span class="code-title">in the core block entity</span><pre><code><span class="t">RetroMultiblock.Match</span> match = ExampleMultiblocks.FURNACE_TOWER.matchAnyRotation(world, x, y, z);
+<span class="k">if</span> (match != <span class="k">null</span>) {
+    <span class="t">RetroFacing</span> facing = match.facing();              <span class="c">// which way it was built</span>
+    <span class="k">for</span> (<span class="t">RetroVec3i</span> part : match.positions()) { … }    <span class="c">// every cell it covers</span>
+    <span class="k">for</span> (<span class="t">RetroVec3i</span> frame : match.positions(<span class="s">'F'</span>)) { … } <span class="c">// just the iron frame</span>
+}</code></pre></div>
+
+<table>
+<tr><th>Builder call</th><th>Meaning</th></tr>
+<tr><td><code>.layer("…", "…")</code></td><td>one horizontal layer, bottom first; rows north→south, columns west→east</td></tr>
+<tr><td><code>.where('B', block)</code></td><td>this character means that block, any metadata</td></tr>
+<tr><td><code>.where('B', state)</code></td><td>…that exact block state</td></tr>
+<tr><td><code>.whereAny('B', a, b, c)</code></td><td>…any of these blocks</td></tr>
+<tr><td><code>.where('B', predicate)</code></td><td>…whatever you can express as a test</td></tr>
+<tr><td><code>' '</code> (space)</td><td>don't care, matched by default and never included in <code>positions()</code></td></tr>
+<tr><td><code>RetroMultiblock.AIR</code></td><td>must be empty (an interior a player can stand in)</td></tr>
+<tr><td><code>.anchor('C')</code></td><td>which cell <code>match(world, x, y, z)</code> is called on</td></tr>
+</table>
+
+<p>A match can also form the structure for you, <code>match.fill(world, block, meta)</code> replaces every matched cell, which is the usual "the structure snaps together and becomes active" step.</p>
+
+<h2>The load pass: doing things when the world is actually there</h2>
+
+<p>Multiblocks want to rebuild themselves after a world loads, and that's where beta trips you. A block entity's <code>readNbt</code> runs while the chunk is still being deserialised: there is no world on it yet, the neighbours may not exist, and touching the world from there either throws or reads a half-built chunk. The usual workaround is a hand-rolled "have I initialised yet?" boolean in every block entity.</p>
+
+<p>RetroAPI ships that boolean once, for everyone:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>BlockEntityLoadedCallback.EVENT.register(blockEntity -&gt; {
+    <span class="k">if</span> (blockEntity <span class="k">instanceof</span> <span class="t">ExampleCoreBlockEntity</span> core) {
+        core.rebuildStructure();   <span class="c">// safe: world and neighbours exist</span>
+    }
+});</code></pre></div>
+
+<p>It fires once per block entity, the first time it ticks in a world, on both sides. That's the earliest moment at which "all the NBT is read <em>and</em> the world is real" is true.</p>
+
+<div class="note"><p>Block entities that never tick never fire it, by design, an inert container has nothing to rebuild. If yours needs the pass, give it a tick method (an empty one is fine).</p></div>
+
+<p>Next: proving it all works, on a client and on a real server.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

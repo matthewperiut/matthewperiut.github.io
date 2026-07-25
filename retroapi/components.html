@@ -37,7 +37,7 @@
 
 <p>Here are the showcase's three components, registered in <code>init()</code>. Two are plain ints, the third holds a whole record (more on that below):</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Register two typed components (modern DataComponentType equivalent). They are</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Register two typed components (modern DataComponentType equivalent). They are</span>
 <span class="c">// just ints here; RetroComponentType.compound(...) handles records.</span>
 CLICK_COUNT = com.periut.retroapi.component.RetroComponents.register(
 	id(<span class="s">"click_count"</span>), <span class="n">0</span>, com.periut.retroapi.component.RetroComponentType.INT);
@@ -149,7 +149,7 @@ RetroComponents.set(stack, CONTENTS, held);</code></pre></div>
 <h3>The component-driven version: the Mood Gem</h3>
 <p>The Mood Gem ships ONE grayscale gem sprite and TINTS it live from its <code>MOOD</code> component, exactly how modern recolors a layer, instead of baking a PNG per color. A second, untinted sparkle layer appears only once the <code>ATTUNEMENT</code> record says the gem is awakened, so BOTH a primitive component (the tint) and a structured one (whether the overlay exists) drive the picture. It registers the two sprites up front:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>MOOD_GEM_BASE = com.periut.retroapi.register.block.RetroTextures.addItemTexture(id(<span class="s">"mood_gem_base"</span>)).id;
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>MOOD_GEM_BASE = com.periut.retroapi.register.block.RetroTextures.addItemTexture(id(<span class="s">"mood_gem_base"</span>)).id;
 MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTexture(id(<span class="s">"mood_gem_sparkle"</span>)).id;
 <span class="c">// The 0xRRGGBB tint per mood (red, green, blue, gold), multiplied onto the gray gem.</span>
 <span class="k">public static final int</span>[] MOOD_TINTS = {<span class="n">0xFF4D4D</span>, <span class="n">0x57E06A</span>, <span class="n">0x4D8AFF</span>, <span class="n">0xFFC233</span>};</code></pre></div>

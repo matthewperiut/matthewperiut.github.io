@@ -186,6 +186,45 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 <div class="asset-card"><img src="assets/pink_flower.png" width="64" height="64" alt="pink_flower"><div class="asset-name">pink_flower.png</div><a href="assets/pink_flower.png" download>download</a></div>
 </div>
 
+<h2>Adding features to worlds that already exist</h2>
+
+<p>Everything above builds a <em>new</em> world. The far more common wish is smaller: "I want my ore to generate in the normal overworld." In beta that meant mixin-ing vanilla's chunk generator, because what generates is a hardcoded list inside <code>decorate</code>, with ore veins written as <code>new OreFeature(id, size)</code> and their height bands as literals. There is no rarity knob, no metadata, and nothing but stone can be replaced.</p>
+
+<p>RetroAPI hooks decoration once, for every dimension and every generator (including custom ones), and runs whatever mods registered, after vanilla's own decoration for that chunk:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// A plain ore: 8 veins of 6 blocks per chunk, between y=4 and y=32.</span>
+RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
+
+<span class="c">// A rare, large stone variant carrying state index 2, replacing vanilla stone.</span>
+RetroFeatures.ore(STONE_TYPES).meta(<span class="n">2</span>).size(<span class="n">48</span>).count(<span class="n">3</span>).rarity(<span class="n">3</span>)
+    .heightRange(<span class="n">0</span>, <span class="n">96</span>).replace(Block.STONE).register();
+
+<span class="c">// An ore that generates INSIDE your own stone types, not just vanilla stone.</span>
+RetroFeatures.ore(RUBY_ORE).size(<span class="n">5</span>).count(<span class="n">6</span>).heightRange(<span class="n">0</span>, <span class="n">48</span>)
+    .replace(Block.STONE, MARBLE, SLATE).register();
+
+<span class="c">// Anything else at all.</span>
+RetroFeatures.custom((world, random, x, y, z) -&gt; {
+    <span class="k">int</span> surface = RetroFeatures.surfaceY(world, x, z);
+    RetroFeatures.setBlock(world, x, surface, z, ExampleMod.MARKER.id, <span class="n">0</span>);
+    <span class="k">return true</span>;
+}).count(<span class="n">1</span>).rarity(<span class="n">64</span>).register();</code></pre></div>
+
+<table>
+<tr><th>Call</th><th>What it controls</th></tr>
+<tr><td><code>.size(n)</code></td><td>blocks per vein (vanilla ores use 4–33)</td></tr>
+<tr><td><code>.count(n)</code></td><td>attempts per chunk</td></tr>
+<tr><td><code>.heightRange(min, max)</code></td><td>inclusive Y band each attempt is rolled in</td></tr>
+<tr><td><code>.rarity(n)</code></td><td>places in one chunk out of <code>n</code>, the knob vanilla simply lacks</td></tr>
+<tr><td><code>.meta(n)</code></td><td>the metadata / flattened state each block is placed with</td></tr>
+<tr><td><code>.replace(blocks…)</code></td><td>what the vein may carve into (default: vanilla stone)</td></tr>
+<tr><td><code>.dimensions(ids…)</code> / <code>.dimension(id)</code> / <code>.anyDimension()</code></td><td>where it applies (default: the overworld)</td></tr>
+</table>
+
+<div class="note"><p>Generation stays deterministic: the decoration random is seeded from the world seed and chunk coordinates exactly the way vanilla seeds its own, so a seed still gives the same world. A feature that throws is logged and skipped rather than taking the chunk, and the world, down with it.</p></div>
+
+<p>Custom generators get the same treatment for free, since the hook sits on the chunk cache rather than on any one generator. If your generator does its own population outside that path, call <code>RetroFeatures.decorate(world, chunkX, chunkZ)</code> yourself.</p>
+
 <h2>Biomes</h2>
 <p>A <code>ChunkSource</code> shapes the land; a <code>BiomeSource</code> answers "what biome is at <code>(x, z)</code>?" for grass and sky tint, temperature, and mob spawning. The dimension picks both. Curvy uses the simplest possible biome source, one biome everywhere:</p>
 
@@ -197,7 +236,7 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 
 <p>The biomes themselves are built with RetroAPI's <code>BiomeBuilder</code>, a fluent builder that sets tint, weather, and per-biome spawns. The Curvy biome is one gentle green region full of vanilla farm animals; the Noisy dimension has two, an orange "amplified" biome and a green "lush" one:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CURVY_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Curvy Hills"</span>)
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CURVY_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Curvy Hills"</span>)
 	.grassAndLeavesColor(<span class="n">0x88DD66</span>)
 	.passiveEntity(<span class="t">CowEntity</span>.class, <span class="n">8</span>)
 	.passiveEntity(<span class="t">PigEntity</span>.class, <span class="n">8</span>)
@@ -254,7 +293,7 @@ NOISY_LUSH_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Lu
 <h2>Editing existing biomes</h2>
 <p>Authoring a brand-new biome is one thing; reaching into a biome that already exists, vanilla's or another mod's, is another, and it's where mods break each other. Beta has a single global set of biome objects (<code>Biome.PLAINS</code>, <code>Biome.FOREST</code>, and so on) shared by every dimension and every mod, so clobbering a spawn list is how you stomp on everyone else. RetroAPI's <code>RetroBiomes</code> is built around one rule: <strong>additive, never destructive.</strong> Every add method appends to a list and leaves every other entry in place, and <code>addSpawn</code> de-dupes by class, so registering the same mob twice updates its weight instead of stacking a duplicate:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
 <span class="c">// another mod's spawns; here it drops Aerbunnies into both Noisy biomes.</span>
 RetroBiomes.addPassiveSpawn(NOISY_AMPLIFIED_BIOME, AerbunnyEntity.class, <span class="n">4</span>);
 RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class="n">4</span>);</code></pre></div>
@@ -289,7 +328,7 @@ RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class=
 
 <p>The destination is a <code>Supplier</code>, not a value, for a real ordering reason: blocks register before dimensions, so the dimension registration object doesn't exist yet when the portal block is constructed. Wrapping it in a supplier defers the lookup to collision time, when everything exists. The registration ties it together, two instances of one class, each pointing at its own dimension and its own portal sprite:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CURVY_PORTAL = RetroBlockAccess.of(<span class="k">new</span> <span class="t">DimensionPortalBlock</span>(RetroBlockAccess.allocateId(),
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CURVY_PORTAL = RetroBlockAccess.of(<span class="k">new</span> <span class="t">DimensionPortalBlock</span>(RetroBlockAccess.allocateId(),
 		() -&gt; CURVY_DIMENSION.getId(), () -&gt; CURVY_PORTAL.id))
 	.sounds(<span class="t">Block</span>.GLASS_SOUND_GROUP)
 	.texture(id(<span class="s">"green_glass"</span>))

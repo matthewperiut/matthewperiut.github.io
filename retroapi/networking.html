@@ -57,7 +57,7 @@
 
     <span class="c">/**
      * The channels above are registered by this class's static initializer; calling
-     * this from ExampleMod.init() just forces that to happen at a predictable time.
+     * this from ExampleMod.initRetro() just forces that to happen at a predictable time.
      */</span>
     <span class="k">public static void</span> registerChannels() {
     }
@@ -65,7 +65,7 @@
 
 <p>Read the two boolean flags: <code>WELCOME</code> is <code>(true, false)</code>, server-to-client only. <code>PING</code> is <code>(false, true)</code>, client-to-server only. The directions you declare are the directions OSL will allow; a channel that only flows one way can't be misused the other.</p>
 
-<p>The registrations happen in the class's static initializer. The empty <code>registerChannels()</code> method exists only so <code>ExampleMod.init()</code> can call it and <em>force</em> the class to load at a predictable moment, touching the class triggers its static block:</p>
+<p>The registrations happen in the class's static initializer. The empty <code>registerChannels()</code> method exists only so <code>ExampleMod.initRetro()</code> can call it and <em>force</em> the class to load at a predictable moment, touching the class triggers its static block:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java</span><pre><code><span class="c">// -------------------------------------------------------------- networking --</span>
 <span class="c">// Channels must be registered on both sides, so this happens here in the</span>
@@ -99,14 +99,14 @@ ClientPlayNetworking.registerListener(ExampleNetworking.WELCOME, (ctx, buf) -> {
 <h2>Step 3, the server side</h2>
 <p>The server has two jobs: send the welcome (once, at the right moment) and listen for the reply. Both live in <code>ExampleModServer</code>, the dedicated-server entrypoint, because <code>ServerPlayNetworking</code> and <code>ServerPlayerEntity</code> only exist there. Here's the whole class:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">ServerModInitializer</span> {
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleModServer</span> <span class="k">implements</span> <span class="t">RetroServerModInitializer</span> {
 
     <span class="c">/** Players we've already welcomed (weak so it empties itself on logout). */</span>
     <span class="k">private static final</span> <span class="t">Set</span>&lt;<span class="t">ServerPlayerEntity</span>&gt; WELCOMED =
         Collections.newSetFromMap(<span class="k">new</span> <span class="t">WeakHashMap</span>&lt;<span class="t">ServerPlayerEntity</span>, <span class="t">Boolean</span>&gt;());
 
     <span class="k">@Override</span>
-    <span class="k">public void</span> initServer() {
+    <span class="k">public void</span> initRetroServer() {
         <span class="c">// Listen for the client's PING reply (see ExampleNetworking for the plan).</span>
         <span class="c">// ctx gives you the sending player, the server, and the network handler.</span>
         ServerPlayNetworking.registerListener(ExampleNetworking.PING, (ctx, buf) -> {

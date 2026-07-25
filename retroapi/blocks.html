@@ -22,7 +22,7 @@
 <h2>Block #1, the plainest cube</h2>
 <p>Here is <code>EXAMPLE_BLOCK</code> exactly as it appears in <code>init()</code>, including the commented menu of other options you could have chained:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The simplest possible block: stone-like, with its own texture.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// The simplest possible block: stone-like, with its own texture.</span>
 EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 	.sounds(Block.STONE_SOUND_GROUP)   <span class="c">// mine/place/step sounds</span>
 	.strength(<span class="n">1.5f</span>, <span class="n">10.0f</span>)             <span class="c">// hardness, blast resistance</span>
@@ -138,7 +138,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 
 <p>And its registration, note <code>RetroBlockAccess.of(...)</code> wrapping a freshly-constructed instance, with <code>allocateId()</code> supplying the constructor's id:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>SIDED_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleSidedBlock(RetroBlockAccess.allocateId(), Material.WOOD))
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>SIDED_BLOCK = RetroBlockAccess.of(<span class="k">new</span> ExampleSidedBlock(RetroBlockAccess.allocateId(), Material.WOOD))
 	.sounds(Block.WOOD_SOUND_GROUP)
 	.strength(<span class="n">1.0f</span>)
 	.alwaysEffectiveTool()
@@ -175,7 +175,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 
 <p>And the block that uses it, from <code>init()</code>:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// A non-full-cube block using the custom render type registered above.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// A non-full-cube block using the custom render type registered above.</span>
 PIPE_BLOCK = RetroBlockAccess.create(Material.STONE)
 	.sounds(Block.METAL_SOUND_GROUP)
 	.strength(<span class="n">2.0f</span>)
@@ -202,10 +202,77 @@ PIPE_BLOCK = RetroBlockAccess.create(Material.STONE)
 
 <div class="note"><p>Custom render type ids are numbered starting at <strong>18</strong>, the vanilla render types occupy 0 to 17. You never write that number; <code>RenderType.register</code> hands back a <code>NamespacedIdentifier</code> and resolves the int internally. If you only need a built-in look, the <code>RenderTypes</code> class exposes the vanilla ones as constants, <code>RenderTypes.BLOCK</code>, <code>RenderTypes.CROSS</code>, <code>RenderTypes.TORCH</code>, <code>RenderTypes.PLANT</code>, <code>RenderTypes.FENCE</code>, and the rest, to pass straight into <code>.renderType(...)</code>.</p></div>
 
+<h2>Per-face textures from code, no JSON at all</h2>
+
+<p>Block #2 above gets its six faces from a model. When all you want is "this face is the front", you can say so directly, and skip the model, the blockstate file, and the <code>getTexture</code> override:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// A machine: front follows the facing state, top and bottom their own, sides the rest.</span>
+MACHINE = RetroBlockAccess.create(Material.STONE)
+    .strength(<span class="n">3.5F</span>)
+    .facing()                                    <span class="c">// 4-way, orients to the placer</span>
+    .sided(id(<span class="s">"machine_top"</span>), id(<span class="s">"machine_side"</span>), id(<span class="s">"machine_front"</span>))
+    .register(id(<span class="s">"machine"</span>));
+
+<span class="c">// A log: end caps and a wrap, no facing needed.</span>
+LOG = RetroBlockAccess.create(Material.WOOD)
+    .column(id(<span class="s">"log_top"</span>), id(<span class="s">"log_side"</span>))
+    .register(id(<span class="s">"log"</span>));
+
+<span class="c">// Or nail one texture to each world face: bottom, top, north, south, west, east.</span>
+ODDITY = RetroBlockAccess.create(Material.STONE)
+    .textures(id(<span class="s">"d"</span>), id(<span class="s">"u"</span>), id(<span class="s">"n"</span>), id(<span class="s">"s"</span>), id(<span class="s">"w"</span>), id(<span class="s">"e"</span>))
+    .register(id(<span class="s">"oddity"</span>));</code></pre></div>
+
+<p><code>.sided(top, side, front)</code> follows the block's <code>facing</code> state, so one declaration covers all four orientations, and with <code>.facingAll()</code> all six: pointed up or down, the front goes on the top or bottom face and the ring of four gets the side texture, the way a dispenser looks. A fourth argument gives the bottom its own texture; without it the bottom reuses the top, like a furnace.</p>
+
+<h2>Tinting and layers, still without a renderer</h2>
+
+<p>Two more things that used to mean writing a custom block renderer or generating a sprite per combination.</p>
+
+<p><strong>Tint</strong> multiplies the block's colour, per position, from a lambda. This is the hook vanilla uses for biome-coloured grass, exposed for your blocks:</p>
+
+<div class="codeblock"><span class="code-title">state-driven colour</span><pre><code>LETTER_BLOCK = RetroBlockAccess.create(Material.STONE)
+    .states(LETTER, MARK)
+    .texture(id(<span class="s">"letter_backdrop"</span>))
+    .tint((state, world, x, y, z, tintIndex) -&gt; <span class="k">switch</span> (state.get(MARK)) {
+        <span class="k">case</span> HIT   -&gt; <span class="n">0x6AAA64</span>;   <span class="c">// green</span>
+        <span class="k">case</span> CLOSE -&gt; <span class="n">0xC9B458</span>;   <span class="c">// yellow</span>
+        <span class="k">default</span>    -&gt; <span class="n">0x787C7E</span>;   <span class="c">// grey</span>
+    })
+    .register(id(<span class="s">"letter"</span>));</code></pre></div>
+
+<p>The same provider drives the inventory icon (the world is <code>null</code> there) and, for a JSON model, any face with a <code>tintindex</code>. <code>RetroBlockColors.GRASS</code> and <code>.FOLIAGE</code> are ready-made biome providers.</p>
+
+<p><strong>Overlays</strong> draw another sprite on top of the block's faces, as an extra render pass, exactly the way vanilla paints grass' green edge over plain dirt. Each layer carries its own tint, which is what turns "a letter on a coloured backdrop" from 26 × 3 baked sprites into two:</p>
+
+<div class="codeblock"><span class="code-title">layers</span><pre><code><span class="c">// fixed overlay, optionally tinted</span>
+.texture(id(<span class="s">"letter_backdrop"</span>)).overlay(id(<span class="s">"letter_q"</span>))
+
+<span class="c">// or chosen per position, from the state</span>
+.overlay((state, world, x, y, z) -&gt;
+    RetroBlockLayer.of(GLYPHS[state.get(LETTER) - <span class="s">'a'</span>], RetroBlockLayer.NO_TINT))</code></pre></div>
+
+<div class="note"><p>Overlays are drawn fresh per chunk rebuild, so the cost scales with how many layered blocks are <em>visible</em>, not with how many looks exist. Return <code>null</code> from a provider to draw no layer at that position.</p></div>
+
+<h2>Tags, tiers, and blocks nothing can break</h2>
+
+<p>Three small builder calls that used to be separate lines (or a whole Block subclass):</p>
+
+<div class="codeblock"><span class="code-title">builder ergonomics</span><pre><code>RetroBlockAccess.create(Material.STONE)
+    .mineable(RetroTool.PICKAXE)                 <span class="c">// which tool KIND mines it fast</span>
+    .needsTool(RetroToolTier.IRON)               <span class="c">// …and how good it must be to drop</span>
+    .tag(RetroTagKey.block(<span class="s">"ore_dictionary/stone"</span>))   <span class="c">// any tag, at registration</span>
+    .register(id(<span class="s">"hard_ore"</span>));
+
+<span class="c">// bedrock rules: infinite hardness and blast resistance, no subclass required</span>
+RetroBlockAccess.create(Material.STONE).unbreakable().register(id(<span class="s">"boundary"</span>));</code></pre></div>
+
 <h2>Mineable: modern tool gating</h2>
+
+<div class="note"><p><strong>New in 0.3.0: sensible defaults.</strong> A block that declares no <code>mineable</code> tag at all is now inferred from its material, the way modern Minecraft's tags are laid out: stone and metal want a pickaxe, wood an axe, soil/sand/snow a shovel, leaves shears (or a sword or hoe), wool and cobweb shears. This closes a trap that bit everyone: beta decides "is this tool effective?" from hardcoded block <em>lists</em> inside each vanilla tool, lists no modded block is in, so a modded stone-material block used to drop nothing for <em>any</em> tool until its author found <code>.mineable(...)</code>. An explicit call or a data tag still wins.</p></div>
 <p>Beta's rule for "which tool drops this block" is crude. RetroAPI swaps in the modern <strong>mineable tag</strong> system, the same one a 1.21 data pack uses, and you opt a block in with one builder call:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Mineable tags, modern semantics: ruby ore drops ONLY when mined with a</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Mineable tags, modern semantics: ruby ore drops ONLY when mined with a</span>
 <span class="c">// pickaxe, at pickaxe speed. The same tag also loads from data files; see</span>
 <span class="c">// data/example_mod/tags/block/mineable/pickaxe.json, which re-adds this block</span>
 <span class="c">// (a harmless union) and tags vanilla glass as pickaxe-mineable too.</span>
@@ -299,7 +366,7 @@ RUBY_ORE = RetroBlockAccess.of(<span class="k">new</span> RubyOreBlock(RetroBloc
 
 <p><strong>The code way</strong>, one call in <code>init()</code> after the block is registered, no file at all. <code>RetroToolTier.IRON.needsTag()</code> hands back the very same <code>needs_iron_tool</code> tag key the file feeds, and <code>RetroTags.addToTag</code> drops the block into it:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// The CODE way to set a tool tier on a block: identical effect to listing ruby_ore in</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// The CODE way to set a tool tier on a block: identical effect to listing ruby_ore in</span>
 <span class="c">// data/example_mod/tags/block/needs_iron_tool.json above, and the two union harmlessly.</span>
 <span class="c">// RetroToolTier.IRON.needsTag() is the needs_iron_tool tag key; addToTag puts the block</span>
 <span class="c">// in it, so the ore now drops only for an iron-or-better pickaxe. Runs after RUBY_ORE</span>
@@ -309,7 +376,7 @@ com.periut.retroapi.tag.RetroTags.addToTag(
 
 <p>Pick one. The data file is the move when you are copying a modern pack or want the gating editable without recompiling; the code call is the move when the tier is a fixed property of a block you are already registering in <code>init()</code>, keeping the rule next to the block. The <em>kind</em> gate has the same pair: <code>.mineable(RetroTool.PICKAXE)</code> is the code twin of <code>mineable/pickaxe.json</code>, and it too sugars to a <code>RetroTags.addToTag(RetroTool.PICKAXE.mineableTag(), block)</code> you could write by hand. Now the item side: where does a tool's tier come from? Vanilla tools need nothing, any <code>ToolItem</code> subclass infers its tier from its material's mining level (<code>ToolMaterial.getMiningLevel()</code>), so an iron pickaxe is iron tier the moment the file loads. Custom tools that are plain <code>Item</code>s declare a tier with one chainable builder call, and the kind right next to it:</p>
 
-<div class="codeblock"><span class="code-title">ExampleMod.java, init(), the Ruby Pick</span><pre><code>// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem
+<div class="codeblock"><span class="code-title">ExampleMod.java, initRetro(), the Ruby Pick</span><pre><code>// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem
 // subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it
 // harvests anything in mineable/pickaxe up through needs_iron_tool, including
 // the ruby ore above. Vanilla tools never need this, they infer kind from
@@ -328,7 +395,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 <h2>Condensed dirt: a shovel block</h2>
 <p>The ruby ore is a pickaxe block; the same two gates work for any tool. Condensed dirt, the "your first block" example ported from <a href="https://docs.fabricmc.net/develop/blocks/first-block">fabric-docs</a>, is the shovel counterpart: a compressed-dirt cube that mines with a <strong>shovel</strong> and, like the ore, only drops for an <strong>iron-tier</strong> tool. It is the plainest builder in the mod plus those two tag calls:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code>CONDENSED_DIRT = RetroBlockAccess.create(Material.SOIL)
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CONDENSED_DIRT = RetroBlockAccess.create(Material.SOIL)
 	.sounds(Block.GRAVEL_SOUND_GROUP)                       <span class="c">// crunchy, like gravel</span>
 	.strength(<span class="n">0.6f</span>)
 	.mineable(com.periut.retroapi.tag.RetroTool.SHOVEL)    <span class="c">// shovel is the matching tool</span>
@@ -373,7 +440,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 
 <p>The code way is the same one-liner the ore could have used, swapping the block in:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in init()</span><pre><code><span class="c">// Same effect as adding "example_mod:condensed_dirt" to needs_iron_tool.json; pick whichever.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Same effect as adding "example_mod:condensed_dirt" to needs_iron_tool.json; pick whichever.</span>
 com.periut.retroapi.tag.RetroTags.addToTag(
 	com.periut.retroapi.tag.RetroToolTier.IRON.needsTag(), CONDENSED_DIRT);</code></pre></div>
 

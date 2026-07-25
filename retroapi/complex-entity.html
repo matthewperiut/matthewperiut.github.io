@@ -251,9 +251,9 @@
 	<span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> AERBUNNY_JUMP = ChannelRegistry.register(
 		ChannelIdentifiers.from(ExampleMod.MOD_ID, <span class="s">"aerbunny_jump"</span>), <span class="k">false</span>, <span class="k">true</span>);</code></pre></div>
 
-<p>The server registers a listener for it in <code>ExampleModServer.initServer()</code>. It reads the boolean, hops onto the main thread because it's about to touch live entity state, and hands the key to whatever bunny the sending player is carrying:</p>
+<p>The server registers a listener for it in <code>ExampleModServer.initRetroServer()</code>. It reads the boolean, hops onto the main thread because it's about to touch live entity state, and hands the key to whatever bunny the sending player is carrying:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java, initServer()</span><pre><code>		<span class="c">// The rider's jump key, shipped by the client every tick while riding an Aerbunny.</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModServer.java, initRetroServer()</span><pre><code>		<span class="c">// The rider's jump key, shipped by the client every tick while riding an Aerbunny.</span>
 		<span class="c">// We hand it to the Aerbunny the player is carrying so the glide boost fires on the</span>
 		<span class="c">// authoritative side. ensureOnMainThread because we touch live entity state.</span>
 		ServerPlayNetworking.registerListener(ExampleNetworking.AERBUNNY_JUMP, (ctx, buf) -&gt; {
@@ -507,25 +507,25 @@
 
 <p>Both numbers it draws from, <code>getSyncedVelocityY()</code> and <code>bunny.puffiness</code>, came off the wire, never from a field the client simulated. That is the whole point: a remote client never runs the bunny's physics, so the only honest source for the render is what the server told it. The publish/trust split from earlier in the chapter ends here, at the GL call that finally uses it.</p>
 
-<div class="danger"><p><code>AerbunnyModel</code> and <code>AerbunnyRenderer</code> name <code>GL11</code> and <code>LivingEntityRenderer</code>, client-only graphics classes. Both must be registered from <code>initClient()</code> and never touched in common code, the same wall that kept the biped renderer client-side in <a href="entities.html">Chapter 7</a>. The entity class is common; the model and renderer are client. Don't let them cross.</p></div>
+<div class="danger"><p><code>AerbunnyModel</code> and <code>AerbunnyRenderer</code> name <code>GL11</code> and <code>LivingEntityRenderer</code>, client-only graphics classes. Both must be registered from <code>initRetroClient()</code> and never touched in common code, the same wall that kept the biped renderer client-side in <a href="entities.html">Chapter 7</a>. The entity class is common; the model and renderer are client. Don't let them cross.</p></div>
 
 <h2>Registering every piece</h2>
 <p>Eleven files only do something once they're wired in. Here is every registration, in the right entrypoint.</p>
 
 <p><strong>The entity</strong>, in the common <code>init()</code>, with the <code>MobFactory</code> cast that marks it as a living entity (the rule from <a href="entities.html">Chapter 7</a>):</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, init()</span><pre><code>		AERBUNNY = <span class="t">RetroEntities</span>.register(<span class="t">AerbunnyEntity</span>.ID, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>)
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>		AERBUNNY = <span class="t">RetroEntities</span>.register(<span class="t">AerbunnyEntity</span>.ID, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>)
 			.factory((<span class="t">MobFactory</span>) <span class="t">AerbunnyEntity</span>::<span class="k">new</span>);</code></pre></div>
 
-<p><strong>The renderer</strong>, in the client <code>initClient()</code>, passing a fresh <code>AerbunnyModel</code> and a half-block shadow:</p>
+<p><strong>The renderer</strong>, in the client <code>initRetroClient()</code>, passing a fresh <code>AerbunnyModel</code> and a half-block shadow:</p>
 
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initClient()</span><pre><code>		<span class="c">// The Aerbunny gets a CUSTOM model + renderer (not the biped). The renderer</span>
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java, initRetroClient()</span><pre><code>		<span class="c">// The Aerbunny gets a CUSTOM model + renderer (not the biped). The renderer</span>
 		<span class="c">// reads the entity's server-synced puffiness and velocity to drive the puff</span>
 		<span class="c">// and tilt, the payoff of the DataTracker sync in AerbunnyEntity.</span>
 		<span class="t">RetroEntityRenderers</span>.register(<span class="t">AerbunnyEntity</span>.<span class="k">class</span>,
 			<span class="k">new</span> <span class="t">AerbunnyRenderer</span>(<span class="k">new</span> <span class="t">AerbunnyModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
 
-<p><strong>The jump channel</strong> is declared in <code>ExampleNetworking</code> (shown earlier) and registered by that class's static initializer, which <code>ExampleMod.init()</code> already forces to load via <code>registerChannels()</code> (<a href="networking.html">Chapter 12</a>). The <strong>server listener</strong> for it is in <code>ExampleModServer.initServer()</code> (also shown earlier). The <strong>client sender</strong> is the mount mixin.</p>
+<p><strong>The jump channel</strong> is declared in <code>ExampleNetworking</code> (shown earlier) and registered by that class's static initializer, which <code>ExampleMod.initRetro()</code> already forces to load via <code>registerChannels()</code> (<a href="networking.html">Chapter 12</a>). The <strong>server listener</strong> for it is in <code>ExampleModServer.initRetroServer()</code> (also shown earlier). The <strong>client sender</strong> is the mount mixin.</p>
 
 <p><strong>The three mixin entries.</strong> The two accessors go in the common <code>"mixins"</code> list (they touch only common classes), and the client mount mixin goes in <code>"client"</code> so it never loads on a dedicated server, where <code>ClientPlayNetworking</code> doesn't exist:</p>
 
