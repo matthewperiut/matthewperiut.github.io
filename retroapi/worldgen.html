@@ -22,8 +22,8 @@
 <table>
 <tr><th>If you want to…</th><th>Go to</th></tr>
 <tr><td>put ore, boulders or structures into existing worlds</td><td><a href="#adding-features-to-worlds-that-already-exist">Features</a></td></tr>
-<tr><td>describe a new biome (colours, weather, spawns)</td><td><a href="#biomes">Biomes</a></td></tr>
-<tr><td>change spawns or colours of a biome that already exists</td><td><a href="#editing-existing-biomes">Editing existing biomes</a></td></tr>
+<tr><td>describe a new biome (colors, weather, spawns)</td><td><a href="#biomes">Biomes</a></td></tr>
+<tr><td>change spawns or colors of a biome that already exists</td><td><a href="#editing-existing-biomes">Editing existing biomes</a></td></tr>
 <tr><td>build terrain from scratch</td><td><a href="#a-chunk-generator-from-one-equation">Chunk generators</a></td></tr>
 <tr><td>register the world itself, and a way in</td><td><a href="dimensions.html">Dimensions &amp; portals</a></td></tr>
 </table>
@@ -130,7 +130,7 @@ NOISY_LUSH_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Lu
 	}
 }</code></pre></div>
 
-<div class="note"><p>The biome source and the chunk source <strong>must sample the same noise</strong>. The grass colour at a spot is decided here (by which biome <code>pick</code> returns), but the tree and flower density there is decided in the chunk source's <code>decorate</code> by its own <code>isAmplifiedBiome</code>. If the two disagreed, you'd get orange grass with lush-biome foliage. They don't, because both build an <code>OctavePerlinNoiseSampler</code> from <code>seed + 3</code> with two octaves and sample at <code>/ 220.0</code>. Same seed, same frequency, same answer. When you split a dimension into regions, route both decisions through one shared noise.</p></div>
+<div class="note"><p>The biome source and the chunk source <strong>must sample the same noise</strong>. The grass color at a spot is decided here (by which biome <code>pick</code> returns), but the tree and flower density there is decided in the chunk source's <code>decorate</code> by its own <code>isAmplifiedBiome</code>. If the two disagreed, you'd get orange grass with lush-biome foliage. They don't, because both build an <code>OctavePerlinNoiseSampler</code> from <code>seed + 3</code> with two octaves and sample at <code>/ 220.0</code>. Same seed, same frequency, same answer. When you split a dimension into regions, route both decisions through one shared noise.</p></div>
 
 <h2>Editing existing biomes</h2>
 <p>Authoring a brand-new biome is one thing; reaching into a biome that already exists, vanilla's or another mod's, is another, and it's where mods break each other. Beta has a single global set of biome objects (<code>Biome.PLAINS</code>, <code>Biome.FOREST</code>, and so on) shared by every dimension and every mod, so clobbering a spawn list is how you stomp on everyone else. RetroAPI's <code>RetroBiomes</code> is built around one rule: <strong>additive, never destructive.</strong> Every add method appends to a list and leaves every other entry in place, and <code>addSpawn</code> de-dupes by class, so registering the same mob twice updates its weight instead of stacking a duplicate:</p>
@@ -263,10 +263,10 @@ yaw += (rand.nextDouble() - <span class="n">0.5</span>) * <span class="n">0.35</
 pitch += (rand.nextDouble() - <span class="n">0.5</span>) * <span class="n">0.25</span>;
 pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizontal so tunnels mostly snake sideways</span></code></pre></div>
 
-<p>Each worm is seeded per <em>origin</em> chunk and is allowed to reach a few chunks past its own border, so a tunnel that starts in one chunk carves its way into the neighbours and never stops dead at a chunk wall. That neighbourhood loop is why tunnels cross chunk seams seamlessly: every chunk re-runs the worms of every nearby origin and carves only the part of each sphere that falls inside its own column.</p>
+<p>Each worm is seeded per <em>origin</em> chunk and is allowed to reach a few chunks past its own border, so a tunnel that starts in one chunk carves its way into the neighbors and never stops dead at a chunk wall. That neighborhood loop is why tunnels cross chunk seams seamlessly: every chunk re-runs the worms of every nearby origin and carves only the part of each sphere that falls inside its own column.</p>
 
 <h3>Decoration</h3>
-<p>Ores and caves edit the raw <code>byte[]</code> before the chunk is born. Trees, pools, and flowers can't: a tree pokes into the chunk next door, and that chunk may not exist yet. That is exactly what <code>decorate</code> is for. It runs <em>after</em> the raw terrain of this chunk and its neighbours exists, so it can read and write blocks through the <code>world</code> safely. Like vanilla, it offsets by 8 to stay clear of not-yet-generated edges, then places trees, an occasional pool, and flower patches, denser or sparser depending on which biome this chunk fell in:</p>
+<p>Ores and caves edit the raw <code>byte[]</code> before the chunk is born. Trees, pools, and flowers can't: a tree pokes into the chunk next door, and that chunk may not exist yet. That is exactly what <code>decorate</code> is for. It runs <em>after</em> the raw terrain of this chunk and its neighbors exists, so it can read and write blocks through the <code>world</code> safely. Like vanilla, it offsets by 8 to stay clear of not-yet-generated edges, then places trees, an occasional pool, and flower patches, denser or sparser depending on which biome this chunk fell in:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyChunkSource.java, decorate()</span><pre><code><span class="k">int</span> baseX = chunkX * <span class="n">16</span> + <span class="n">8</span>;
 <span class="k">int</span> baseZ = chunkZ * <span class="n">16</span> + <span class="n">8</span>;
@@ -287,7 +287,7 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 <h2>Placing modded blocks in worldgen</h2>
 <p>There's a hard wall in the chunk <code>byte[]</code>: a byte holds <code>0</code> to <code>255</code>, and every RetroAPI block gets an id <strong>&gt;= 256</strong> (the id story from <a href="blocks.html">Blocks</a>). Vanilla grass, dirt, stone, ore, and water all fit in a byte, which is why the column fill and the ore veins write the array directly. A modded block cannot. Write its id into the byte array and the high bits are simply lost.</p>
 
-<p>There are two ways around the wall. The first, if you only need the block at the moment the chunk is built, is <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code> from the section above: it takes any id, vanilla or modded, and writes it straight into the chunk you got from <code>createChunk</code>, so a generator can place a modded block in <code>getChunk</code> without ever touching the lossy <code>byte[]</code>. The second, used when the placement needs information that only exists once neighbouring chunks are generated, is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Blocks</a>'s block toolkit:</p>
+<p>There are two ways around the wall. The first, if you only need the block at the moment the chunk is built, is <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code> from the section above: it takes any id, vanilla or modded, and writes it straight into the chunk you got from <code>createChunk</code>, so a generator can place a modded block in <code>getChunk</code> without ever touching the lossy <code>byte[]</code>. The second, used when the placement needs information that only exists once neighboring chunks are generated, is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Blocks</a>'s block toolkit:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFlowerBlock.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleFlowerBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
 
@@ -302,7 +302,7 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 	}
 }</code></pre></div>
 
-<p>Render type <code>1</code> is the trick that makes its inventory icon a flat sprite like a dandelion while the world block is a 3D cross; RetroAPI leaves non-custom render types alone, so this is pure vanilla behaviour. The worldgen side is the flower patch, which only places on bare grass above sea level and reaches the modded block through <code>setBlock</code>:</p>
+<p>Render type <code>1</code> is the trick that makes its inventory icon a flat sprite like a dandelion while the world block is a 3D cross; RetroAPI leaves non-custom render types alone, so this is pure vanilla behavior. The worldgen side is the flower patch, which only places on bare grass above sea level and reaches the modded block through <code>setBlock</code>:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyChunkSource.java, placeFlowerPatch()</span><pre><code><span class="k">int</span> fy = <span class="k">this</span>.world.getTopY(fx, fz);
 <span class="k">if</span> (fy &gt; SEA_LEVEL

@@ -60,11 +60,10 @@
 
 <p>Almost everything here can be declared two ways: as a call in your mod, or as a JSON file the game loads. Textures, block states, models, tags and translations all work either way, and they mix freely, one block can take its textures from code and its variants from a blockstate file.</p>
 
-<p>This wiki shows both. Use the switch in the header (or above any block that has both) to flip the whole site between them; it remembers your choice:</p>
+<p>This wiki shows both. Wherever the two differ, a switch sits directly above them, flip it and the whole site follows, and it remembers your choice:</p>
 
-<div class="dual" data-label="Same block, both ways">
+<div class="dual" data-topic="blocks">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">in your mod's initRetro()</span><pre><code>LAMP = RetroBlockAccess.create(Material.STONE)
     .states(LIT)
     .texture(id(<span class="s">"lamp_off"</span>))
@@ -72,7 +71,6 @@
     .register(id(<span class="s">"lamp"</span>));</code></pre></div>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
   <span class="t">"properties"</span>: { <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>] },
   <span class="t">"variants"</span>: {

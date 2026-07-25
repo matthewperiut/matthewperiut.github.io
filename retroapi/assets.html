@@ -158,15 +158,13 @@ gui.retroapi.achievementPage.example_mod.example_page=Example Mod</code></pre></
 <li><strong>Missing lines never break anything.</strong> Anything you don't translate gets an auto-generated default derived from its identifier, <code>example_block</code> becomes "Example Block", so a half-finished lang file shows readable placeholders, not raw keys.</li>
 </ul>
 
-<div class="dual" data-label="Naming a block or item">
+<div class="dual" data-topic="names">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">no lang file at all</span><pre><code>RUBY_ORE = RetroBlockAccess.create(Material.STONE)
     .register(id(<span class="s">"ruby_ore"</span>));   <span class="c">// shows as "Ruby Ore"</span></code></pre></div>
 <p>With no translation present, RetroAPI generates a readable name from the identifier and notes it in the debug log. Fine while prototyping; ship a lang file before release, because generated names cannot be translated.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/lang/en_US.lang</span><pre><code>tile.example_mod.ruby_ore.name=Ruby Ore
 item.example_mod.ruby.name=Ruby</code></pre></div>
 <p>The real answer: one line per name, per language, and a translation pack can add languages you never wrote.</p>

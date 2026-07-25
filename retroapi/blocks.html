@@ -31,7 +31,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <span class="c">// Other builder options you can chain before .register(...):</span>
 <span class="c">//   .light(1.0f), glow like glowstone</span>
 <span class="c">//   .opacity(0), let light pass through</span>
-<span class="c">//   .nonOpaque(), neighbours draw their touching faces</span>
+<span class="c">//   .nonOpaque(), neighbors draw their touching faces</span>
 <span class="c">//   .bounds(minX,minY,minZ,maxX,maxY,maxZ), non-full-cube hitbox</span>
 <span class="c">//   .sprite(Block.GLASS.getTexture(0)), reuse a vanilla texture instead</span>
 <span class="c">//   .alwaysDrops() / .alwaysEffectiveTool() / .effectiveTool(PickaxeItem.class)</span></code></pre></div>
@@ -57,7 +57,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <tr><td><code>resistance(float)</code></td><td>blast resistance on its own</td></tr>
 <tr><td><code>light(float)</code></td><td>emitted light, 0 to 1 (1.0 = full glowstone)</td></tr>
 <tr><td><code>opacity(int)</code></td><td>how much light it blocks (0 = transparent to light)</td></tr>
-<tr><td><code>nonOpaque()</code></td><td>not a solid cube, neighbours render the faces they share with it</td></tr>
+<tr><td><code>nonOpaque()</code></td><td>not a solid cube, neighbors render the faces they share with it</td></tr>
 <tr><td><code>bounds(minX,minY,minZ,maxX,maxY,maxZ)</code></td><td>a non-full-cube hitbox/shape, in 0 to 1 block units</td></tr>
 <tr><td><code>renderType(NamespacedIdentifier)</code></td><td>use a render type (vanilla or your own) instead of a plain cube</td></tr>
 <tr><td><code>sprite(int)</code></td><td>set the default sprite index (particles + item form), often a vanilla one</td></tr>
@@ -84,7 +84,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <ul>
 <li><strong>It allocates numeric ids ≥ 256</strong>, above vanilla's range, so your blocks never collide with the game's.</li>
 <li><strong>It remaps them per-world for stability.</strong> The actual number a block gets can differ between worlds; RetroAPI keeps a per-world mapping so a save always reads back the right block even if the raw number shifted.</li>
-<li><strong>It hides them from vanilla saves</strong> using sidecar files alongside the world data, so a world opened <em>without</em> your mod doesn't choke on an id it doesn't recognise, and your content reappears intact when the mod returns.</li>
+<li><strong>It hides them from vanilla saves</strong> using sidecar files alongside the world data, so a world opened <em>without</em> your mod doesn't choke on an id it doesn't recognize, and your content reappears intact when the mod returns.</li>
 </ul>
 <p>The upshot: you never type a numeric id. You deal only in <code>NamespacedIdentifier</code>s, <code>id("example_block")</code>, and RetroAPI handles the bookkeeping that used to be the most error-prone part of beta modding.</p>
 
@@ -185,7 +185,7 @@ PIPE_BLOCK = RetroBlockAccess.create(Material.STONE)
 	.sprite(Block.COBBLESTONE.getTexture(<span class="n">0</span>)) <span class="c">// used for particles + item form</span>
 	.register(id(<span class="s">"example_pipe"</span>));</code></pre></div>
 
-<p>The block is <code>nonOpaque()</code> (so it doesn't hide neighbours), shrunk to the middle 8&times;8&times;8 with <code>bounds(...)</code> (the <code>4/16</code> to <code>12/16</code> range), and pointed at <code>PIPE_RENDER_TYPE</code> with <code>renderType(...)</code>. Because it ships no texture of its own, <code>.sprite(Block.COBBLESTONE.getTexture(0))</code> borrows cobblestone for its particles and held-item form, and the render lambda borrows the same sprite for its faces.</p>
+<p>The block is <code>nonOpaque()</code> (so it doesn't hide neighbors), shrunk to the middle 8&times;8&times;8 with <code>bounds(...)</code> (the <code>4/16</code> to <code>12/16</code> range), and pointed at <code>PIPE_RENDER_TYPE</code> with <code>renderType(...)</code>. Because it ships no texture of its own, <code>.sprite(Block.COBBLESTONE.getTexture(0))</code> borrows cobblestone for its particles and held-item form, and the render lambda borrows the same sprite for its faces.</p>
 
 <h3>The render context</h3>
 <p>A render type is a function from a <code>BlockRenderContext</code> to "did I draw it?" (<code>true</code> means you handled rendering; the engine won't fall back to the default cube). The context knows the block, its position, the world, and lighting, and hands you a kit of helpers:</p>
@@ -195,7 +195,7 @@ PIPE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <tr><td><code>renderFullCube()</code></td><td>a standard six-sided cube using the block's own sprites</td></tr>
 <tr><td><code>renderAllLitFaces(sprite)</code></td><td>all six faces with one sprite, lit per face (what the pipe uses)</td></tr>
 <tr><td><code>renderLitFace(face, sprite)</code></td><td>a single face, with that face's lighting</td></tr>
-<tr><td><code>shouldRenderFace(face)</code></td><td>whether a face is visible (neighbour isn't covering it)</td></tr>
+<tr><td><code>shouldRenderFace(face)</code></td><td>whether a face is visible (neighbor isn't covering it)</td></tr>
 <tr><td><code>getSprite(face)</code></td><td>the block's sprite index for a face</td></tr>
 <tr><td><code>tesselator()</code></td><td>the raw <code>Tessellator</code> for hand-rolled vertices when you need full control</td></tr>
 </table>
@@ -225,9 +225,8 @@ ODDITY = RetroBlockAccess.create(Material.STONE)
 
 <p><code>.sided(top, side, front)</code> follows the block's <code>facing</code> state, so one declaration covers all four orientations, and with <code>.facingAll()</code> all six: pointed up or down, the front goes on the top or bottom face and the ring of four gets the side texture, the way a dispenser looks. A fourth argument gives the bottom its own texture; without it the bottom reuses the top, like a furnace.</p>
 
-<div class="dual" data-label="Giving a block its faces">
+<div class="dual" data-topic="block textures">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code>MACHINE = RetroBlockAccess.create(Material.STONE)
     .facing()
     .sided(id(<span class="s">"machine_top"</span>), id(<span class="s">"machine_side"</span>), id(<span class="s">"machine_front"</span>))
@@ -235,7 +234,6 @@ ODDITY = RetroBlockAccess.create(Material.STONE)
 <p>Three PNGs and one call. The front follows the facing state, so all four orientations are covered, and there is no JSON to keep in sync with the class.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/models/block/machine.json</span><pre><code>{
   <span class="t">"parent"</span>: <span class="s">"minecraft:block/orientable"</span>,
   <span class="t">"textures"</span>: {
@@ -260,21 +258,21 @@ ODDITY = RetroBlockAccess.create(Material.STONE)
 
 <p>Two more things that used to mean writing a custom block renderer or generating a sprite per combination.</p>
 
-<p><strong>Tint</strong> multiplies the block's colour, per position, from a lambda. This is the hook vanilla uses for biome-coloured grass, exposed for your blocks:</p>
+<p><strong>Tint</strong> multiplies the block's color, per position, from a lambda. This is the hook vanilla uses for biome-colored grass, exposed for your blocks:</p>
 
-<div class="codeblock"><span class="code-title">state-driven colour</span><pre><code>LETTER_BLOCK = RetroBlockAccess.create(Material.STONE)
+<div class="codeblock"><span class="code-title">state-driven color</span><pre><code>LETTER_BLOCK = RetroBlockAccess.create(Material.STONE)
     .states(LETTER, MARK)
     .texture(id(<span class="s">"letter_backdrop"</span>))
     .tint((state, world, x, y, z, tintIndex) -&gt; <span class="k">switch</span> (state.get(MARK)) {
         <span class="k">case</span> HIT   -&gt; <span class="n">0x6AAA64</span>;   <span class="c">// green</span>
         <span class="k">case</span> CLOSE -&gt; <span class="n">0xC9B458</span>;   <span class="c">// yellow</span>
-        <span class="k">default</span>    -&gt; <span class="n">0x787C7E</span>;   <span class="c">// grey</span>
+        <span class="k">default</span>    -&gt; <span class="n">0x787C7E</span>;   <span class="c">// gray</span>
     })
     .register(id(<span class="s">"letter"</span>));</code></pre></div>
 
 <p>The same provider drives the inventory icon (the world is <code>null</code> there) and, for a JSON model, any face with a <code>tintindex</code>. <code>RetroBlockColors.GRASS</code> and <code>.FOLIAGE</code> are ready-made biome providers.</p>
 
-<p><strong>Overlays</strong> draw another sprite on top of the block's faces, as an extra render pass, exactly the way vanilla paints grass' green edge over plain dirt. Each layer carries its own tint, which is what turns "a letter on a coloured backdrop" from 26 × 3 baked sprites into two:</p>
+<p><strong>Overlays</strong> draw another sprite on top of the block's faces, as an extra render pass, exactly the way vanilla paints grass' green edge over plain dirt. Each layer carries its own tint, which is what turns "a letter on a colored backdrop" from 26 × 3 baked sprites into two:</p>
 
 <div class="codeblock"><span class="code-title">layers</span><pre><code><span class="c">// fixed overlay, optionally tinted</span>
 .texture(id(<span class="s">"letter_backdrop"</span>)).overlay(id(<span class="s">"letter_q"</span>))

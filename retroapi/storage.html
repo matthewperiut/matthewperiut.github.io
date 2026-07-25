@@ -21,7 +21,7 @@
 
 <h2>The problem beta hands you</h2>
 
-<p>A chunk in b1.7.3 stores each block as a <strong>byte</strong>: ids 0-255, no more. Alongside it sits a 4-bit metadata nibble, 16 values, which vanilla already spends on things like wool colour and log type. There is no field for "which mod", no string ids, no room to grow.</p>
+<p>A chunk in b1.7.3 stores each block as a <strong>byte</strong>: ids 0-255, no more. Alongside it sits a 4-bit metadata nibble, 16 values, which vanilla already spends on things like wool color and log type. There is no field for "which mod", no string ids, no room to grow.</p>
 
 <p>So any modded content on this version has to answer one question: <em>where do the extra bits go?</em> The tempting answer is "into the vanilla arrays, we will just use the free numbers". It works, right up until it does not:</p>
 
@@ -67,7 +67,7 @@
 
 <h2>Testing your own mod against this</h2>
 
-<p>The behaviour above is not theory, RetroAPI's own test mod places modded blocks with wide states, modded items with components, dropped stacks and a modded mob, saves, reloads, and asserts every one of them survived, then converts the world to StationAPI's format and back and asserts again. If your mod does anything unusual with storage, the same pattern (place, save, reload, assert) is the way to check it. See <a href="testing.html">Testing</a>.</p>
+<p>The behavior above is not theory, RetroAPI's own test mod places modded blocks with wide states, modded items with components, dropped stacks and a modded mob, saves, reloads, and asserts every one of them survived, then converts the world to StationAPI's format and back and asserts again. If your mod does anything unusual with storage, the same pattern (place, save, reload, assert) is the way to check it. See <a href="testing.html">Testing</a>.</p>
 </div>
 
 <div class="pager"></div>

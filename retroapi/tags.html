@@ -29,9 +29,8 @@
 
 <p>They are deliberately independent, exactly as in modern Minecraft. A <code>mineable</code> tag grants speed. Whether a block needs a tool <em>at all</em> comes from its material (beta's own stone/metal rule) or from a <code>needs_*_tool</code> tag. So a hand-breakable block in <code>mineable/axe</code> still drops by hand and merely mines faster with an axe, while a stone-material block in <code>mineable/pickaxe</code> drops only for a pickaxe.</p>
 
-<div class="dual" data-label="Tagging a block">
+<div class="dual" data-topic="tags">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code>RUBY_ORE = RetroBlockAccess.create(Material.STONE)
     .strength(<span class="n">3.0F</span>)
     .mineable(RetroTool.PICKAXE)          <span class="c">// speed: pickaxes</span>
@@ -42,7 +41,6 @@
 <p>Everything in one chain, next to the rest of the block's definition.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">data/example_mod/tags/block/mineable/pickaxe.json</span><pre><code>{
   <span class="t">"replace"</span>: <span class="k">false</span>,
   <span class="t">"values"</span>: [

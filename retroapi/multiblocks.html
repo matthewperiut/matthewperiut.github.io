@@ -62,7 +62,7 @@
 
 <h2>Multiblocks: draw the shape, don't code it</h2>
 
-<p>A multiblock is a shape plus a test. Written by hand, the test is a page of neighbour checks; written twice (once per rotation) it's a page of bugs. <code>RetroMultiblock</code> takes the shape as ASCII layers and a legend, the way you'd sketch it on paper:</p>
+<p>A multiblock is a shape plus a test. Written by hand, the test is a page of neighbor checks; written twice (once per rotation) it's a page of bugs. <code>RetroMultiblock</code> takes the shape as ASCII layers and a legend, the way you'd sketch it on paper:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMultiblocks.java</span><pre><code><span class="k">public static final</span> <span class="t">RetroMultiblock</span> FURNACE_TOWER = RetroMultiblock.builder()
     .layer(<span class="s">"BBB"</span>,             <span class="c">// y = 0, bottom layer, rows run north → south</span>
@@ -102,13 +102,13 @@
 
 <h2>The load pass: doing things when the world is actually there</h2>
 
-<p>Multiblocks want to rebuild themselves after a world loads, and that's where beta trips you. A block entity's <code>readNbt</code> runs while the chunk is still being deserialised: there is no world on it yet, the neighbours may not exist, and touching the world from there either throws or reads a half-built chunk. The usual workaround is a hand-rolled "have I initialised yet?" boolean in every block entity.</p>
+<p>Multiblocks want to rebuild themselves after a world loads, and that's where beta trips you. A block entity's <code>readNbt</code> runs while the chunk is still being deserialized: there is no world on it yet, the neighbors may not exist, and touching the world from there either throws or reads a half-built chunk. The usual workaround is a hand-rolled "have I initialized yet?" boolean in every block entity.</p>
 
 <p>RetroAPI ships that boolean once, for everyone:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>BlockEntityLoadedCallback.EVENT.register(blockEntity -&gt; {
     <span class="k">if</span> (blockEntity <span class="k">instanceof</span> <span class="t">ExampleCoreBlockEntity</span> core) {
-        core.rebuildStructure();   <span class="c">// safe: world and neighbours exist</span>
+        core.rebuildStructure();   <span class="c">// safe: world and neighbors exist</span>
     }
 });</code></pre></div>
 

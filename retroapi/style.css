@@ -725,23 +725,48 @@ kbd {
     background: var(--panel);
 }
 
+/* The switch heads the block it governs: it sits directly above the differing content,
+   reading as a pair of tabs over the pane below it. */
 .dual-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    padding: 10px 0;
+    margin: 0 -14px 12px;
+    padding: 0 10px;
     border-bottom: 1px solid var(--panel-border);
-    margin-bottom: 12px;
 }
 
-.dual-label {
+.dual-head .mode-switch {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 4px;
+    transform: translateY(1px);
+}
+
+.dual-head .mode-btn {
     font-size: 0.82rem;
-    font-weight: 600;
+    padding: 9px 14px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+}
+
+.dual-head .mode-btn + .mode-btn {
+    border-left: 1px solid transparent;
+}
+
+.dual-head .mode-btn:hover {
+    background: var(--nav-hover);
+    color: var(--text);
+}
+
+/* The active tab joins the pane underneath it. */
+.dual-head .mode-btn.active {
+    background: var(--panel);
+    color: var(--text);
+    font-weight: 600;
+    border-color: var(--panel-border);
+    border-left-color: var(--panel-border);
+    box-shadow: 0 1px 0 0 var(--panel);
 }
 
 /* One pane at a time, chosen by the root's data-mode. */
@@ -752,29 +777,6 @@ kbd {
 html[data-mode="code"] .dual > [data-mode="code"],
 html[data-mode="data"] .dual > [data-mode="data"] {
     display: block;
-}
-
-/* On a wide screen the two panes can sit side by side instead; opt in per block with
-   class="dual side-by-side". The switch then just highlights which one is authoritative. */
-@media (min-width: 1500px) {
-    .dual.side-by-side {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0 18px;
-        align-items: start;
-    }
-    .dual.side-by-side .dual-head {
-        grid-column: 1 / -1;
-    }
-    .dual.side-by-side > [data-mode] {
-        display: block;
-        opacity: 0.55;
-        transition: opacity 0.15s ease;
-    }
-    html[data-mode="code"] .dual.side-by-side > [data-mode="code"],
-    html[data-mode="data"] .dual.side-by-side > [data-mode="data"] {
-        opacity: 1;
-    }
 }
 
 .dual .pane-title {

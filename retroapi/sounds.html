@@ -54,15 +54,13 @@
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlock.java, the play line</span><pre><code>world.playSound(x + <span class="n">0.5</span>, y + <span class="n">0.5</span>, z + <span class="n">0.5</span>, <span class="s">"example_mod:counter.click"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
 
-<div class="dual" data-label="Adding a sound">
+<div class="dual" data-topic="sounds">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code>RetroSounds.register(id(<span class="s">"machine_hum"</span>));
 world.playSound(x, y, z, <span class="s">"example_mod.machine_hum"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
 <p>Explicit registration, useful when the name is computed or the file layout is unusual.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/sounds/machine_hum.ogg</span><pre><code><span class="c">// no code, no json: the file being there is the registration</span></code></pre></div>
 <p>The autoloader walks your mod's <code>sounds/</code> folder and registers what it finds, naming each entry after its path. Numbered files (<code>hurt1.ogg</code>, <code>hurt2.ogg</code>) become variants of one name automatically.</p>
 </div>

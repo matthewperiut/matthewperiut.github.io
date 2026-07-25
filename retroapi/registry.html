@@ -51,7 +51,7 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 
 <h2>Code-driven and data-driven</h2>
 
-<p>Most content can be declared either as a builder call or as a JSON file under <code>assets/</code> or <code>data/</code>. The switch at the top of the page flips this wiki between the two. What the two can express is not always identical, so here is the honest map:</p>
+<p>Most content can be declared either as a builder call or as a JSON file under <code>assets/</code> or <code>data/</code>. Wherever both exist, a switch sits directly above the two versions and flips the whole wiki between them. What the two can express is not always identical, so here is the honest map:</p>
 
 <table>
 <tr><th>Topic</th><th>Code</th><th>Data files</th><th>Which wins</th></tr>
@@ -66,9 +66,8 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 <tr><td>Recipes, entities, dimensions, features, particles, components</td><td>✔</td><td>—</td><td>code only</td></tr>
 </table>
 
-<div class="dual" data-label="Declaring a block's variants">
+<div class="dual" data-topic="block states">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
 
 LAMP = RetroBlockAccess.create(Material.STONE)
@@ -79,7 +78,6 @@ LAMP = RetroBlockAccess.create(Material.STONE)
 <p>Nothing to ship but the class. The property object is what you read and write states with later.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
   <span class="t">"properties"</span>: { <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>] },
   <span class="t">"variants"</span>: {

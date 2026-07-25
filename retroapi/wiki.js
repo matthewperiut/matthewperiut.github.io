@@ -93,10 +93,13 @@
         }
     }
 
-    function modeSwitch(extraClass) {
-        return '<span class="mode-switch ' + (extraClass || '') + '">'
-            + '<button type="button" class="mode-btn' + (mode === 'code' ? ' active' : '') + '" data-set="code">code</button>'
-            + '<button type="button" class="mode-btn' + (mode === 'data' ? ' active' : '') + '" data-set="data">data files</button>'
+    function modeSwitch(topic) {
+        var what = topic ? ' ' + topic : '';
+        return '<span class="mode-switch">'
+            + '<button type="button" class="mode-btn' + (mode === 'code' ? ' active' : '') + '" data-set="code">'
+            + 'code driven' + what + '</button>'
+            + '<button type="button" class="mode-btn' + (mode === 'data' ? ' active' : '') + '" data-set="data">'
+            + 'data driven' + what + '</button>'
             + '</span>';
     }
 
@@ -119,8 +122,7 @@
             d.setAttribute('data-built', 'yes');
             var head = document.createElement('div');
             head.className = 'dual-head';
-            var label = d.getAttribute('data-label') || 'Two ways to declare this';
-            head.innerHTML = '<span class="dual-label">' + label + '</span>' + modeSwitch('inline');
+            head.innerHTML = modeSwitch(d.getAttribute('data-topic') || '');
             d.insertBefore(head, d.firstChild);
         }
     }
@@ -194,7 +196,7 @@
         }
         header.innerHTML = '<p class="crumbs"><a href="index.html">RetroAPI wiki</a>'
             + (section ? ' / ' + section : '') + (crumb ? ' / ' + crumb : '') + '</p>'
-            + '<span class="header-tools">' + modeSwitch('header')
+            + '<span class="header-tools">'
             + '<button class="theme-toggle" type="button"></button></span>';
         header.querySelector('.theme-toggle').addEventListener('click', toggleTheme);
         updateToggleLabel();

@@ -28,7 +28,7 @@
 
 <h2>The smallest possible particle</h2>
 
-<p>A particle is a texture plus a bit of behaviour. Register the texture like any other block texture (it goes into the same expanded terrain atlas, <a href="assets.html">Textures, names &amp; files</a>), then hand the registry a factory that builds the particle:</p>
+<p>A particle is a texture plus a bit of behavior. Register the texture like any other block texture (it goes into the same expanded terrain atlas, <a href="assets.html">Textures, names &amp; files</a>), then hand the registry a factory that builds the particle:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// Common code: the identifier both sides agree on, and the texture handle.</span>
 <span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> SPARK = id(<span class="s">"spark"</span>);
@@ -88,7 +88,7 @@ RetroParticles.spawnVanilla(world, <span class="s">"smoke"</span>, x, y, z, <spa
 
 <h2>Writing your own particle class</h2>
 
-<p>When you want behaviour the built-in one doesn't have, physics, trails, a particle that seeks a target, register a factory that builds your own subclass. The factory signature is the spawn call's arguments, so you can vary anything from the spawn site:</p>
+<p>When you want behavior the built-in one doesn't have, physics, trails, a particle that seeks a target, register a factory that builds your own subclass. The factory signature is the spawn call's arguments, so you can vary anything from the spawn site:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleModClient.java</span><pre><code>RetroParticleRegistry.register(ExampleMod.RUNE, MyRuneParticle::new);</code></pre></div>
 
@@ -116,7 +116,7 @@ RetroParticles.spawnVanilla(world, <span class="s">"smoke"</span>, x, y, z, <spa
 
 <h2>Where particles are the right answer</h2>
 
-<p>Particles are cheap and they cost nothing when nobody is looking, which makes them the natural fit for feedback: a machine working, an item enchanting, a portal humming, a block rejecting an input. They are <em>not</em> a good fit for state that must persist or that another player must be able to inspect later, that's what <a href="states.html">block states</a> and <a href="components.html">components</a> are for. If you catch yourself encoding information in particle colour that gameplay depends on, reach for a state instead and use the particle to <em>announce</em> it.</p>
+<p>Particles are cheap and they cost nothing when nobody is looking, which makes them the natural fit for feedback: a machine working, an item enchanting, a portal humming, a block rejecting an input. They are <em>not</em> a good fit for state that must persist or that another player must be able to inspect later, that's what <a href="states.html">block states</a> and <a href="components.html">components</a> are for. If you catch yourself encoding information in particle color that gameplay depends on, reach for a state instead and use the particle to <em>announce</em> it.</p>
 
 <p>Next: the things that are bigger than one block, and the position maths that makes them bearable.</p>
 </div>

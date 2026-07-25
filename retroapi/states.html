@@ -42,9 +42,8 @@
 	.defaultState(s -> s.with(LIT, <span class="k">false</span>))   <span class="c">// optional</span>
 	.register(id(<span class="s">"my_block"</span>));</code></pre></div>
 
-<div class="dual" data-label="Declaring the properties">
+<div class="dual" data-topic="block states">
 <div data-mode="code">
-<span class="pane-title">Code-driven</span>
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
 <span class="k">static final</span> RetroIntProperty  AGE = RetroIntProperty.of(<span class="s">"age"</span>, <span class="n">0</span>, <span class="n">9</span>);
 
@@ -55,7 +54,6 @@ LAMP = RetroBlockAccess.create(Material.STONE)
 <p>You hold the property objects, so reads and writes are type-checked: <code>state.get(AGE)</code> is an <code>int</code>, not a string lookup.</p>
 </div>
 <div data-mode="data">
-<span class="pane-title">Data-driven</span>
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
   <span class="t">"properties"</span>: {
     <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>],
