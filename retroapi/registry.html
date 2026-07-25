@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How registration works, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>How registration works</h1>
+<p class="chapter-sub">One shape for every kind of content, the two ways to declare it, and what RetroAPI does with your ids once you hand them over.</p>
+
+<p>Everything in this section, blocks, items, mobs, dimensions, sounds, particles, world features, follows the same three-part shape. Learn it once here and the individual pages are mostly a list of what each builder can do.</p>
+
+<h2>The shape</h2>
+
+<ol>
+<li><strong>Describe it.</strong> A builder (<code>RetroBlockAccess.create(...)</code>, <code>RetroItemAccess.create()</code>, <code>RetroFeatures.ore(...)</code>) or a plain constructor for your own subclass.</li>
+<li><strong>Name it.</strong> A namespaced identifier: <code>example_mod:ruby_ore</code>. This name is the permanent one, everything else about your content, including its number, is allowed to change.</li>
+<li><strong>Register it</strong> from your <code>retroapi</code> entrypoint (<a href="entrypoints.html">Entrypoints &amp; sides</a>), so it lands at a point where the platform is ready and before any world assigns ids.</li>
+</ol>
+
+<div class="codeblock"><span class="code-title">the shape, three times</span><pre><code><span class="c">// a block</span>
+RUBY_ORE = RetroBlockAccess.create(Material.STONE)
+    .strength(<span class="n">3.0F</span>).texture(id(<span class="s">"ruby_ore"</span>)).register(id(<span class="s">"ruby_ore"</span>));
+
+<span class="c">// an item</span>
+RUBY = RetroItemAccess.create()
+    .maxStackSize(<span class="n">64</span>).texture(id(<span class="s">"ruby"</span>)).register(id(<span class="s">"ruby"</span>));
+
+<span class="c">// something that generates in the world</span>
+RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();</code></pre></div>
+
+<h2>Ids move. Names do not.</h2>
+
+<p>Beta identifies a block by a number, and a modded block has to be given one. RetroAPI hands out a <em>provisional</em> number at registration and then, when a world is opened, replaces it with whatever that world's saved map says the block should be, so that a world you built last week still has your ore where you left it, even if you have since added or removed content.</p>
+
+<div class="warn"><p>The consequence is the single most important rule in this wiki: <strong>never keep a raw numeric id, and never keep an <code>ItemStack</code>, in a field that outlives registration</strong>, unless you are prepared to fix it up. An <code>ItemStack</code> stores the number, not the name. If you must cache one, subscribe to the remap:</p>
+<div class="codeblock"><span class="code-title">fixing cached numbers</span><pre><code>IdRemapCallback.EVENT.register(remap -&gt; {
+    remap.fix(ExampleMod.STARTER_KIT);                      <span class="c">// an ItemStack field</span>
+    ExampleMod.magicId = remap.map(ExampleMod.magicId);      <span class="c">// a raw id</span>
+});</code></pre></div>
+<p>RetroAPI already does this for everything it owns: crafting and smelting recipes, fuels, achievement icons. This callback is for the ones only you know about.</p></div>
+
+<h2>Code-driven and data-driven</h2>
+
+<p>Most content can be declared either as a builder call or as a JSON file under <code>assets/</code> or <code>data/</code>. The switch at the top of the page flips this wiki between the two. What the two can express is not always identical, so here is the honest map:</p>
+
+<table>
+<tr><th>Topic</th><th>Code</th><th>Data files</th><th>Which wins</th></tr>
+<tr><td>Block properties (hardness, light, material)</td><td>✔ builder</td><td>—</td><td>code only</td></tr>
+<tr><td>Block textures</td><td>✔ <code>.texture</code>, <code>.sided</code>, <code>.column</code>, <code>.textures</code></td><td>✔ model JSON</td><td>a model JSON overrides <code>.texture</code></td></tr>
+<tr><td>Block states</td><td>✔ <code>.states(...)</code></td><td>✔ <code>blockstates/*.json</code> <code>"properties"</code></td><td>code wins on conflict</td></tr>
+<tr><td>Item sprites</td><td>✔ <code>.texture</code>, <code>.layers</code>, <code>.overlay</code></td><td>✔ <code>models/item/*.json</code></td><td>a model JSON overrides code</td></tr>
+<tr><td>Tags (mineable, tiers, your own)</td><td>✔ <code>.mineable</code>, <code>.needsTool</code>, <code>.tag</code>, <code>RetroTags</code></td><td>✔ <code>data/&lt;ns&gt;/tags/**.json</code></td><td>union, both apply</td></tr>
+<tr><td>Display names</td><td>✔ auto-generated fallback</td><td>✔ <code>lang/*.lang</code></td><td>lang file wins</td></tr>
+<tr><td>Texture animation</td><td>✔ <code>addAnimated*Texture</code></td><td>✔ <code>.png.mcmeta</code></td><td>either; mcmeta is detected automatically</td></tr>
+<tr><td>Sounds</td><td>✔ <code>RetroSounds</code></td><td>✔ drop <code>.ogg</code> files in place</td><td>files are auto-loaded</td></tr>
+<tr><td>Recipes, entities, dimensions, features, particles, components</td><td>✔</td><td>—</td><td>code only</td></tr>
+</table>
+
+<div class="dual" data-label="Declaring a block's variants">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
+
+LAMP = RetroBlockAccess.create(Material.STONE)
+    .states(LIT)
+    .defaultState(s -&gt; s.with(LIT, <span class="k">false</span>))
+    .texture(id(<span class="s">"lamp_off"</span>))
+    .register(id(<span class="s">"lamp"</span>));</code></pre></div>
+<p>Nothing to ship but the class. The property object is what you read and write states with later.</p>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
+  <span class="t">"properties"</span>: { <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>] },
+  <span class="t">"variants"</span>: {
+    <span class="t">"lit=false"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> },
+    <span class="t">"lit=true"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
+  }
+}</code></pre></div>
+<p>The file declares the property <em>and</em> what each value looks like, and a resource pack can replace it. You still register the block in code; it just says less.</p>
+</div>
+</div>
+
+<h2>What each page in this section covers</h2>
+
+<table>
+<tr><th>Page</th><th>Covers</th></tr>
+<tr><td><a href="blocks.html">Blocks</a></td><td>the builder, per-face textures, tint and overlays, tool gating, custom block classes</td></tr>
+<tr><td><a href="states.html">Block states</a></td><td>properties, flattened indices, reading/writing state, storage past 16 states</td></tr>
+<tr><td><a href="items.html">Items</a></td><td>stacks, custom item classes, layered sprites, handheld poses</td></tr>
+<tr><td><a href="tools.html">Tools, food &amp; armor</a></td><td>tool kinds and tiers, tools with no <code>ToolMaterial</code>, edible items, armor sets</td></tr>
+<tr><td><a href="tags.html">Tags</a></td><td><code>mineable/*</code>, <code>needs_*_tool</code>, item tags, and your own groupings</td></tr>
+<tr><td><a href="recipes.html">Recipes &amp; fuel</a></td><td>shaped, shapeless, smelting, fuel, the wildcard rule</td></tr>
+<tr><td><a href="blockentities.html">Block entities &amp; GUIs</a></td><td>tickers, inventories, containers, screens, synced fields</td></tr>
+<tr><td><a href="entities.html">Entities</a></td><td>mobs, renderers, and how spawns reach the client</td></tr>
+<tr><td><a href="achievements.html">Achievements</a></td><td>pages, icons, granting</td></tr>
+<tr><td><a href="sounds.html">Sounds &amp; music</a></td><td>effects, streaming music, records, the multiplayer bridge</td></tr>
+<tr><td><a href="particles.html">Particles</a></td><td>the particle registry, sprite particles, the multiplayer bridge</td></tr>
+<tr><td><a href="components.html">Item components</a></td><td>typed per-stack data that survives saving and networking</td></tr>
+<tr><td><a href="dimensions.html">Dimensions &amp; portals</a></td><td>registering a world, walking into it, serial ids</td></tr>
+<tr><td><a href="worldgen.html">Worldgen</a></td><td>chunk generators, biomes, and features that generate in <em>existing</em> worlds</td></tr>
+</table>
+
+<div class="note"><p>Under StationAPI, registration is handed to StationAPI and the calls above still work unchanged, that is the point of routing everything through one entrypoint. What differs is listed on <a href="stationapi.html">StationAPI interop</a>.</p></div>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

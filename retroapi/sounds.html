@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 19: The Soundtrack, RetroAPI Guide</title>
+<title>Sounds &amp; music, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 19, The Soundtrack</h1>
+<h1>Sounds &amp; music</h1>
 <p class="chapter-sub">Three sound folders, a shuffled music ticker, a jukebox record, and how numbered variants quietly become one event.</p>
 
-<p>Sound in beta is wonderfully low-ceremony: you almost never register anything. <a href="assets.html">Chapter 3</a> already showed the autoloader scanning <code>assets/&lt;modid&gt;/sounds/</code> and turning file paths into event ids; this chapter picks up where that left off and walks the three channels, the background music ticker, jukebox records, and the trailing-digit variant trick the showcase's Aerbunny leans on. There's a little code here, but most of it is just dropping an ogg in the right folder.</p>
+<p>Sound in beta is wonderfully low-ceremony: you almost never register anything. <a href="assets.html">Textures, names &amp; files</a> already showed the autoloader scanning <code>assets/&lt;modid&gt;/sounds/</code> and turning file paths into event ids; this page picks up where that left off and walks the three channels, the background music ticker, jukebox records, and the trailing-digit variant trick the showcase's Aerbunny leans on. There's a little code here, but most of it is just dropping an ogg in the right folder.</p>
 
 <h2>The three sound channels</h2>
 <p>Every sound belongs to one of three channels, and the channel is simply <strong>which subfolder you drop the file in</strong> under <code>sounds/</code>. The folder name is the API, same as everywhere else in RetroAPI:</p>
@@ -50,9 +50,23 @@
 	MUSIC
 }</code></pre></div>
 
-<p>There is also a <code>RetroSounds.register(channel, pathId, url)</code> for mods that want to register a sound programmatically, but you almost certainly don't need it. The autoloader covers the file-in-a-folder case completely; this method is convenience sugar for when a sound lives somewhere odd on the classpath. Playing an effect is one line, the same call <a href="assets.html">Chapter 3</a> used for the counter's click:</p>
+<p>There is also a <code>RetroSounds.register(channel, pathId, url)</code> for mods that want to register a sound programmatically, but you almost certainly don't need it. The autoloader covers the file-in-a-folder case completely; this method is convenience sugar for when a sound lives somewhere odd on the classpath. Playing an effect is one line, the same call <a href="assets.html">Textures, names &amp; files</a> used for the counter's click:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleCounterBlock.java, the play line</span><pre><code>world.playSound(x + <span class="n">0.5</span>, y + <span class="n">0.5</span>, z + <span class="n">0.5</span>, <span class="s">"example_mod:counter.click"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
+
+<div class="dual" data-label="Adding a sound">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code>RetroSounds.register(id(<span class="s">"machine_hum"</span>));
+world.playSound(x, y, z, <span class="s">"example_mod.machine_hum"</span>, <span class="n">1.0F</span>, <span class="n">1.0F</span>);</code></pre></div>
+<p>Explicit registration, useful when the name is computed or the file layout is unusual.</p>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">assets/example_mod/sounds/machine_hum.ogg</span><pre><code><span class="c">// no code, no json: the file being there is the registration</span></code></pre></div>
+<p>The autoloader walks your mod's <code>sounds/</code> folder and registers what it finds, naming each entry after its path. Numbered files (<code>hurt1.ogg</code>, <code>hurt2.ogg</code>) become variants of one name automatically.</p>
+</div>
+</div>
 
 <h2>Shuffled background music</h2>
 <p>There are two completely different ways to play music, and the difference is which channel the file lives in. The easy one needs <strong>no code at all</strong>.</p>
@@ -103,7 +117,7 @@ SAMPLE_DISC = (Item) RetroItemAccess.of(
   <span class="s">"textures"</span>: { <span class="s">"layer0"</span>: <span class="s">"example_mod:item/sample_disc"</span> }
 }</code></pre></div>
 
-<p>Two things to notice. First, the constructor takes a placeholder id from <code>RetroItemAccess.allocateId()</code> and the <em>streaming event id</em>, <code>"example_mod:sample_disc"</code>, which points at <code>sounds/streaming/sample_disc.ogg</code>. Wrapping a hand-built instance with <code>RetroItemAccess.of(...)</code> is the exact same custom-item pattern from <a href="items.html">Chapter 5</a>; a record is just an item whose class happens to be <code>RetroRecordItem</code>. Second, max stack size is forced to 1 inside the constructor, so you don't set it yourself.</p>
+<p>Two things to notice. First, the constructor takes a placeholder id from <code>RetroItemAccess.allocateId()</code> and the <em>streaming event id</em>, <code>"example_mod:sample_disc"</code>, which points at <code>sounds/streaming/sample_disc.ogg</code>. Wrapping a hand-built instance with <code>RetroItemAccess.of(...)</code> is the exact same custom-item pattern from <a href="items.html">Items</a>; a record is just an item whose class happens to be <code>RetroRecordItem</code>. Second, max stack size is forced to 1 inside the constructor, so you don't set it yourself.</p>
 
 <h3>The "now playing" name</h3>
 <p>Vanilla hard-codes the jukebox overlay to <code>"C418 - " + disc.sound</code>, which for a modded disc would read as the raw streaming id, ugly. <code>RetroRecordItem</code> fixes this by re-setting the overlay right after the vanilla call, pulling the display text from your lang file so it localises. The key is <code>record.&lt;namespace&gt;.&lt;name&gt;</code>, derived from the streaming id by swapping the colon for a dot:</p>
@@ -115,10 +129,10 @@ SAMPLE_DISC = (Item) RetroItemAccess.of(
 
 <div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/lang/en_US.lang, the record line</span><pre><code>record.@.sample_disc=sample ogg - file-examples.com</code></pre></div>
 
-<p>The <code>@</code> is the namespace placeholder RetroAPI's lang loader expands to your mod id (covered in <a href="assets.html">Chapter 3</a>), so this line registers <code>record.example_mod.sample_disc</code>. If you forget the line entirely nothing breaks: the overlay simply falls back to the raw id. Add it and the jukebox reads "sample ogg - file-examples.com" instead.</p>
+<p>The <code>@</code> is the namespace placeholder RetroAPI's lang loader expands to your mod id (covered in <a href="assets.html">Textures, names &amp; files</a>), so this line registers <code>record.example_mod.sample_disc</code>. If you forget the line entirely nothing breaks: the overlay simply falls back to the raw id. Add it and the jukebox reads "sample ogg - file-examples.com" instead.</p>
 
 <h2>Sound variants</h2>
-<p>The <code>SOUND</code> channel does one quiet, very useful thing the other two don't: it <strong>collapses a trailing digit</strong>. Two files named <code>aerbunnyhurt1.ogg</code> and <code>aerbunnyhurt2.ogg</code> in the same folder register the <em>same</em> event, and the engine picks one at random each time you play it. This is exactly how vanilla ships its own footstep and dig sounds, four numbered oggs behind one event, and you get it for free just by numbering files. The showcase's Aerbunny (the puffy mob from <a href="entities.html">Chapter 7</a>) uses it for its hurt sound:</p>
+<p>The <code>SOUND</code> channel does one quiet, very useful thing the other two don't: it <strong>collapses a trailing digit</strong>. Two files named <code>aerbunnyhurt1.ogg</code> and <code>aerbunnyhurt2.ogg</code> in the same folder register the <em>same</em> event, and the engine picks one at random each time you play it. This is exactly how vanilla ships its own footstep and dig sounds, four numbered oggs behind one event, and you get it for free just by numbering files. The showcase's Aerbunny (the puffy mob from <a href="entities.html">Entities</a>) uses it for its hurt sound:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, getHurtSound()</span><pre><code><span class="k">@Override</span>
 <span class="k">protected</span> String getHurtSound() {
@@ -132,7 +146,7 @@ SAMPLE_DISC = (Item) RetroItemAccess.of(
 
 <p>Two caveats worth keeping straight. The collapse is <strong>SOUND-channel only</strong>, by design: a record or a forced theme in <code>streaming/</code> keeps its exact name, because you never want "play a random one of these" for a 1MB track. And the digit must be <em>trailing</em>, so <code>aerbunnyhurt1</code> collapses but <code>aerbunny1hurt</code> would not. Number your variants at the end of the name and nesting them in subfolders, like <code>mobs/aerbunny/</code>, is fine; the autoloader walks the whole tree.</p>
 
-<p>That's the soundtrack: drop files in three folders, and music, records, effects, and random variants all fall out of the path names. With the world now lit, named, and audible, the last big system is the ground itself. Next, <a href="worldgen.html">Chapter 20, New Lands</a>, where we generate custom terrain.</p>
+<p>That's the soundtrack: drop files in three folders, and music, records, effects, and random variants all fall out of the path names. With the world now lit, named, and audible, the last big system is the ground itself. Next, <a href="worldgen.html"><a href="worldgen.html">Worldgen</a>, New Lands</a>, where we generate custom terrain.</p>
 </div>
 
 <div class="pager"></div>

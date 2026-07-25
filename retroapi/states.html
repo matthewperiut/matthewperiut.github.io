@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 14: Deeper States, RetroAPI Guide</title>
+<title>Block states, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 14, Deeper States</h1>
+<h1>Block states</h1>
 <p class="chapter-sub">Beta gives every block four bits of metadata. We want more. Here is how RetroAPI hands you up to 4096 states per block without breaking a single vanilla save.</p>
 
 <p>Every block in Beta 1.7.3 carries a nibble of metadata, four bits, sixteen values, and that is the whole budget. A door uses some of it for orientation, a slab for which half is filled, wool for its color. Sixteen sounds like plenty right up until the moment you want a lamp that is both lit-or-not <em>and</em> tracking an age from 0 to 9, and suddenly twenty states won't fit in a space that holds sixteen. Mods have wrestled this corner of beta forever.</p>
@@ -41,6 +41,31 @@
 	.states(LIT, AGE)
 	.defaultState(s -> s.with(LIT, <span class="k">false</span>))   <span class="c">// optional</span>
 	.register(id(<span class="s">"my_block"</span>));</code></pre></div>
+
+<div class="dual" data-label="Declaring the properties">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
+<span class="k">static final</span> RetroIntProperty  AGE = RetroIntProperty.of(<span class="s">"age"</span>, <span class="n">0</span>, <span class="n">9</span>);
+
+LAMP = RetroBlockAccess.create(Material.STONE)
+    .states(LIT, AGE)
+    .defaultState(s -&gt; s.with(LIT, <span class="k">false</span>))
+    .register(id(<span class="s">"lamp"</span>));</code></pre></div>
+<p>You hold the property objects, so reads and writes are type-checked: <code>state.get(AGE)</code> is an <code>int</code>, not a string lookup.</p>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
+  <span class="t">"properties"</span>: {
+    <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>],
+    <span class="t">"age"</span>: [<span class="s">"0"</span>, <span class="s">"1"</span>, <span class="s">"2"</span>, <span class="s">"3"</span>, <span class="s">"4"</span>, <span class="s">"5"</span>, <span class="s">"6"</span>, <span class="s">"7"</span>, <span class="s">"8"</span>, <span class="s">"9"</span>]
+  },
+  <span class="t">"variants"</span>: { <span class="t">"lit=false,age=0"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> } }
+}</code></pre></div>
+<p>The same definition, declared where the models are. Look properties up by name with <code>RetroStates.property(block, "age")</code>. If both are present, the code declaration wins and a mismatch is logged.</p>
+</div>
+</div>
 
 <h2>Reading and writing state</h2>
 <p>All world access goes through <code>RetroStates</code>. The two you reach for constantly are <code>get</code> and <code>set</code>:</p>
@@ -183,7 +208,7 @@ LAMP = RetroBlockAccess.of(<span class="k">new</span> ExampleLampBlock(RetroBloc
 	.states(ExampleLampBlock.LIT, ExampleLampBlock.AGE)
 	.register(id(<span class="s">"lamp"</span>));</code></pre></div>
 
-<p>Because <code>LIT</code> is declared first, it varies slowest: states 0 through 9 are <code>lit=false</code> with age climbing, states 10 through 19 are <code>lit=true</code> with age climbing again. The lit flip at state 10 is the one that crosses bit 4 into xmeta, the visible proof that we left the nibble behind. And notice there is <em>no render code</em> anywhere in the lamp: it gets its two looks from a blockstate JSON that maps <code>lit</code> to a model, which is <a href="models.html">Chapter 16</a>'s whole story. The block half is done; the picture half is next.</p>
+<p>Because <code>LIT</code> is declared first, it varies slowest: states 0 through 9 are <code>lit=false</code> with age climbing, states 10 through 19 are <code>lit=true</code> with age climbing again. The lit flip at state 10 is the one that crosses bit 4 into xmeta, the visible proof that we left the nibble behind. And notice there is <em>no render code</em> anywhere in the lamp: it gets its two looks from a blockstate JSON that maps <code>lit</code> to a model, which is <a href="models.html">Models &amp; render layers</a>'s whole story. The block half is done; the picture half is next.</p>
 
 <div class="asset-row">
 <div class="asset-card"><img src="assets/lamp_off.png" width="64" height="64" alt="lamp_off"><div class="asset-name">lamp_off.png</div><a href="assets/lamp_off.png" download>download</a></div>
@@ -345,12 +370,12 @@ RetroRecipes.addShaped(<span class="k">new</span> ItemStack(STONE_WALL, <span cl
 	<span class="s">"CCC"</span>,
 	<span class="s">'C'</span>, Block.COBBLESTONE);</code></pre></div>
 
-<p>That is 162 states with no bespoke storage, no packet code, and no manual connection bookkeeping, the same two <code>get</code>/<code>set</code> calls the lamp used, scaled up by the state count alone. The 162-way multipart blockstate JSON that turns each of those states into post-plus-sides geometry is <a href="models.html">Chapter 16</a>'s, see the multipart section there.</p>
+<p>That is 162 states with no bespoke storage, no packet code, and no manual connection bookkeeping, the same two <code>get</code>/<code>set</code> calls the lamp used, scaled up by the state count alone. The 162-way multipart blockstate JSON that turns each of those states into post-plus-sides geometry is <a href="models.html">Models &amp; render layers</a>'s, see the multipart section there.</p>
 
 <h2>What we built</h2>
 <p>You declared properties, multiplied them into a state space larger than beta was ever meant to hold, and read and wrote those states with two method calls that hide a sidecar, a chunk packet, and a sync channel. Plain blocks got a free <code>meta</code> property so old-style variant JSONs keep working; data files can declare properties of their own, and your code always wins the tie. Twenty states for the lamp, 162 for the wall, sixteen bits of room, and the world still opens in vanilla.</p>
 
-<p>The lamp visibly changed its look when <code>lit</code> flipped, and we waved at the reason without explaining it. That explanation, blockstate JSONs, model JSONs, render layers, tints, and animated textures, all working in beta, is the next and final building chapter. See <a href="blocks.html">Chapter 4</a> for where blocks began; now let's give them modern shapes and pixels.</p>
+<p>The lamp visibly changed its look when <code>lit</code> flipped, and we waved at the reason without explaining it. That explanation, blockstate JSONs, model JSONs, render layers, tints, and animated textures, all working in beta, is the next and final building chapter. See <a href="blocks.html">Blocks</a> for where blocks began; now let's give them modern shapes and pixels.</p>
 </div>
 
 <div class="pager"></div>

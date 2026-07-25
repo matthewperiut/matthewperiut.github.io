@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 22: Little Sparks, RetroAPI Guide</title>
+<title>Particles, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 22, Little Sparks</h1>
+<h1>Particles</h1>
 <p class="chapter-sub">The particle registry: your own particles from one line of code, a ready-made sprite particle, and the multiplayer bridge that makes them show up for everyone.</p>
 
 <p>Beta decides what a particle name means inside a hardcoded chain of <code>if</code>s in the world renderer. There is no registry, no factory, no hook, so for fifteen years the answer to "how do I add a particle to b1.7.3" was "you don't, you fake it with an entity". RetroAPI turns that chain into a lookup: a name with a namespace in it (<code>example_mod:spark</code>) is resolved against a registry first, and only unknown names fall through to vanilla.</p>
@@ -28,7 +28,7 @@
 
 <h2>The smallest possible particle</h2>
 
-<p>A particle is a texture plus a bit of behaviour. Register the texture like any other block texture (it goes into the same expanded terrain atlas, <a href="assets.html">Chapter 3</a>), then hand the registry a factory that builds the particle:</p>
+<p>A particle is a texture plus a bit of behaviour. Register the texture like any other block texture (it goes into the same expanded terrain atlas, <a href="assets.html">Textures, names &amp; files</a>), then hand the registry a factory that builds the particle:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// Common code: the identifier both sides agree on, and the texture handle.</span>
 <span class="k">public static final</span> <span class="t">NamespacedIdentifier</span> SPARK = id(<span class="s">"spark"</span>);
@@ -36,7 +36,7 @@
 
 <span class="a">@Override</span>
 <span class="k">public void</span> initRetro() {
-    <span class="c">// textures/block/spark.png, reserved on both sides (see Chapter 2)</span>
+    <span class="c">// textures/block/spark.png, reserved on both sides (see <a href="entrypoints.html">Entrypoints &amp; sides</a>)</span>
     SPARK_TEXTURE = RetroTextures.addBlockTexture(id(<span class="s">"spark"</span>));
 }</code></pre></div>
 
@@ -112,7 +112,7 @@ RetroParticles.spawnVanilla(world, <span class="s">"smoke"</span>, x, y, z, <spa
 
 <p>Subclass <code>RetroSpriteParticle</code> (as above) to keep the terrain-atlas drawing and the chainable setup, or extend vanilla's <code>Particle</code> directly if you want to draw something else entirely. RetroAPI widens the fields you need, <code>textureId</code>, <code>scale</code>, <code>red</code>/<code>green</code>/<code>blue</code>, <code>particleAge</code>, <code>maxParticleAge</code>, <code>gravityStrength</code>, so a subclass can set itself up without reimplementing the base class.</p>
 
-<div class="warn"><p><strong>Client only.</strong> <code>RetroParticleRegistry</code>, <code>RetroSpriteParticle</code> and any subclass of them are client classes: register them from <code>initRetroClient()</code> and never mention them from common code (<a href="entrypoints.html">Chapter 2</a>'s classloading rule). <code>RetroParticles.spawn(...)</code> is the common-side half, and it's the only half your gameplay code needs.</p></div>
+<div class="warn"><p><strong>Client only.</strong> <code>RetroParticleRegistry</code>, <code>RetroSpriteParticle</code> and any subclass of them are client classes: register them from <code>initRetroClient()</code> and never mention them from common code (<a href="entrypoints.html">Entrypoints &amp; sides</a>'s classloading rule). <code>RetroParticles.spawn(...)</code> is the common-side half, and it's the only half your gameplay code needs.</p></div>
 
 <h2>Where particles are the right answer</h2>
 

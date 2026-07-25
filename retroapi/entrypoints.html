@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 2: Four Doors In, RetroAPI Guide</title>
+<title>Entrypoints &amp; sides, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,12 +14,12 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 2, Four Doors In</h1>
+<h1>Entrypoints &amp; sides</h1>
 <p class="chapter-sub">The <code>retroapi</code> entrypoint, its client and server halves, one rule about which classes meet which side, and why your textures are safe everywhere.</p>
 
 <p>When the game starts, the loader knocks on the doors of your mod and walks through whichever ones it finds. Each door opens onto a different side of the game, and one of them opens at a very specific <em>moment</em>. Get them straight now and the rest of the guide reads like a list of things you do <em>behind the first door</em>.</p>
 
-<p>You already met the entrypoints block in <a href="setup.html">Chapter 1</a>'s <code>fabric.mod.json</code>. Here it is again, wired the way every mod in this guide is wired:</p>
+<p>You already met the entrypoints block in <a href="setup.html">Set up a project</a>'s <code>fabric.mod.json</code>. Here it is again, wired the way every mod in this guide is wired:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/fabric.mod.json</span><pre><code>	<span class="t">"entrypoints"</span>: {
 		<span class="s">"retroapi"</span>: [
@@ -99,48 +99,48 @@
 <div class="note"><p>If a mod throws while RetroAPI is running these, the crash names the mod and the entrypoint it failed in, rather than surfacing as an anonymous stack trace inside RetroAPI. Handy when three mods are in the pile.</p></div>
 
 <h2>The big idea: register everything in <code>initRetro()</code></h2>
-<p>Here is the rule that shapes every later chapter: your content is registered in the common <code>initRetro()</code>, on both sides. Blocks, items, block entities, the dimension, the mob, achievements, recipes, world features, network channels, all of it goes through the one door both sides walk through, so both sides agree on what exists.</p>
+<p>Here is the rule that shapes every later page: your content is registered in the common <code>initRetro()</code>, on both sides. Blocks, items, block entities, the dimension, the mob, achievements, recipes, world features, network channels, all of it goes through the one door both sides walk through, so both sides agree on what exists.</p>
 
 <p>That makes <code>ExampleMod.initRetro()</code> the table of contents for the whole mod. Read it top to bottom and you've read the syllabus:</p>
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro(), trimmed</span><pre><code><span class="k">public void</span> initRetro() {
 	LOGGER.info(<span class="s">"initializing example mod!"</span>);
 
-	<span class="c">// blocks, Chapter 4</span>
+	<span class="c">// blocks, <a href="blocks.html">Blocks</a></span>
 	EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 		.strength(<span class="n">1.5f</span>, <span class="n">10.0f</span>).texture(id(<span class="s">"example_block"</span>)).register(id(<span class="s">"example_block"</span>));
 	<span class="c">// … SIDED_BLOCK, PIPE_BLOCK …</span>
 
-	<span class="c">// block entities, Chapter 6</span>
+	<span class="c">// block entities, <a href="blockentities.html">Block entities &amp; GUIs</a></span>
 	RetroBlockEntities.register(id(<span class="s">"counter"</span>), ExampleCounterBlockEntity.class);
 	<span class="c">// … COUNTER_BLOCK, CRATE_BLOCK, FREEZER_BLOCK …</span>
 
-	<span class="c">// items, Chapter 5</span>
+	<span class="c">// items, <a href="items.html">Items</a></span>
 	SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 		.maxStackSize(<span class="n">64</span>).texture(id(<span class="s">"suspicious_substance"</span>)).register(id(<span class="s">"suspicious_substance"</span>));
 	<span class="c">// … JUMP_STICK …</span>
 
-	<span class="c">// dimension, Chapter 10</span>
+	<span class="c">// dimension, <a href="dimensions.html">Dimensions &amp; portals</a></span>
 	EXAMPLE_DIMENSION = RetroDimensions.register(id(<span class="s">"example_dim"</span>), ExampleDimension::new);
 	<span class="c">// … EXAMPLE_PORTAL …</span>
 
-	<span class="c">// entities, Chapter 7</span>
+	<span class="c">// entities, <a href="entities.html">Entities</a></span>
 	EXAMPLE_MOB = RetroEntities.register(ExampleEntity.ID, ExampleEntity.class)
 		.factory((MobFactory) ExampleEntity::new);
 
-	<span class="c">// recipes, Chapter 11 (safe to call inline: this door opens before the sort)</span>
+	<span class="c">// recipes, <a href="recipes.html">Recipes &amp; fuel</a> (safe to call inline: this door opens before the sort)</span>
 	registerRecipes();
 
-	<span class="c">// world features, Chapter 20</span>
+	<span class="c">// world features, <a href="worldgen.html">Worldgen</a></span>
 	RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
 
-	<span class="c">// achievements, Chapter 9</span>
+	<span class="c">// achievements, <a href="achievements.html">Achievements</a></span>
 	ExampleAchievements.register();
 
-	<span class="c">// networking, Chapter 12</span>
+	<span class="c">// networking, <a href="networking.html">Networking</a></span>
 	ExampleNetworking.registerChannels();
 }</code></pre></div>
 
-<p>Every line above is one of the next chapters. <a href="blocks.html">Chapter 4</a> takes the blocks, <a href="items.html">Chapter 5</a> the items, <a href="blockentities.html">Chapter 6</a> the block entities, <a href="entities.html">Chapter 7</a> the mob, <a href="achievements.html">Chapter 9</a> the achievements, <a href="dimensions.html">Chapter 10</a> the dimension and portal, <a href="recipes.html">Chapter 11</a> the recipes, <a href="networking.html">Chapter 12</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
+<p>Every line above is one of the pages that follow. <a href="blocks.html">Blocks</a> takes the blocks, <a href="items.html">Items</a> the items, <a href="blockentities.html">Block entities &amp; GUIs</a> the block entities, <a href="entities.html">Entities</a> the mob, <a href="achievements.html">Achievements</a> the achievements, <a href="dimensions.html">Dimensions &amp; portals</a> the dimension and portal, <a href="recipes.html">Recipes &amp; fuel</a> the recipes, <a href="networking.html">Networking</a> the channels. Notice what's <em>not</em> here: nothing about how things look. Renderers and screens live behind the client door, that's the discipline we get to next.</p>
 
 <div class="note"><p>Recipes are called <em>inline</em> here, which is new. Behind the old <code>init</code> door they had to go through <code>RecipeRegistrationCallback</code>, because vanilla's recipe list might not exist yet and your recipes would land after it was sorted. The <code>retroapi</code> door opens late enough that neither is true, so a plain method call works, and the callback still works too if you prefer it (or need to react to another mod's registrations). Network <em>channels</em> are opened here as well, because both sides must agree they exist; the <em>listeners</em> that use them are wired up per side. More on both in their chapters.</p></div>
 
@@ -158,13 +158,13 @@
 <div class="warn"><p>If you're coming from modern Fabric/Forge, retrain this reflex: <strong>"client-side" and "logical server-side" are not two threads in singleplayer here, they're the same code.</strong> Gameplay logic guarded by <code>if (!world.isRemote)</code> runs in singleplayer (good, it's the authority) and on a dedicated server, but is skipped on a remote multiplayer client.</p></div>
 
 <h2>Why your textures are safe on a server (the question everyone asks)</h2>
-<p>Look back at the <code>initRetro()</code> table of contents: it calls <code>.texture(id("example_block"))</code> and, in <a href="blocks.html">Chapter 4</a>'s sided block, <code>RetroTextures.addBlockTexture(...)</code>. Those run on a dedicated server too, there's no window there, no GPU, no atlas. Does the server try to decode a PNG and fall over?</p>
+<p>Look back at the <code>initRetro()</code> table of contents: it calls <code>.texture(id("example_block"))</code> and, in <a href="blocks.html">Blocks</a>'s sided block, <code>RetroTextures.addBlockTexture(...)</code>. Those run on a dedicated server too, there's no window there, no GPU, no atlas. Does the server try to decode a PNG and fall over?</p>
 
 <p>No. And this is by design. <strong>A texture call in common <code>initRetro()</code> is pure bookkeeping.</strong> It records a <code>RetroTexture</code> handle and reserves a sprite slot (a number ≥ 256), that's all. No file is opened, no pixels are read. The actual PNG decoding and atlas compositing happen <em>client-side only</em>, much later, when the texture atlas is being built for rendering.</p>
 
 <p>That's exactly why texture registration does <em>not</em> need to move into <code>client-init</code>. The bookkeeping has to happen on both sides anyway, so that both sides assign the same sprite slots and stay in sync. The server keeps the ledger; only the client ever paints from it.</p>
 
-<div class="note"><p><strong>The shape of a <code>RetroTexture</code>:</strong> it carries a <code>NamespacedIdentifier</code> and a public <code>int id</code> (the reserved sprite index). On a server that <code>id</code> is a number nobody ever draws. On a client it's the live index into the atlas. Same object, same number, harmless either way. Full story in <a href="assets.html">Chapter 3</a>.</p></div>
+<div class="note"><p><strong>The shape of a <code>RetroTexture</code>:</strong> it carries a <code>NamespacedIdentifier</code> and a public <code>int id</code> (the reserved sprite index). On a server that <code>id</code> is a number nobody ever draws. On a client it's the live index into the atlas. Same object, same number, harmless either way. Full story in <a href="assets.html">Textures, names &amp; files</a>.</p></div>
 
 <h2>Classloading discipline: the rule that prevents crashes</h2>
 <p>Here is the one rule that, if you keep it, you'll almost never see a sided crash:</p>
@@ -222,7 +222,7 @@
 	}
 }</code></pre></div>
 
-<p>Put a mixin that touches a client class in the <code>"client"</code> list and a dedicated server never tries to load it. Same idea as the entrypoints, same payoff: the wrong class never reaches the wrong side. The full mixin tour, all twelve graded examples, is <a href="mixins.html">Chapter 13</a>.</p>
+<p>Put a mixin that touches a client class in the <code>"client"</code> list and a dedicated server never tries to load it. Same idea as the entrypoints, same payoff: the wrong class never reaches the wrong side. The full mixin tour, all twelve graded examples, is <a href="mixins.html">Mixins</a>.</p>
 
 <div class="note"><p><strong>Rule of thumb.</strong> Common code may freely mention shared classes (<code>Block</code>, <code>Item</code>, <code>World</code>, <code>PlayerEntity</code>, your own block/item classes). The moment a type is named <code>...client...</code> or is a <code>Server*</code>, ask "which door does this belong behind?" and put the <em>class that mentions it</em> there.</p></div>
 

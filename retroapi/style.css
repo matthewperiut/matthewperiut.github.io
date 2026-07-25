@@ -669,3 +669,128 @@ kbd {
         max-height: none;
     }
 }
+
+/* ------------------------------------------------------------------ code / data mode --
+   Every topic that can be declared twice over (a builder call, or a JSON file the game
+   loads) is written both ways into a .dual block. The switch below picks which one is
+   shown, on every block on every page at once, and the choice is remembered. Code wins by
+   default. Both panes stay in the DOM, so browser find-in-page and copy still reach the
+   variant you are not looking at, and no content is hidden from search engines. */
+
+.header-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mode-switch {
+    display: inline-flex;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--panel);
+}
+
+.mode-btn {
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1;
+    padding: 6px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.mode-btn + .mode-btn {
+    border-left: 1px solid var(--panel-border);
+}
+
+.mode-btn:hover {
+    background: var(--nav-hover);
+    color: var(--text);
+}
+
+.mode-btn.active {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+.dual {
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 0 14px 2px;
+    margin: 20px 0;
+    background: var(--panel);
+}
+
+.dual-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 12px;
+}
+
+.dual-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* One pane at a time, chosen by the root's data-mode. */
+.dual > [data-mode] {
+    display: none;
+}
+
+html[data-mode="code"] .dual > [data-mode="code"],
+html[data-mode="data"] .dual > [data-mode="data"] {
+    display: block;
+}
+
+/* On a wide screen the two panes can sit side by side instead; opt in per block with
+   class="dual side-by-side". The switch then just highlights which one is authoritative. */
+@media (min-width: 1500px) {
+    .dual.side-by-side {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 18px;
+        align-items: start;
+    }
+    .dual.side-by-side .dual-head {
+        grid-column: 1 / -1;
+    }
+    .dual.side-by-side > [data-mode] {
+        display: block;
+        opacity: 0.55;
+        transition: opacity 0.15s ease;
+    }
+    html[data-mode="code"] .dual.side-by-side > [data-mode="code"],
+    html[data-mode="data"] .dual.side-by-side > [data-mode="data"] {
+        opacity: 1;
+    }
+}
+
+.dual .pane-title {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 6px;
+}
+
+/* Section headings in the sidebar (the nav is grouped, not numbered, since 0.3.0). */
+.sidebar h3 {
+    margin-top: 22px;
+}
+
+.sidebar .chapter-name {
+    display: block;
+    font-weight: 600;
+}

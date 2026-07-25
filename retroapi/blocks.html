@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 4: Blocks, RetroAPI Guide</title>
+<title>Blocks, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 4, Blocks</h1>
+<h1>Blocks</h1>
 <p class="chapter-sub">Three blocks, graded easy to interesting: one plain cube, one with a face per side, and a pipe that draws itself.</p>
 
 <p>Blocks are where most mods start, and RetroAPI makes the easy ones genuinely easy without hiding the hard ones. The whole surface is a small builder you chain options onto, plus a couple of static entry points. We'll meet all of it across three blocks, each a little more ambitious than the last.</p>
@@ -36,7 +36,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 <span class="c">//   .sprite(Block.GLASS.getTexture(0)), reuse a vanilla texture instead</span>
 <span class="c">//   .alwaysDrops() / .alwaysEffectiveTool() / .effectiveTool(PickaxeItem.class)</span></code></pre></div>
 
-<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Chapter 11</a>; its lang display name is <a href="assets.html">Chapter 3</a>.)</p>
+<p>Read it left to right: <code>create</code> a stone-material block, give it stone sounds, set its hardness and blast resistance, point it at a texture, and <code>register</code> it under an identifier. That's a complete, mineable, craftable block. (The recipe that crafts it is <a href="recipes.html">Recipes &amp; fuel</a>; its lang display name is <a href="assets.html">Textures, names &amp; files</a>.)</p>
 
 <p>That <code>.texture(id("example_block"))</code> needs an actual image. RetroAPI loads it by name from your mod's block-texture folder, so save a 16x16 PNG at this exact path (<code>example_mod</code> is your mod id, and the file name matches the <code>id(...)</code> you passed to <code>.texture</code>):</p>
 
@@ -147,7 +147,7 @@ EXAMPLE_BLOCK = RetroBlockAccess.create(Material.STONE)
 
 <p>Three things make this work:</p>
 <ul>
-<li><strong><code>RetroTextures.addBlockTexture(id)</code></strong> loads one PNG into the atlas and returns a <code>RetroTexture</code> whose public <code>.id</code> is its sprite index (the atlas mechanics are <a href="assets.html">Chapter 3</a>).</li>
+<li><strong><code>RetroTextures.addBlockTexture(id)</code></strong> loads one PNG into the atlas and returns a <code>RetroTexture</code> whose public <code>.id</code> is its sprite index (the atlas mechanics are <a href="assets.html">Textures, names &amp; files</a>).</li>
 <li><strong><code>getTexture(face)</code></strong> is vanilla's per-face hook. The face indices are <strong>0 = bottom, 1 = top, 2 = north, 3 = south, 4 = west, 5 = east</strong>; returning a sprite index per face is all the renderer needs.</li>
 <li><strong><code>this.textureId = this.side.id</code></strong> sets the <em>default</em> sprite, used for break particles and the held-item icon, and <strong><code>RetroTextures.trackBlock(this, this.side)</code></strong> registers the block/texture pairing so the atlas can re-resolve it later (for instance, into StationAPI's atlas).</li>
 </ul>
@@ -224,6 +224,37 @@ ODDITY = RetroBlockAccess.create(Material.STONE)
     .register(id(<span class="s">"oddity"</span>));</code></pre></div>
 
 <p><code>.sided(top, side, front)</code> follows the block's <code>facing</code> state, so one declaration covers all four orientations, and with <code>.facingAll()</code> all six: pointed up or down, the front goes on the top or bottom face and the ring of four gets the side texture, the way a dispenser looks. A fourth argument gives the bottom its own texture; without it the bottom reuses the top, like a furnace.</p>
+
+<div class="dual" data-label="Giving a block its faces">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code>MACHINE = RetroBlockAccess.create(Material.STONE)
+    .facing()
+    .sided(id(<span class="s">"machine_top"</span>), id(<span class="s">"machine_side"</span>), id(<span class="s">"machine_front"</span>))
+    .register(id(<span class="s">"machine"</span>));</code></pre></div>
+<p>Three PNGs and one call. The front follows the facing state, so all four orientations are covered, and there is no JSON to keep in sync with the class.</p>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">assets/example_mod/models/block/machine.json</span><pre><code>{
+  <span class="t">"parent"</span>: <span class="s">"minecraft:block/orientable"</span>,
+  <span class="t">"textures"</span>: {
+    <span class="t">"top"</span>:   <span class="s">"example_mod:block/machine_top"</span>,
+    <span class="t">"side"</span>:  <span class="s">"example_mod:block/machine_side"</span>,
+    <span class="t">"front"</span>: <span class="s">"example_mod:block/machine_front"</span>
+  }
+}</code></pre></div>
+<div class="codeblock"><span class="code-title">assets/example_mod/blockstates/machine.json</span><pre><code>{
+  <span class="t">"variants"</span>: {
+    <span class="t">"facing=north"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/machine"</span> },
+    <span class="t">"facing=east"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/machine"</span>, <span class="t">"y"</span>: <span class="n">90</span> },
+    <span class="t">"facing=south"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/machine"</span>, <span class="t">"y"</span>: <span class="n">180</span> },
+    <span class="t">"facing=west"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/machine"</span>, <span class="t">"y"</span>: <span class="n">270</span> }
+  }
+}</code></pre></div>
+<p>More files, but the shape is now a model: a resource pack can replace it, and the block can be any geometry, not just a cube. A model JSON always overrides <code>.texture(...)</code>.</p>
+</div>
+</div>
 
 <h2>Tinting and layers, still without a renderer</h2>
 
@@ -444,7 +475,7 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 com.periut.retroapi.tag.RetroTags.addToTag(
 	com.periut.retroapi.tag.RetroToolTier.IRON.needsTag(), CONDENSED_DIRT);</code></pre></div>
 
-<p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Chapter 16</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
+<p>So a wooden or stone shovel breaks condensed dirt but drops nothing; an iron (or diamond) shovel drops the block. A pickaxe, even a diamond one, is the wrong <em>kind</em> and never drops it. Its inventory icon comes from a 26.1.2 item definition rather than a model, which is <a href="models.html">Models &amp; render layers</a>'s story. Condensed dirt is also in the starter kit, with both a stone and an iron-tier tool, so you can feel both gates.</p>
 
 <h2>What we built</h2>
 <p>Three blocks: a plain textured cube, a class-backed cube with a face per side, and a sub-cube pipe with its own renderer. Between them they exercise the whole block builder, custom <code>Block</code> subclasses, the per-face texture API, bounds, non-opacity, and custom render types, and every one of them got a free <code>BlockItem</code> on <code>register</code>, persisted with stable ids, safe in vanilla saves. The ruby ore added one more modern convenience: tag-driven tool gating, copied straight from a 1.21 data pack.</p>

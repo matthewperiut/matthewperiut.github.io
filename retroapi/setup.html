@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 1: The Workshop, RetroAPI Guide</title>
+<title>Set up a project, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,12 +14,12 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 1, The Workshop</h1>
+<h1>Set up a project</h1>
 <p class="chapter-sub">In which we point modern tools at 2011 and they just… work.</p>
 
-<p>Every craft begins with a bench. Ours is the official <a href="https://github.com/OrnitheMC/ornithe-mod-template">ornithe-mod-template</a>, the same starting point Ornithe recommends for any version, converted to target <strong>Beta 1.7.3</strong> with <strong>biny mappings</strong> and <strong>RetroAPI</strong>. You can do the conversion by hand (this chapter shows every line), or skip it entirely:</p>
+<p>Every craft begins with a bench. Ours is the official <a href="https://github.com/OrnitheMC/ornithe-mod-template">ornithe-mod-template</a>, the same starting point Ornithe recommends for any version, converted to target <strong>Beta 1.7.3</strong> with <strong>biny mappings</strong> and <strong>RetroAPI</strong>. You can do the conversion by hand (this page shows every line), or skip it entirely:</p>
 
-<p><a class="download-btn" href="bare-retroapi-template.zip" download>⬇ bare-retroapi-template.zip <small>, this chapter, already done</small></a></p>
+<p><a class="download-btn" href="bare-retroapi-template.zip" download>⬇ bare-retroapi-template.zip <small>, this page, already done</small></a></p>
 
 <div class="note"><p><strong>You need Java 21</strong> to run Gradle and the game (the gen2 toolchain and the LWJGL3 runtime expect it). Your mod compiles for Java 21 too, modern language features on a 2011 game, courtesy of the modern JVM underneath.</p></div>
 
@@ -177,7 +177,7 @@ osl_version = 0.18.0</code></pre></div>
 	}
 }</code></pre></div>
 
-<div class="note"><p><strong>Why <code>retroapi</code> and not <code>init</code>?</strong> Both exist and both work, but the loader runs <code>init</code> entrypoints in an <em>unspecified order</em>, so your mod can start registering before RetroAPI has finished building the platform you are registering into. The <code>retroapi</code> door is opened by RetroAPI itself, at the one moment when everything you might touch is ready. It is the difference between "my recipes exist" and "my recipes exist on some launches". <a href="entrypoints.html">Chapter 2</a> covers it, and its client and server halves, properly.</p></div>
+<div class="note"><p><strong>Why <code>retroapi</code> and not <code>init</code>?</strong> Both exist and both work, but the loader runs <code>init</code> entrypoints in an <em>unspecified order</em>, so your mod can start registering before RetroAPI has finished building the platform you are registering into. The <code>retroapi</code> door is opened by RetroAPI itself, at the one moment when everything you might touch is ready. It is the difference between "my recipes exist" and "my recipes exist on some launches". <a href="entrypoints.html">Entrypoints &amp; sides</a> covers it, and its client and server halves, properly.</p></div>
 
 <div class="note"><p><code>settings.gradle</code> stays exactly as the template ships it, it already knows about the Fabric and Ornithe mavens that host the Gradle plugins.</p></div>
 

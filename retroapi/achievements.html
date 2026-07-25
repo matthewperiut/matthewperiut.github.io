@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 9: Achievements, RetroAPI Guide</title>
+<title>Achievements, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 9, Achievements</h1>
+<h1>Achievements</h1>
 <p class="chapter-sub">A toast pops, an icon un-greys, and a little tree of accomplishment grows on a page that's all yours.</p>
 
 <p>Achievements are the cheapest dopamine in game design and the easiest thing to add with RetroAPI. They're really two halves: a <em>definition</em> (an icon, a position, a parent, two lines of text) and a <em>grant</em> (the moment in gameplay where you award it). We'll define three, give them a home page, and then wire each one to a different gameplay trigger so you can see the whole spectrum of ways to award them.</p>
@@ -109,7 +109,7 @@ achievement.example_mod.dimensional_traveler.desc=Step through the example porta
 <span class="c"># Title of the mod's own achievement page (the &lt; &gt; buttons on the achievements screen).</span>
 gui.retroapi.achievementPage.example_mod.example_page=Example Mod</code></pre></div>
 
-<p>That last line names the <em>page</em>, with the key <code>gui.retroapi.achievementPage.example_mod.example_page</code>, built from the page id you'll see in a moment. (As <a href="assets.html">Chapter 3</a> covered, anything you forget to translate falls back to an auto-generated name, so a missing line is a cosmetic blemish, never a crash.)</p>
+<p>That last line names the <em>page</em>, with the key <code>gui.retroapi.achievementPage.example_mod.example_page</code>, built from the page id you'll see in a moment. (As <a href="assets.html">Textures, names &amp; files</a> covered, anything you forget to translate falls back to an auto-generated name, so a missing line is a cosmetic blemish, never a crash.)</p>
 
 <h2>Pages</h2>
 <p>The achievements screen in Beta 1.7.3 is a scrollable map, and mods can add their own maps reachable with the <code>&lt;</code> <code>&gt;</code> arrows at the top. There's exactly one rule that decides where an achievement lands, and it's worth saying clearly:</p>
@@ -142,7 +142,7 @@ page.addAchievements(JUMP_FOR_JOY, DIMENSIONAL_TRAVELER);</code></pre></div>
 	<span class="t">RetroAchievements</span>.grant(<span class="t">ExampleAchievements</span>.DIMENSIONAL_TRAVELER, player);
 }</code></pre></div>
 
-<p>This is the portal we'll build in full in <a href="dimensions.html">Chapter 10</a>, but it's a nice glimpse of how an achievement grant slots naturally into any block behavior you write.</p>
+<p>This is the portal we'll build in full in <a href="dimensions.html">Dimensions &amp; portals</a>, but it's a nice glimpse of how an achievement grant slots naturally into any block behavior you write.</p>
 
 <h3>3. On first jump, from a mixin</h3>
 <p>Sometimes the moment you want to reward lives deep in vanilla code you can't call into directly. There's no "on jump" hook, jumping is a private method on <code>LivingEntity</code>. So we reach in with a mixin and grant on the way through, gated by a boolean so it only fires once:</p>
@@ -179,7 +179,7 @@ page.addAchievements(JUMP_FOR_JOY, DIMENSIONAL_TRAVELER);</code></pre></div>
 	}
 }</code></pre></div>
 
-<p>Two details make this mixin correct. First, it targets <code>LivingEntity</code>, the class that <em>declares</em> <code>jump()</code>, not <code>PlayerEntity</code>, which only inherits it; mixins must target the declaring class, so we check <code>instanceof PlayerEntity</code> at runtime instead. Second, the <code>example_mod$jumpGranted</code> boolean gates the whole thing: jumping fires constantly, and without the gate you'd re-grant on every hop. The full mechanics of mixins, why beta modding leans on them, how to cut safely, are the subject of <a href="mixins.html">Chapter 13</a>; here, just notice that a grant fits inside one as comfortably as it fits anywhere else.</p>
+<p>Two details make this mixin correct. First, it targets <code>LivingEntity</code>, the class that <em>declares</em> <code>jump()</code>, not <code>PlayerEntity</code>, which only inherits it; mixins must target the declaring class, so we check <code>instanceof PlayerEntity</code> at runtime instead. Second, the <code>example_mod$jumpGranted</code> boolean gates the whole thing: jumping fires constantly, and without the gate you'd re-grant on every hop. The full mechanics of mixins, why beta modding leans on them, how to cut safely, are the subject of <a href="mixins.html">Mixins</a>; here, just notice that a grant fits inside one as comfortably as it fits anywhere else.</p>
 
 <div class="note"><p><code>grant()</code> works identically in singleplayer and multiplayer. Under the hood it's a vanilla stat increment: singleplayer awards it immediately, and a dedicated server sends the vanilla stat packet so the client's toast pops and the icon un-greys. Achievements are per-player, just like vanilla's, one player earning "Jump for Joy" doesn't grant it to anyone else.</p></div>
 

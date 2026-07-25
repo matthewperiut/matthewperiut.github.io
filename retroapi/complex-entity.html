@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 8: The Aerbunny, RetroAPI Guide</title>
+<title>A mob in full, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,17 +14,17 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 8, The Aerbunny</h1>
-<p class="chapter-sub">The mob in <a href="entities.html">Chapter 7</a> just stood there. This one rides on your head, glides you safely down, breeds, panics and flees when struck, and grabs on for dear life. To make it work you'll confront real entity AI, the client/server render-state handshake, and honest input networking all at once.</p>
+<h1>A mob in full</h1>
+<p class="chapter-sub">The mob in <a href="entities.html">Entities</a> just stood there. This one rides on your head, glides you safely down, breeds, panics and flees when struck, and grabs on for dear life. To make it work you'll confront real entity AI, the client/server render-state handshake, and honest input networking all at once.</p>
 
-<p><a href="entities.html">Chapter 7</a> built the simplest possible mob: extend <code>LivingEntity</code>, pick a skin, refuse to despawn. It had no brain, and on purpose, the lesson there was the spawn protocol, not behaviour. This chapter is its sequel. We're going to build the showcase's most complex creature, the Aerbunny, a full port of the floaty puffball from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>, and every problem Chapter 7 let us skip comes due here.</p>
+<p><a href="entities.html">Entities</a> built the simplest possible mob: extend <code>LivingEntity</code>, pick a skin, refuse to despawn. It had no brain, and on purpose, the lesson there was the spawn protocol, not behaviour. This page is its sequel. We're going to build the showcase's most complex creature, the Aerbunny, a full port of the floaty puffball from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>, and every problem <a href="entities.html">Entities</a> let us skip comes due here.</p>
 
 <p>An Aerbunny wanders like a passive animal, then layers five behaviours on top. It rides on the player's head when you right-click it and slow-falls them, a glide, with a soft upward boost if they hold jump in the air. It breeds, with a population cap. It panics when a player hits it and pathfinds away. It can be grabbed and held, and when a grabbed one lands it makes nearby monsters turn on it. And it puffs up and tilts as it floats, render state the server computes and must publish to every client. No single piece is hard. Together they teach the three things a living entity actually needs that a static mob never does: an AI base, a render-state channel, and input networking. We'll take them one at a time.</p>
 
 <p>This is a long chapter because it is a complete, reproducible build. By the end you'll have written eleven files, and the last section lists every one so you can check your work. Let's start with the class.</p>
 
 <h2>The class and its brain</h2>
-<p>Chapter 7's mob extended <code>LivingEntity</code> and stood still. The Aerbunny extends <code>AnimalEntity</code>, beta's base class for passive, wandering creatures, the same parent as the cow and the pig. That single choice hands us a working brain for free: idle wandering, looking around, fleeing in a generic way, the whole vanilla passive AI. We then override its tick hooks to add everything the Aether bunny does on top.</p>
+<p><a href="entities.html">Entities</a>'s mob extended <code>LivingEntity</code> and stood still. The Aerbunny extends <code>AnimalEntity</code>, beta's base class for passive, wandering creatures, the same parent as the cow and the pig. That single choice hands us a working brain for free: idle wandering, looking around, fleeing in a generic way, the whole vanilla passive AI. We then override its tick hooks to add everything the Aether bunny does on top.</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code><span class="k">public class</span> <span class="t">AerbunnyEntity</span> <span class="k">extends</span> <span class="t">AnimalEntity</span> <span class="k">implements</span> <span class="t">RetroMobSpawnData</span> {
 
@@ -48,7 +48,7 @@
 
 <p>Read those fields like a behaviour list, because that's what they are. <code>age</code> and <code>mate</code> are the breeding counters. <code>grab</code> and <code>fear</code> are the grabbed and panic flags. <code>gotRider</code> remembers across a save that a player was carrying this bunny. <code>runFrom</code> is whoever it's currently fleeing. <code>puffiness</code> is the render-only puff scale, and <code>vehicleJumping</code> is the rider's jump key, which, as we'll see, has to travel over the network to get here on a dedicated server.</p>
 
-<p>The constructor sets the basics and, importantly, the texture, a real PNG you'll ship at the end of this chapter:</p>
+<p>The constructor sets the basics and, importantly, the texture, a real PNG you'll ship at the end of this page:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java</span><pre><code>	<span class="k">public</span> AerbunnyEntity(<span class="t">World</span> world) {
 		<span class="k">super</span>(world);
@@ -125,7 +125,7 @@
 			}
 		}</code></pre></div>
 
-<div class="note"><p>The DataTracker is a tiny, fixed bag, integers, bytes, a handful of values. It is exactly right for render state that changes every tick: it rides the entity tracker automatically, no channel to register, no listener to write. Reach for a custom packet (<a href="networking.html">Chapter 12</a>) only when you need something the tracker can't carry, which, as we're about to see with the jump key, does happen.</p></div>
+<div class="note"><p>The DataTracker is a tiny, fixed bag, integers, bytes, a handful of values. It is exactly right for render state that changes every tick: it rides the entity tracker automatically, no channel to register, no listener to write. Reach for a custom packet (<a href="networking.html">Networking</a>) only when you need something the tracker can't carry, which, as we're about to see with the jump key, does happen.</p></div>
 
 <h2>Riding the player</h2>
 <p>Right-click the bunny and it climbs onto your head. The hook is <code>interact</code>, and the authoritative side does the work, sets the rider, plays a lift sound, gives it a little launch velocity:</p>
@@ -172,7 +172,7 @@
 	}
 }</code></pre></div>
 
-<div class="danger"><p><strong>A server-only class must never be named in common code that also runs on the singleplayer client.</strong> The JVM resolves every type a method references the moment it verifies that method, so even an untaken branch that mentions <code>ServerPlayerEntity</code> crashes the client loader. The cure is the two-part pattern here: detect the server with a <strong>string class-name check</strong> (<code>getClass().getName().endsWith("ServerPlayerEntity")</code>) so no type is named, and isolate the actual server-only reference in its own helper class (<code>MountSync</code>) that only loads when called. This is the same sided-loading discipline that keeps <code>LivingEntityRenderer</code> out of the common entrypoint in <a href="entities.html">Chapter 7</a>, applied in the other direction.</p></div>
+<div class="danger"><p><strong>A server-only class must never be named in common code that also runs on the singleplayer client.</strong> The JVM resolves every type a method references the moment it verifies that method, so even an untaken branch that mentions <code>ServerPlayerEntity</code> crashes the client loader. The cure is the two-part pattern here: detect the server with a <strong>string class-name check</strong> (<code>getClass().getName().endsWith("ServerPlayerEntity")</code>) so no type is named, and isolate the actual server-only reference in its own helper class (<code>MountSync</code>) that only loads when called. This is the same sided-loading discipline that keeps <code>LivingEntityRenderer</code> out of the common entrypoint in <a href="entities.html">Entities</a>, applied in the other direction.</p></div>
 
 <p>The rest of <code>interact</code> tidies the bunny for the ride and hands it off:</p>
 
@@ -238,12 +238,12 @@
 	<span class="k">boolean</span> getJumping();
 }</code></pre></div>
 
-<p>(Accessor mixins are <a href="mixins.html">Chapter 13</a>'s subject; here they're just the only legal way to touch another entity's private fields.)</p>
+<p>(Accessor mixins are <a href="mixins.html">Mixins</a>'s subject; here they're just the only legal way to touch another entity's private fields.)</p>
 
 <h3>Why the jump key has to be shipped</h3>
 <p>Now the hard part. The boost depends on <code>this.vehicleJumping</code>, the rider's jump key. On the singleplayer client the rider is the local player, so we can read the key directly. But on a dedicated server the server has <strong>no idea</strong> whether the player is holding jump, input lives on the client. So the client must ship the jump key up every tick, and the boost must fire authoritatively from that shipped value. This is precisely the case the DataTracker can't cover, and where a custom client-to-server packet earns its place.</p>
 
-<p>We declare the channel in the common <code>ExampleNetworking</code> alongside the welcome/ping pair from <a href="networking.html">Chapter 12</a>. The two booleans are direction: <code>(false, true)</code> means server-to-client off, client-to-server on:</p>
+<p>We declare the channel in the common <code>ExampleNetworking</code> alongside the welcome/ping pair from <a href="networking.html">Networking</a>. The two booleans are direction: <code>(false, true)</code> means server-to-client off, client-to-server on:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleNetworking.java</span><pre><code>	<span class="c">// Client to server: the rider's jump-key state, so the Aerbunny's glide boost can fire</span>
 	<span class="c">// authoritatively on a dedicated server (where the server can't see the player's input).</span>
@@ -311,7 +311,7 @@
 					<span class="k">return</span>;
 				}</code></pre></div>
 
-<p>If the area isn't crowded, look for an adult neighbour within one block, with no rider, and spawn a baby at this bunny's position. Spawning is the same three-line move from <a href="entities.html">Chapter 7</a>: construct from the world, position, hand to <code>spawnEntity</code>. Both parents then reset their counters via <code>proceed()</code>:</p>
+<p>If the area isn't crowded, look for an adult neighbour within one block, with no rider, and spawn a baby at this bunny's position. Spawning is the same three-line move from <a href="entities.html">Entities</a>: construct from the world, position, hand to <code>spawnEntity</code>. Both parents then reset their counters via <code>proceed()</code>:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyEntity.java, tick()</span><pre><code>				<span class="t">List</span>&lt;?&gt; close = <span class="k">this</span>.world.getEntities(<span class="k">this</span>, <span class="k">this</span>.boundingBox.expand(<span class="n">1.0</span>, <span class="n">1.0</span>, <span class="n">1.0</span>));
 				<span class="k">boolean</span> mated = <span class="k">false</span>;
@@ -419,7 +419,7 @@
 <p>That whole <code>else if (this.onGround)</code> is the partner of the <code>if (!this.grab)</code> that wraps the normal panic logic: a bunny is either behaving normally and possibly fleeing, or it's grabbed and waiting to land. The state byte we published in slot 16 carries the grabbed bit (value 4) so remote clients can reflect it too.</p>
 
 <h2>The model and renderer</h2>
-<p>Chapter 7's mob borrowed the biped model. The Aerbunny needs a custom shape, twelve cubes: a head with two ears and two cheeks, a body, a tail, the puff cube, and four legs. Each cube is one call to a small <code>part</code> helper that builds a <code>ModelPart</code>, adds a cuboid, and sets its pivot:</p>
+<p><a href="entities.html">Entities</a>'s mob borrowed the biped model. The Aerbunny needs a custom shape, twelve cubes: a head with two ears and two cheeks, a body, a tail, the puff cube, and four legs. Each cube is one call to a small <code>part</code> helper that builds a <code>ModelPart</code>, adds a cuboid, and sets its pivot:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/AerbunnyModel.java</span><pre><code>	<span class="k">public</span> AerbunnyModel() {
 		<span class="k">int</span> y = <span class="n">16</span>;
@@ -505,14 +505,14 @@
 		<span class="k">this</span>.bunnyModel.puffiness = bunny.puffiness;
 	}</code></pre></div>
 
-<p>Both numbers it draws from, <code>getSyncedVelocityY()</code> and <code>bunny.puffiness</code>, came off the wire, never from a field the client simulated. That is the whole point: a remote client never runs the bunny's physics, so the only honest source for the render is what the server told it. The publish/trust split from earlier in the chapter ends here, at the GL call that finally uses it.</p>
+<p>Both numbers it draws from, <code>getSyncedVelocityY()</code> and <code>bunny.puffiness</code>, came off the wire, never from a field the client simulated. That is the whole point: a remote client never runs the bunny's physics, so the only honest source for the render is what the server told it. The publish/trust split from earlier in the page ends here, at the GL call that finally uses it.</p>
 
-<div class="danger"><p><code>AerbunnyModel</code> and <code>AerbunnyRenderer</code> name <code>GL11</code> and <code>LivingEntityRenderer</code>, client-only graphics classes. Both must be registered from <code>initRetroClient()</code> and never touched in common code, the same wall that kept the biped renderer client-side in <a href="entities.html">Chapter 7</a>. The entity class is common; the model and renderer are client. Don't let them cross.</p></div>
+<div class="danger"><p><code>AerbunnyModel</code> and <code>AerbunnyRenderer</code> name <code>GL11</code> and <code>LivingEntityRenderer</code>, client-only graphics classes. Both must be registered from <code>initRetroClient()</code> and never touched in common code, the same wall that kept the biped renderer client-side in <a href="entities.html">Entities</a>. The entity class is common; the model and renderer are client. Don't let them cross.</p></div>
 
 <h2>Registering every piece</h2>
 <p>Eleven files only do something once they're wired in. Here is every registration, in the right entrypoint.</p>
 
-<p><strong>The entity</strong>, in the common <code>init()</code>, with the <code>MobFactory</code> cast that marks it as a living entity (the rule from <a href="entities.html">Chapter 7</a>):</p>
+<p><strong>The entity</strong>, in the common <code>init()</code>, with the <code>MobFactory</code> cast that marks it as a living entity (the rule from <a href="entities.html">Entities</a>):</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code>		AERBUNNY = <span class="t">RetroEntities</span>.register(<span class="t">AerbunnyEntity</span>.ID, <span class="t">AerbunnyEntity</span>.<span class="k">class</span>)
 			.factory((<span class="t">MobFactory</span>) <span class="t">AerbunnyEntity</span>::<span class="k">new</span>);</code></pre></div>
@@ -525,7 +525,7 @@
 		<span class="t">RetroEntityRenderers</span>.register(<span class="t">AerbunnyEntity</span>.<span class="k">class</span>,
 			<span class="k">new</span> <span class="t">AerbunnyRenderer</span>(<span class="k">new</span> <span class="t">AerbunnyModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
 
-<p><strong>The jump channel</strong> is declared in <code>ExampleNetworking</code> (shown earlier) and registered by that class's static initializer, which <code>ExampleMod.initRetro()</code> already forces to load via <code>registerChannels()</code> (<a href="networking.html">Chapter 12</a>). The <strong>server listener</strong> for it is in <code>ExampleModServer.initRetroServer()</code> (also shown earlier). The <strong>client sender</strong> is the mount mixin.</p>
+<p><strong>The jump channel</strong> is declared in <code>ExampleNetworking</code> (shown earlier) and registered by that class's static initializer, which <code>ExampleMod.initRetro()</code> already forces to load via <code>registerChannels()</code> (<a href="networking.html">Networking</a>). The <strong>server listener</strong> for it is in <code>ExampleModServer.initRetroServer()</code> (also shown earlier). The <strong>client sender</strong> is the mount mixin.</p>
 
 <p><strong>The three mixin entries.</strong> The two accessors go in the common <code>"mixins"</code> list (they touch only common classes), and the client mount mixin goes in <code>"client"</code> so it never loads on a dedicated server, where <code>ClientPlayNetworking</code> doesn't exist:</p>
 
@@ -563,7 +563,7 @@
 		<span class="k">return</span> <span class="k">this</span>.world.getBlockId(bx, by - <span class="n">1</span>, bz) == <span class="t">Block</span>.GRASS_BLOCK.id &amp;&amp; <span class="k">super</span>.canSpawn();
 	}</code></pre></div>
 
-<p>(The Noisy dimension and its biomes are <a href="dimensions.html">Chapter 10</a>'s and <a href="worldgen.html">Chapter 20</a>'s subjects; here we're just placing the bunny into them.)</p>
+<p>(The Noisy dimension and its biomes are <a href="dimensions.html">Dimensions &amp; portals</a>'s and <a href="worldgen.html">Worldgen</a>'s subjects; here we're just placing the bunny into them.)</p>
 
 <h2>The texture and sounds</h2>
 <p>The skin is a single 64x32 sheet. The model's UV corners (the first two ints of every <code>part</code> call) index into it: the head block at 0,0, the ears at 14,0, the puff cube at 29,0, the legs lower down. Ship it at the path the constructor names:</p>
@@ -574,7 +574,7 @@
 
 <p class="filepath"><code>src/main/resources/assets/example_mod/textures/mobs/aerbunny.png</code></p>
 
-<p>The sounds are five OGG files, loaded by the autoloader purely from their folder, no JSON to write (<a href="sounds.html">Chapter 19</a> covers the autoloader in full). They live nested under the mob's own folder:</p>
+<p>The sounds are five OGG files, loaded by the autoloader purely from their folder, no JSON to write (<a href="sounds.html">Sounds &amp; music</a> covers the autoloader in full). They live nested under the mob's own folder:</p>
 
 <p class="filepath"><code>src/main/resources/assets/example_mod/sounds/sound/mobs/aerbunny/</code></p>
 
@@ -619,9 +619,9 @@
 <tr><td><code>example_mod.mixins.json</code> (edit)</td><td>Added the two accessors to <code>"mixins"</code> and the mount mixin to <code>"client"</code>.</td></tr>
 </table>
 
-<p>Look back at how far the entity foundation stretched. The same spawn protocol from <a href="entities.html">Chapter 7</a> carried this mob to clients; the DataTracker carried its render state; one custom channel carried the one input the tracker couldn't; and a careful helper class kept a server-only type out of common code. Each piece was small. Together they're a living creature that rides on your head and floats you home, ported faithfully from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>.</p>
+<p>Look back at how far the entity foundation stretched. The same spawn protocol from <a href="entities.html">Entities</a> carried this mob to clients; the DataTracker carried its render state; one custom channel carried the one input the tracker couldn't; and a careful helper class kept a server-only type out of common code. Each piece was small. Together they're a living creature that rides on your head and floats you home, ported faithfully from the <a href="https://github.com/matthewperiut/aether-fabric-b1.7.3">Aether for Beta 1.7.3</a>.</p>
 
-<p>Our world now has machines, a wandering creature, and a floaty companion with a real brain. Next we'll reward the player for finding them: toasts that pop, an achievements page, and granting them from gameplay. On to <a href="achievements.html">Chapter 9</a>.</p>
+<p>Our world now has machines, a wandering creature, and a floaty companion with a real brain. Next we'll reward the player for finding them: toasts that pop, an achievements page, and granting them from gameplay. On to <a href="achievements.html">Achievements</a>.</p>
 </div>
 
 <div class="pager"></div>

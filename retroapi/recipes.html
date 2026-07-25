@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 11: Recipes, RetroAPI Guide</title>
+<title>Recipes &amp; fuel, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 11, Recipes</h1>
+<h1>Recipes &amp; fuel</h1>
 <p class="chapter-sub">Four little tables, shaped, shapeless, smelting, fuel, and one rule about wildcards that saves you a debugging afternoon.</p>
 
 <p>You've built blocks, items, a mob, a dimension. Now we close the loop: let players <em>make</em> the things you registered. Recipes in RetroAPI are four one-line calls, and the only subtle part is <em>when</em> you call them, so we'll start there.</p>
@@ -51,7 +51,7 @@ RecipeRegistrationCallback.EVENT.register(ExampleMod::registerRecipes);</code></
 
 <div class="note"><p>The callback is also where you'd register recipes that depend on <em>other</em> mods' items existing, by the time it fires, the whole registry has settled.</p></div>
 
-<div class="note"><p><strong>New in 0.3.0.</strong> Behind the <code>retroapi</code> entrypoint (<a href="entrypoints.html">Chapter 2</a>) you can also just call the four methods below <em>inline</em> in <code>initRetro()</code>. That door opens after vanilla's recipe list exists and before RetroAPI sorts it, so recipes added there land in the right order without the callback. The callback still works, and is still the right tool when you must react to other mods' registrations.</p></div>
+<div class="note"><p><strong>New in 0.3.0.</strong> Behind the <code>retroapi</code> entrypoint (<a href="entrypoints.html">Entrypoints &amp; sides</a>) you can also just call the four methods below <em>inline</em> in <code>initRetro()</code>. That door opens after vanilla's recipe list exists and before RetroAPI sorts it, so recipes added there land in the right order without the callback. The callback still works, and is still the right tool when you must react to other mods' registrations.</p></div>
 
 <div class="warn"><p><strong>The "my recipes randomly don't exist" bug, and why it happened.</strong> A recipe is an <code>ItemStack</code>, and an <code>ItemStack</code> stores a numeric id. Mods register during init, when ids are still <em>provisional</em>; the real ones arrive later, when a world's saved id map (or a server's) is applied. Every recipe built beforehand kept pointing at the old number, so it stayed in the list, count and all, and simply stopped matching, unless this session's provisional ids happened to match the world's, which is exactly why relaunching "fixed" it sometimes. RetroAPI now sweeps its own tables after any id change: crafting recipes, smelting inputs and outputs, fuels, and achievement icons are all repointed. If <em>your</em> mod caches an <code>ItemStack</code> or a raw id in a field, fix it in the same pass:</p>
 <div class="codeblock"><span class="code-title">for mod-held stacks</span><pre><code>IdRemapCallback.EVENT.register(remap -&gt; {
@@ -101,7 +101,7 @@ RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"
     <span class="k">return</span> RetroRecipes.getTotalFuelTime(stack);
 }</code></pre></div>
 
-<p>That's how the freezer in <a href="blockentities.html">Chapter 6</a> accepts coal, wood, lava buckets, <em>and</em> your own Suspicious Substances, the moment you call <code>addFuel</code> on them. One source of truth, no copy-pasting.</p>
+<p>That's how the freezer in <a href="blockentities.html">Block entities &amp; GUIs</a> accepts coal, wood, lava buckets, <em>and</em> your own Suspicious Substances, the moment you call <code>addFuel</code> on them. One source of truth, no copy-pasting.</p>
 
 <div class="note"><p><strong>Two narrower siblings</strong> exist when you want them: <code>getFuelTime(int itemId)</code> returns burn time for <em>modded-only</em> entries (the ones registered via <code>addFuel</code>, ignoring vanilla), and <code>isFuel(int itemId)</code> is a quick boolean check. For most machines you want <code>getTotalFuelTime</code>, it's the "act exactly like a furnace" answer.</p></div>
 
@@ -109,7 +109,7 @@ RetroRecipes.addShaped(output, <span class="s">"CC"</span>, <span class="s">"CC"
 <p>Two more tools for the cases that need them. <code>removeRecipe(ItemStack output)</code> strips an existing recipe by what it produces, useful for disabling a vanilla recipe you want to replace. And <code>sortCraftingRecipes()</code> re-runs the priority sort by hand; the registration callback already calls it for you, so you only need it if you've been adding recipes outside the callback for some reason.</p>
 
 <h2>Try it in game</h2>
-<p>With the starter kit in your inventory (<a href="testing.html">Chapter 22</a> covers the dev launch), every one of these is one craft or one smelt away:</p>
+<p>With the starter kit in your inventory (<a href="testing.html">Testing</a> covers the dev launch), every one of these is one craft or one smelt away:</p>
 <table>
 <tr><th>Do this</th><th>Get this</th><th>Which API</th></tr>
 <tr><td>4 cobblestone in a 2&times;2</td><td>1 Example Block</td><td><code>addShaped</code></td></tr>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 16: Shapes &amp; Pixels, RetroAPI Guide</title>
+<title>Models &amp; render layers, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 16, Shapes &amp; Pixels</h1>
+<h1>Models &amp; render layers</h1>
 <p class="chapter-sub">Modern resource-pack formats, working in Beta 1.7.3. Blockstate JSONs, model JSONs, render layers, tints, item models, and animated textures, all the files you already know, copied straight in.</p>
 
-<p>Here is the pitch, stated flat: the resource formats from modern Minecraft work in beta. Blockstate JSONs pick a model per state. Model JSONs are the vanilla 1.8-era schema, parents, textures, elements, faces. A <code>.png.mcmeta</code> next to any texture animates it. These are not lookalikes; they are the real files, and most of them copy straight out of a modern resource pack with no edits. This chapter is the tour of what RetroAPI understands and the handful of places where beta's age shows.</p>
+<p>Here is the pitch, stated flat: the resource formats from modern Minecraft work in beta. Blockstate JSONs pick a model per state. Model JSONs are the vanilla 1.8-era schema, parents, textures, elements, faces. A <code>.png.mcmeta</code> next to any texture animates it. These are not lookalikes; they are the real files, and most of them copy straight out of a modern resource pack with no edits. This page is the tour of what RetroAPI understands and the handful of places where beta's age shows.</p>
 
 <h2>Blockstate files: choosing a model per state</h2>
 <p>A blockstate JSON answers one question, "given this block's state, which model do I draw, and how is it rotated?" RetroAPI looks for it in three places, in this order, and the first hit wins:</p>
@@ -26,7 +26,7 @@
 assets/{ns}/blockstates/{block}.json              <span class="c"># the plain modern path</span>
 assets/{ns}/stationapi/blockstates/{block}.json   <span class="c"># StationAPI's path</span></code></pre></div>
 
-<p>The showcase's lamp from <a href="states.html">Chapter 14</a> uses the simplest possible form, a <code>variants</code> map keyed on the <code>lit</code> property:</p>
+<p>The showcase's lamp from <a href="states.html">Block states</a> uses the simplest possible form, a <code>variants</code> map keyed on the <code>lit</code> property:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/lamp.json</span><pre><code>{
   <span class="s">"variants"</span>: {
@@ -43,7 +43,7 @@ assets/{ns}/stationapi/blockstates/{block}.json   <span class="c"># StationAPI's
 <li><strong>Weighted arrays.</strong> A variant can be a list, <code>[{"model":...,"weight":3}, {"model":...}]</code>, and RetroAPI picks one by a <em>position-seeded hash</em>. The same block at the same coordinates always picks the same model, so there is no flicker on re-render, but neighbors vary.</li>
 <li><strong>Rotation.</strong> <code>"x"</code> and <code>"y"</code> rotate the model in 90-degree steps.</li>
 <li><strong>Multipart.</strong> Instead of <code>variants</code>, a <code>multipart</code> list applies several models at once, each gated by a <code>when</code> condition. Within a condition, <code>"a|b"</code> is alternation (OR), and listing separate properties is also OR.</li>
-<li><strong>Retro extensions.</strong> Two keys beyond the vanilla schema: <code>"properties"</code> (declare data-side state properties, the <a href="states.html">Chapter 14</a> feature) and <code>"render_layer"</code> (covered below).</li>
+<li><strong>Retro extensions.</strong> Two keys beyond the vanilla schema: <code>"properties"</code> (declare data-side state properties, the <a href="states.html">Block states</a> feature) and <code>"render_layer"</code> (covered below).</li>
 </ul>
 
 <div class="warn"><p>One honest limit. <strong>AND is not supported</strong> in multipart <code>when</code> conditions, it is a 1.17 feature, so a single condition can only OR its terms. <code>"uvlock"</code>, on the other hand, is fully supported: it re-derives UVs from the rotated geometry so the texture stays world-aligned.</p></div>
@@ -51,7 +51,7 @@ assets/{ns}/stationapi/blockstates/{block}.json   <span class="c"># StationAPI's
 <div class="note"><p><strong>A blockstate JSON auto-wires the block at registration.</strong> The moment one exists for your block, RetroAPI sets the render type to <code>retroapi:model</code> (the constant <code>RenderTypes.MODEL</code>) for you, and pulls the block's particle sprite from the model's <code>particle</code> texture. The baked model is what renders in the inventory and in your hand, too. You only set <code>RenderTypes.MODEL</code> by hand if you want model rendering <em>without</em> shipping a JSON.</p></div>
 
 <h3>Multipart: many models per state</h3>
-<p>The lamp's <code>variants</code> map picks <em>one</em> model per state. The wall from <a href="states.html">Chapter 14</a> needs the opposite: a post, plus a separate side segment for each direction it connects, all stacked into the same block. That is what <code>multipart</code> is for. Instead of choosing a single winner, multipart walks its list and applies <strong>every</strong> part whose <code>when</code> condition matches the current state. The wall's 162 states all draw from this one file:</p>
+<p>The lamp's <code>variants</code> map picks <em>one</em> model per state. The wall from <a href="states.html">Block states</a> needs the opposite: a post, plus a separate side segment for each direction it connects, all stacked into the same block. That is what <code>multipart</code> is for. Instead of choosing a single winner, multipart walks its list and applies <strong>every</strong> part whose <code>when</code> condition matches the current state. The wall's 162 states all draw from this one file:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/blockstates/stone_wall.json</span><pre><code>{
   <span class="s">"multipart"</span>: [
@@ -332,7 +332,7 @@ RetroRenderLayers.set(MY_BLOCK, RetroRenderLayer.TRANSLUCENT);
 <h3>Shape 1: layered sprites (item/generated)</h3>
 <p>A model parented to <code>item/generated</code> or <code>item/handheld</code> with <code>layer0</code>, <code>layer1</code>, and so on stacks those textures. The showcase's ruby does exactly this, a base ruby with a sparkle overlaid:</p>
 
-<div class="note"><p>The two parents differ in one way beyond texture stacking, the same way they do in modern Minecraft: <code>item/handheld</code> ALSO flips the item's in-hand render to the diagonal through-the-fist pose that vanilla tools and sticks use. The showcase's Ruby Pick gets the tool pose purely from its model file; an item without a model JSON opts in from code with the chainable <code>RetroItemAccess.handheld()</code> (see the builder table in <a href="items.html">Chapter 5</a>).</p></div>
+<div class="note"><p>The two parents differ in one way beyond texture stacking, the same way they do in modern Minecraft: <code>item/handheld</code> ALSO flips the item's in-hand render to the diagonal through-the-fist pose that vanilla tools and sticks use. The showcase's Ruby Pick gets the tool pose purely from its model file; an item without a model JSON opts in from code with the chainable <code>RetroItemAccess.handheld()</code> (see the builder table in <a href="items.html">Items</a>).</p></div>
 
 <div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/retroapi/models/item/ruby.json</span><pre><code>{
   <span class="s">"parent"</span>: <span class="s">"item/generated"</span>,
@@ -362,10 +362,10 @@ RUBY = RetroItemAccess.create()
 <p>An item model parented to a block model renders that baked block in your inventory and hand. <strong>Block items get this for free</strong>, the <code>BlockItem</code> that every block registration creates already shows the block's baked model, so the lamp you hold is the lamp model. A plain (non-block) item that points its model at a block parent logs a warning in v1; that combination isn't wired yet.</p>
 
 <h3>Shape 3: no JSON</h3>
-<p>If there's no <code>models/item/{id}.json</code>, nothing changes: your existing <code>.texture()</code> / custom-class workflows from <a href="items.html">Chapter 5</a> work exactly as before. Model JSONs are purely additive.</p>
+<p>If there's no <code>models/item/{id}.json</code>, nothing changes: your existing <code>.texture()</code> / custom-class workflows from <a href="items.html">Items</a> work exactly as before. Model JSONs are purely additive.</p>
 
 <h2>Animated textures</h2>
-<p><a href="assets.html">Chapter 3</a> gave the one-paragraph version; the full treatment lives here. Any texture you register, through <code>.texture(id)</code>, <code>RetroTextures.addBlockTexture</code>, or <code>addItemTexture</code>, animates automatically the moment a <code>{png}.png.mcmeta</code> file sits next to it. No code changes, no separate registration. The showcase's ember block ships this mcmeta:</p>
+<p><a href="assets.html">Textures, names &amp; files</a> gave the one-paragraph version; the full treatment lives here. Any texture you register, through <code>.texture(id)</code>, <code>RetroTextures.addBlockTexture</code>, or <code>addItemTexture</code>, animates automatically the moment a <code>{png}.png.mcmeta</code> file sits next to it. No code changes, no separate registration. The showcase's ember block ships this mcmeta:</p>
 
 <div class="codeblock"><span class="code-title">src/main/resources/assets/example_mod/textures/block/ember_block.png.mcmeta</span><pre><code>{
   <span class="s">"animation"</span>: {
@@ -433,7 +433,7 @@ EMBER_BLOCK = RetroBlockAccess.create(Material.STONE)
 <h2>What we built</h2>
 <p>Blockstate JSONs picked models per state and auto-wired the block to model rendering. Model JSONs gave us embedded parents (so packs ship no vanilla assets), elements, faces, and cullface-aware lighting. Render layers placed blocks in the right beta pass; tint providers colored them per biome; item models layered sprites or borrowed a block's baked look; and a lone <code>.png.mcmeta</code> brought a texture to life. Every one of these is a real modern-pack file, copied in and working.</p>
 
-<p>That closes the visual building blocks. You have blocks, items, machines, mobs, dimensions, packets, deep states, and modern models. A few chapters round out the build: blocks that face you, the equipment you carry, the sounds it plays, the lands it generates, and the data items hold. First, putting all of this together into blocks that know which way they point. On to <a href="facing.html">Chapter 17</a>.</p>
+<p>That closes the visual building blocks. You have blocks, items, machines, mobs, dimensions, packets, deep states, and modern models. A few chapters round out the build: blocks that face you, the equipment you carry, the sounds it plays, the lands it generates, and the data items hold. First, putting all of this together into blocks that know which way they point. On to <a href="facing.html">Directional blocks</a>.</p>
 </div>
 
 <div class="pager"></div>

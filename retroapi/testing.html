@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 22: Proving Grounds, RetroAPI Guide</title>
+<title>Testing, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,7 +14,7 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 22, Proving Grounds</h1>
+<h1>Testing</h1>
 <p class="chapter-sub">Two launch commands, one mandatory server flag, and the short list of mistakes that compile fine and explode at runtime.</p>
 
 <p>You've built the whole mod. This last chapter is about running it, really running it, both halves, and reading what the game tells you. There's exactly one non-obvious setup step (the offline-mode flag) and a short checklist of sided-code traps. Learn both and you can test anything in this book.</p>
@@ -23,7 +23,7 @@
 <p>The everyday command:</p>
 <div class="codeblock"><span class="code-title">terminal</span><pre><code>./gradlew runClient</code></pre></div>
 
-<p>This launches Beta 1.7.3 with your mod loaded. Because beta singleplayer runs the world entirely inside the client (<a href="entrypoints.html">Chapter 2</a>), <strong>everything is testable here except custom packets and dedicated-server-only paths.</strong> Blocks, items, recipes, the mob, achievements, the dimension, every one of the twelve mixins, all of it works in <code>runClient</code>.</p>
+<p>This launches Beta 1.7.3 with your mod loaded. Because beta singleplayer runs the world entirely inside the client (<a href="entrypoints.html">Entrypoints &amp; sides</a>), <strong>everything is testable here except custom packets and dedicated-server-only paths.</strong> Blocks, items, recipes, the mob, achievements, the dimension, every one of the twelve mixins, all of it works in <code>runClient</code>.</p>
 
 <p>And you don't have to go hunting for your content. The showcase's <code>ExamplePlayerSetup</code> hands you a starter kit on your first tick in the world, every block, the Jump Stick, water buckets and coal for the freezer, the join achievement, and a spawned example mob at your feet. Walk in and it's all in your hotbar.</p>
 
@@ -73,10 +73,10 @@
 <p>These all compile cleanly and then explode at runtime, because the compiler sees one merged classpath while the running game has two separate sides. The checklist:</p>
 
 <ul>
-<li><strong>Referencing <code>net.minecraft.client.*</code> from a server-loaded class.</strong> <code>NoClassDefFoundError</code> on the dedicated server, those classes simply aren't there. This is why renderers and screens live in <code>ExampleModClient</code> (<a href="entrypoints.html">Chapter 2</a>).</li>
+<li><strong>Referencing <code>net.minecraft.client.*</code> from a server-loaded class.</strong> <code>NoClassDefFoundError</code> on the dedicated server, those classes simply aren't there. This is why renderers and screens live in <code>ExampleModClient</code> (<a href="entrypoints.html">Entrypoints &amp; sides</a>).</li>
 <li><strong>Referencing <code>ServerPlayerEntity</code> from client-loaded code.</strong> The mirror image, it doesn't exist on the client. Keep server-only types in <code>ExampleModServer</code> and the <code>"server"</code> mixin list.</li>
-<li><strong>Mixins in the wrong list.</strong> A client-only mixin in the common <code>"mixins"</code> list crashes a dedicated server at load; a server-only one in the common list crashes the client. Match the list to the target class's side (<a href="mixins.html">Chapter 13</a>).</li>
-<li><strong>Sending packets before <code>ServerPlayNetworking.isPlayReady</code>.</strong> Fire too early and the client isn't listening on your channel yet, so the packet vanishes. Gate every send on the handshake (<a href="networking.html">Chapter 12</a>).</li>
+<li><strong>Mixins in the wrong list.</strong> A client-only mixin in the common <code>"mixins"</code> list crashes a dedicated server at load; a server-only one in the common list crashes the client. Match the list to the target class's side (<a href="mixins.html">Mixins</a>).</li>
+<li><strong>Sending packets before <code>ServerPlayNetworking.isPlayReady</code>.</strong> Fire too early and the client isn't listening on your channel yet, so the packet vanishes. Gate every send on the handshake (<a href="networking.html">Networking</a>).</li>
 <li><strong>Forgetting <code>world.isRemote</code> guards.</strong> Game logic, spawning, damage, inventory changes, granting achievements, belongs behind <code>!world.isRemote</code>. Beware the beta surprise: in <em>singleplayer</em> <code>world.isRemote</code> is <code>false</code> (the local world is authoritative), so the guard reads as "only run where the world is real," which is exactly where your logic belongs.</li>
 </ul>
 
@@ -84,7 +84,7 @@
 <p>The console is your best testing tool. A few things to look for:</p>
 
 <ul>
-<li><strong>A bad mixin target is a loud crash at class-load.</strong> With <code>defaultRequire: 1</code> (<a href="mixins.html">Chapter 13</a>), a typo'd method or field name stops the game at launch with a clear message instead of failing silently. When you see it, you have a name to fix, that's the system working.</li>
+<li><strong>A bad mixin target is a loud crash at class-load.</strong> With <code>defaultRequire: 1</code> (<a href="mixins.html">Mixins</a>), a typo'd method or field name stops the game at launch with a clear message instead of failing silently. When you see it, you have a name to fix, that's the system working.</li>
 <li><strong>RetroAPI logs every registration at startup.</strong> Blocks, items, entities, dimensions, achievement ids, each prints as it registers. Skim those lines to confirm your <code>init()</code> actually ran and your content reached the registry. The showcase even logs its dimension's serial id and "gave &lt;player&gt; the example starter kit", concrete proof the path executed.</li>
 <li><strong>The StationAPI <code>FlattenedWorldStorage</code> mixin warning is NORMAL.</strong> When StationAPI isn't present, RetroAPI logs a warning that its optional StationAPI-compat mixin couldn't apply. This is expected, it's an optional-compatibility mixin, and its absence means nothing is wrong. Don't panic, and don't go hunting for a missing dependency.</li>
 </ul>

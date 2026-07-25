@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 20: New Lands, RetroAPI Guide</title>
+<title>Worldgen, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,145 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 20, New Lands</h1>
-<p class="chapter-sub">Stop borrowing the Overworld's terrain and grow your own: a chunk generator from one equation, then a full Perlin world with ores, caves, trees, biomes, and a portal home.</p>
+<h1>Worldgen</h1>
+<p class="chapter-sub">Four separate jobs that get confused with each other: putting things into worlds that already exist, describing a biome, building a whole chunk generator, and connecting worlds together.</p>
 
-<p><a href="dimensions.html">Chapter 10</a> registered a dimension and walked into it through a portal, and it was honest about reusing overworld generation so the chapter could stay about doorways. This is the other half. Here you bring your own generator into the room, and you learn the second large subject Chapter 10 set aside: chunk generators, biome sources, surface decoration, and the spawn rules that make a world feel alive. The showcase ships two of these. The Curvy dimension is the smallest possible custom generator, a single equation. The Noisy dimension is the real thing, Perlin terrain with everything bolted on. We'll build up from the equation to the full world, then wire the biomes, the spawn caps, and the portal that takes you back.</p>
+<p>Start at the top of this page if you want your ore to appear in the normal overworld, that is the common case and it needs no mixins and no generator of your own. The later sections build up to a dimension with its own terrain.</p>
+
+<table>
+<tr><th>If you want to…</th><th>Go to</th></tr>
+<tr><td>put ore, boulders or structures into existing worlds</td><td><a href="#adding-features-to-worlds-that-already-exist">Features</a></td></tr>
+<tr><td>describe a new biome (colours, weather, spawns)</td><td><a href="#biomes">Biomes</a></td></tr>
+<tr><td>change spawns or colours of a biome that already exists</td><td><a href="#editing-existing-biomes">Editing existing biomes</a></td></tr>
+<tr><td>build terrain from scratch</td><td><a href="#a-chunk-generator-from-one-equation">Chunk generators</a></td></tr>
+<tr><td>register the world itself, and a way in</td><td><a href="dimensions.html">Dimensions &amp; portals</a></td></tr>
+</table>
+
+<h2>Adding features to worlds that already exist</h2>
+
+<p>Everything above builds a <em>new</em> world. The far more common wish is smaller: "I want my ore to generate in the normal overworld." In beta that meant mixin-ing vanilla's chunk generator, because what generates is a hardcoded list inside <code>decorate</code>, with ore veins written as <code>new OreFeature(id, size)</code> and their height bands as literals. There is no rarity knob, no metadata, and nothing but stone can be replaced.</p>
+
+<p>RetroAPI hooks decoration once, for every dimension and every generator (including custom ones), and runs whatever mods registered, after vanilla's own decoration for that chunk:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// A plain ore: 8 veins of 6 blocks per chunk, between y=4 and y=32.</span>
+RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
+
+<span class="c">// A rare, large stone variant carrying state index 2, replacing vanilla stone.</span>
+RetroFeatures.ore(STONE_TYPES).meta(<span class="n">2</span>).size(<span class="n">48</span>).count(<span class="n">3</span>).rarity(<span class="n">3</span>)
+    .heightRange(<span class="n">0</span>, <span class="n">96</span>).replace(Block.STONE).register();
+
+<span class="c">// An ore that generates INSIDE your own stone types, not just vanilla stone.</span>
+RetroFeatures.ore(RUBY_ORE).size(<span class="n">5</span>).count(<span class="n">6</span>).heightRange(<span class="n">0</span>, <span class="n">48</span>)
+    .replace(Block.STONE, MARBLE, SLATE).register();
+
+<span class="c">// Anything else at all.</span>
+RetroFeatures.custom((world, random, x, y, z) -&gt; {
+    <span class="k">int</span> surface = RetroFeatures.surfaceY(world, x, z);
+    RetroFeatures.setBlock(world, x, surface, z, ExampleMod.MARKER.id, <span class="n">0</span>);
+    <span class="k">return true</span>;
+}).count(<span class="n">1</span>).rarity(<span class="n">64</span>).register();</code></pre></div>
+
+<table>
+<tr><th>Call</th><th>What it controls</th></tr>
+<tr><td><code>.size(n)</code></td><td>blocks per vein (vanilla ores use 4–33)</td></tr>
+<tr><td><code>.count(n)</code></td><td>attempts per chunk</td></tr>
+<tr><td><code>.heightRange(min, max)</code></td><td>inclusive Y band each attempt is rolled in</td></tr>
+<tr><td><code>.rarity(n)</code></td><td>places in one chunk out of <code>n</code>, the knob vanilla simply lacks</td></tr>
+<tr><td><code>.meta(n)</code></td><td>the metadata / flattened state each block is placed with</td></tr>
+<tr><td><code>.replace(blocks…)</code></td><td>what the vein may carve into (default: vanilla stone)</td></tr>
+<tr><td><code>.dimensions(ids…)</code> / <code>.dimension(id)</code> / <code>.anyDimension()</code></td><td>where it applies (default: the overworld)</td></tr>
+</table>
+
+<div class="note"><p>Generation stays deterministic: the decoration random is seeded from the world seed and chunk coordinates exactly the way vanilla seeds its own, so a seed still gives the same world. A feature that throws is logged and skipped rather than taking the chunk, and the world, down with it.</p></div>
+
+<p>Custom generators get the same treatment for free, since the hook sits on the chunk cache rather than on any one generator. If your generator does its own population outside that path, call <code>RetroFeatures.decorate(world, chunkX, chunkZ)</code> yourself.</p>
+
+<h2>Biomes</h2>
+<p>A <code>ChunkSource</code> shapes the land; a <code>BiomeSource</code> answers "what biome is at <code>(x, z)</code>?" for grass and sky tint, temperature, and mob spawning. The dimension picks both. Curvy uses the simplest possible biome source, one biome everywhere:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/CurvyDimension.java, initBiomeSource()</span><pre><code><span class="k">@Override</span>
+<span class="k">protected void</span> initBiomeSource() {
+	<span class="c">// One gentle biome: friendly animals only (wired in ExampleMod.registerSpawns).</span>
+	<span class="k">this</span>.biomeSource = <span class="k">new</span> <span class="t">SingleBiomeSource</span>(<span class="t">ExampleMod</span>.CURVY_BIOME, <span class="n">0.7</span>);
+}</code></pre></div>
+
+<p>The biomes themselves are built with RetroAPI's <code>BiomeBuilder</code>, a fluent builder that sets tint, weather, and per-biome spawns. The Curvy biome is one gentle green region full of vanilla farm animals; the Noisy dimension has two, an orange "amplified" biome and a green "lush" one:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CURVY_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Curvy Hills"</span>)
+	.grassAndLeavesColor(<span class="n">0x88DD66</span>)
+	.passiveEntity(<span class="t">CowEntity</span>.class, <span class="n">8</span>)
+	.passiveEntity(<span class="t">PigEntity</span>.class, <span class="n">8</span>)
+	.passiveEntity(<span class="t">SheepEntity</span>.class, <span class="n">8</span>)
+	.passiveEntity(<span class="t">ChickenEntity</span>.class, <span class="n">6</span>)
+	.build();
+NOISY_AMPLIFIED_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Amplified Wastes"</span>)
+	.grassAndLeavesColor(<span class="n">0xFF8A3D</span>) <span class="c">// funky orange grass</span>
+	.build();
+NOISY_LUSH_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Lush Hollows"</span>)
+	.grassAndLeavesColor(<span class="n">0x5Fae3a</span>)
+	.build();</code></pre></div>
+
+<p><code>BiomeBuilder.start(name)</code> opens the builder, chained calls like <code>grassAndLeavesColor</code>, <code>precipitation</code>, <code>snow</code>, and <code>passiveEntity</code> configure it, and <code>build()</code> returns a plain vanilla <code>Biome</code> the dimension hands back from its biome source. No global biome registration is needed; the dimension owns its biomes.</p>
+
+<p>The Noisy dimension picks between its two biomes by noise. <code>NoisyBiomeSource</code> samples a wide, low-frequency Perlin field and thresholds it at zero, so the two biomes form large contiguous regions with a soft boundary:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyBiomeSource.java, pick()</span><pre><code><span class="k">private</span> <span class="t">Biome</span> pick(<span class="k">int</span> x, <span class="k">int</span> z) {
+	<span class="k">return this</span>.biomeNoise.sample(x / <span class="n">220.0</span>, z / <span class="n">220.0</span>) &gt; <span class="n">0.0</span> ? <span class="k">this</span>.amplified : <span class="k">this</span>.lush;
+}</code></pre></div>
+
+<p><code>NoisyDimension</code> is the <code>Dimension</code> subclass that wires the noise chunk generator to the two-biome source, the same shape as the Curvy dimension but pointing at the noisy pieces:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyDimension.java</span><pre><code><span class="k">public class</span> <span class="t">NoisyDimension</span> <span class="k">extends</span> <span class="t">Dimension</span> {
+
+	<span class="k">public</span> NoisyDimension(<span class="k">int</span> serialId) {
+		<span class="k">this</span>.id = serialId;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">protected void</span> initBiomeSource() {
+		<span class="k">this</span>.biomeSource = <span class="k">new</span> <span class="t">NoisyBiomeSource</span>(<span class="k">this</span>.world.getSeed(),
+			<span class="t">ExampleMod</span>.NOISY_AMPLIFIED_BIOME, <span class="t">ExampleMod</span>.NOISY_LUSH_BIOME);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public</span> <span class="t">ChunkSource</span> createChunkGenerator() {
+		<span class="k">return new</span> <span class="t">NoisyChunkSource</span>(<span class="k">this</span>.world);
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> hasWorldSpawn() {
+		<span class="k">return true</span>;
+	}
+
+	<span class="k">@Override</span>
+	<span class="k">public boolean</span> isValidSpawnPoint(<span class="k">int</span> x, <span class="k">int</span> z) {
+		<span class="k">return true</span>;
+	}
+}</code></pre></div>
+
+<div class="note"><p>The biome source and the chunk source <strong>must sample the same noise</strong>. The grass colour at a spot is decided here (by which biome <code>pick</code> returns), but the tree and flower density there is decided in the chunk source's <code>decorate</code> by its own <code>isAmplifiedBiome</code>. If the two disagreed, you'd get orange grass with lush-biome foliage. They don't, because both build an <code>OctavePerlinNoiseSampler</code> from <code>seed + 3</code> with two octaves and sample at <code>/ 220.0</code>. Same seed, same frequency, same answer. When you split a dimension into regions, route both decisions through one shared noise.</p></div>
+
+<h2>Editing existing biomes</h2>
+<p>Authoring a brand-new biome is one thing; reaching into a biome that already exists, vanilla's or another mod's, is another, and it's where mods break each other. Beta has a single global set of biome objects (<code>Biome.PLAINS</code>, <code>Biome.FOREST</code>, and so on) shared by every dimension and every mod, so clobbering a spawn list is how you stomp on everyone else. RetroAPI's <code>RetroBiomes</code> is built around one rule: <strong>additive, never destructive.</strong> Every add method appends to a list and leaves every other entry in place, and <code>addSpawn</code> de-dupes by class, so registering the same mob twice updates its weight instead of stacking a duplicate:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
+<span class="c">// another mod's spawns; here it drops Aerbunnies into both Noisy biomes.</span>
+RetroBiomes.addPassiveSpawn(NOISY_AMPLIFIED_BIOME, AerbunnyEntity.class, <span class="n">4</span>);
+RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class="n">4</span>);</code></pre></div>
+
+<p>The same family covers monsters (<code>addMonsterSpawn</code>), water creatures (<code>addWaterSpawn</code>), a sweep over many biomes at once (<code>addSpawnToAll</code>), and tint recolours (<code>setGrassColor</code>, <code>setFoliageColor</code>). There <em>are</em> destructive methods, <code>setSpawn</code> and <code>clearSpawns</code>, but they exist for the rare case where a biome is genuinely yours to define, and the docs say so plainly. Reach for them only when you mean to take a biome over. The <a href="entities.html">Entities</a> Aerbunny is what's being added here, dropped into both Noisy biomes so it has somewhere to live.</p>
+
+<h2>Spawn caps for modded mobs</h2>
+<p>Adding a mob to a biome's spawn list is only half of making it spawn naturally, because beta also caps how many of each category can exist. Its <code>NaturalSpawner</code> counts animals, monsters, and water creatures separately and stops spawning a category once it's full. The catch is how it counts: an <code>instanceof</code> test against a vanilla base class (<code>AnimalEntity</code> for the animal cap, and so on). A custom mob that extends <code>LivingEntity</code> directly, the common case, is an instance of none of those, so vanilla never counts it and it would spawn without limit, swarming the world.</p>
+
+<p><code>RetroSpawnGroups</code> closes that gap. It records which category each modded class belongs to, and a mixin on the counting path adds the modded count back in, so the cap applies to every mob, vanilla or modded, with no per-mob code:</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/entity/RetroSpawnGroups.java, assign()</span><pre><code><span class="c">/** Records that {@code entityClass} spawns under {@code group} (so the cap counts it). */</span>
+<span class="k">public static void</span> assign(<span class="t">Class</span>&lt;? <span class="k">extends</span> <span class="t">LivingEntity</span>&gt; entityClass, <span class="t">SpawnGroup</span> group) {
+	GROUPS.put(entityClass, group);
+}</code></pre></div>
+
+<p>You almost never call <code>assign</code> yourself. It runs automatically the moment a mob is added to a biome, whether through <code>BiomeBuilder.passiveEntity</code> or <code>RetroBiomes.addPassiveSpawn</code>, both of which call it under the hood with the right vanilla group. So wiring the Aerbunny into the Noisy biomes above did two jobs at once: it gave the bunny somewhere to spawn, and it taught the animal cap to count it. The bunny lives only in the noisy dimension, exactly because that's the only place it was added.</p>
 
 <h2>A chunk generator from one equation</h2>
 <p>A custom dimension overrides one method, <code>createChunkGenerator()</code>, to hand back a <code>ChunkSource</code> of your own. The smallest useful generator has no noise at all, just an equation that says how high the ground is at any <code>(x, z)</code>. The Curvy dimension's surface is a scaled-up <code>sin(x) + cos(z)</code>, which makes a smooth rolling egg-carton of hills:</p>
@@ -150,9 +285,9 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 <p>Trees are built straight through <code>world.setBlock</code>, a trunk of logs and a blobby leaf crown, and <code>placeTree</code> bails early if the chosen spot isn't grass above sea level. That world-level placement is also how the next problem gets solved.</p>
 
 <h2>Placing modded blocks in worldgen</h2>
-<p>There's a hard wall in the chunk <code>byte[]</code>: a byte holds <code>0</code> to <code>255</code>, and every RetroAPI block gets an id <strong>&gt;= 256</strong> (the id story from <a href="blocks.html">Chapter 4</a>). Vanilla grass, dirt, stone, ore, and water all fit in a byte, which is why the column fill and the ore veins write the array directly. A modded block cannot. Write its id into the byte array and the high bits are simply lost.</p>
+<p>There's a hard wall in the chunk <code>byte[]</code>: a byte holds <code>0</code> to <code>255</code>, and every RetroAPI block gets an id <strong>&gt;= 256</strong> (the id story from <a href="blocks.html">Blocks</a>). Vanilla grass, dirt, stone, ore, and water all fit in a byte, which is why the column fill and the ore veins write the array directly. A modded block cannot. Write its id into the byte array and the high bits are simply lost.</p>
 
-<p>There are two ways around the wall. The first, if you only need the block at the moment the chunk is built, is <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code> from the section above: it takes any id, vanilla or modded, and writes it straight into the chunk you got from <code>createChunk</code>, so a generator can place a modded block in <code>getChunk</code> without ever touching the lossy <code>byte[]</code>. The second, used when the placement needs information that only exists once neighbouring chunks are generated, is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Chapter 4</a>'s block toolkit:</p>
+<p>There are two ways around the wall. The first, if you only need the block at the moment the chunk is built, is <code>RetroWorldGen.setBlockInChunk(chunk, x, y, z, blockId, meta)</code> from the section above: it takes any id, vanilla or modded, and writes it straight into the chunk you got from <code>createChunk</code>, so a generator can place a modded block in <code>getChunk</code> without ever touching the lossy <code>byte[]</code>. The second, used when the placement needs information that only exists once neighbouring chunks are generated, is to place modded blocks <em>after</em> the chunk exists, in <code>decorate</code>, through <code>world.setBlock</code>. That path goes through RetroAPI's extended block storage (the sidecar that overlays real ids &gt;= 256 on top of the vanilla array), so the block survives the round trip to disk and back. The showcase's pink flower is the example. It's a cross block, the X-shaped quad shape every beta flower and sapling uses, from <a href="blocks.html">Blocks</a>'s block toolkit:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleFlowerBlock.java</span><pre><code><span class="k">public class</span> <span class="t">ExampleFlowerBlock</span> <span class="k">extends</span> <span class="t">Block</span> {
 
@@ -186,134 +321,8 @@ pitch *= <span class="n">0.85</span>; <span class="c">// bias back toward horizo
 <div class="asset-card"><img src="assets/pink_flower.png" width="64" height="64" alt="pink_flower"><div class="asset-name">pink_flower.png</div><a href="assets/pink_flower.png" download>download</a></div>
 </div>
 
-<h2>Adding features to worlds that already exist</h2>
-
-<p>Everything above builds a <em>new</em> world. The far more common wish is smaller: "I want my ore to generate in the normal overworld." In beta that meant mixin-ing vanilla's chunk generator, because what generates is a hardcoded list inside <code>decorate</code>, with ore veins written as <code>new OreFeature(id, size)</code> and their height bands as literals. There is no rarity knob, no metadata, and nothing but stone can be replaced.</p>
-
-<p>RetroAPI hooks decoration once, for every dimension and every generator (including custom ones), and runs whatever mods registered, after vanilla's own decoration for that chunk:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, initRetro()</span><pre><code><span class="c">// A plain ore: 8 veins of 6 blocks per chunk, between y=4 and y=32.</span>
-RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
-
-<span class="c">// A rare, large stone variant carrying state index 2, replacing vanilla stone.</span>
-RetroFeatures.ore(STONE_TYPES).meta(<span class="n">2</span>).size(<span class="n">48</span>).count(<span class="n">3</span>).rarity(<span class="n">3</span>)
-    .heightRange(<span class="n">0</span>, <span class="n">96</span>).replace(Block.STONE).register();
-
-<span class="c">// An ore that generates INSIDE your own stone types, not just vanilla stone.</span>
-RetroFeatures.ore(RUBY_ORE).size(<span class="n">5</span>).count(<span class="n">6</span>).heightRange(<span class="n">0</span>, <span class="n">48</span>)
-    .replace(Block.STONE, MARBLE, SLATE).register();
-
-<span class="c">// Anything else at all.</span>
-RetroFeatures.custom((world, random, x, y, z) -&gt; {
-    <span class="k">int</span> surface = RetroFeatures.surfaceY(world, x, z);
-    RetroFeatures.setBlock(world, x, surface, z, ExampleMod.MARKER.id, <span class="n">0</span>);
-    <span class="k">return true</span>;
-}).count(<span class="n">1</span>).rarity(<span class="n">64</span>).register();</code></pre></div>
-
-<table>
-<tr><th>Call</th><th>What it controls</th></tr>
-<tr><td><code>.size(n)</code></td><td>blocks per vein (vanilla ores use 4–33)</td></tr>
-<tr><td><code>.count(n)</code></td><td>attempts per chunk</td></tr>
-<tr><td><code>.heightRange(min, max)</code></td><td>inclusive Y band each attempt is rolled in</td></tr>
-<tr><td><code>.rarity(n)</code></td><td>places in one chunk out of <code>n</code>, the knob vanilla simply lacks</td></tr>
-<tr><td><code>.meta(n)</code></td><td>the metadata / flattened state each block is placed with</td></tr>
-<tr><td><code>.replace(blocks…)</code></td><td>what the vein may carve into (default: vanilla stone)</td></tr>
-<tr><td><code>.dimensions(ids…)</code> / <code>.dimension(id)</code> / <code>.anyDimension()</code></td><td>where it applies (default: the overworld)</td></tr>
-</table>
-
-<div class="note"><p>Generation stays deterministic: the decoration random is seeded from the world seed and chunk coordinates exactly the way vanilla seeds its own, so a seed still gives the same world. A feature that throws is logged and skipped rather than taking the chunk, and the world, down with it.</p></div>
-
-<p>Custom generators get the same treatment for free, since the hook sits on the chunk cache rather than on any one generator. If your generator does its own population outside that path, call <code>RetroFeatures.decorate(world, chunkX, chunkZ)</code> yourself.</p>
-
-<h2>Biomes</h2>
-<p>A <code>ChunkSource</code> shapes the land; a <code>BiomeSource</code> answers "what biome is at <code>(x, z)</code>?" for grass and sky tint, temperature, and mob spawning. The dimension picks both. Curvy uses the simplest possible biome source, one biome everywhere:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/CurvyDimension.java, initBiomeSource()</span><pre><code><span class="k">@Override</span>
-<span class="k">protected void</span> initBiomeSource() {
-	<span class="c">// One gentle biome: friendly animals only (wired in ExampleMod.registerSpawns).</span>
-	<span class="k">this</span>.biomeSource = <span class="k">new</span> <span class="t">SingleBiomeSource</span>(<span class="t">ExampleMod</span>.CURVY_BIOME, <span class="n">0.7</span>);
-}</code></pre></div>
-
-<p>The biomes themselves are built with RetroAPI's <code>BiomeBuilder</code>, a fluent builder that sets tint, weather, and per-biome spawns. The Curvy biome is one gentle green region full of vanilla farm animals; the Noisy dimension has two, an orange "amplified" biome and a green "lush" one:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CURVY_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Curvy Hills"</span>)
-	.grassAndLeavesColor(<span class="n">0x88DD66</span>)
-	.passiveEntity(<span class="t">CowEntity</span>.class, <span class="n">8</span>)
-	.passiveEntity(<span class="t">PigEntity</span>.class, <span class="n">8</span>)
-	.passiveEntity(<span class="t">SheepEntity</span>.class, <span class="n">8</span>)
-	.passiveEntity(<span class="t">ChickenEntity</span>.class, <span class="n">6</span>)
-	.build();
-NOISY_AMPLIFIED_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Amplified Wastes"</span>)
-	.grassAndLeavesColor(<span class="n">0xFF8A3D</span>) <span class="c">// funky orange grass</span>
-	.build();
-NOISY_LUSH_BIOME = <span class="t">BiomeBuilder</span>.start(<span class="s">"Lush Hollows"</span>)
-	.grassAndLeavesColor(<span class="n">0x5Fae3a</span>)
-	.build();</code></pre></div>
-
-<p><code>BiomeBuilder.start(name)</code> opens the builder, chained calls like <code>grassAndLeavesColor</code>, <code>precipitation</code>, <code>snow</code>, and <code>passiveEntity</code> configure it, and <code>build()</code> returns a plain vanilla <code>Biome</code> the dimension hands back from its biome source. No global biome registration is needed; the dimension owns its biomes.</p>
-
-<p>The Noisy dimension picks between its two biomes by noise. <code>NoisyBiomeSource</code> samples a wide, low-frequency Perlin field and thresholds it at zero, so the two biomes form large contiguous regions with a soft boundary:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyBiomeSource.java, pick()</span><pre><code><span class="k">private</span> <span class="t">Biome</span> pick(<span class="k">int</span> x, <span class="k">int</span> z) {
-	<span class="k">return this</span>.biomeNoise.sample(x / <span class="n">220.0</span>, z / <span class="n">220.0</span>) &gt; <span class="n">0.0</span> ? <span class="k">this</span>.amplified : <span class="k">this</span>.lush;
-}</code></pre></div>
-
-<p><code>NoisyDimension</code> is the <code>Dimension</code> subclass that wires the noise chunk generator to the two-biome source, the same shape as the Curvy dimension but pointing at the noisy pieces:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/NoisyDimension.java</span><pre><code><span class="k">public class</span> <span class="t">NoisyDimension</span> <span class="k">extends</span> <span class="t">Dimension</span> {
-
-	<span class="k">public</span> NoisyDimension(<span class="k">int</span> serialId) {
-		<span class="k">this</span>.id = serialId;
-	}
-
-	<span class="k">@Override</span>
-	<span class="k">protected void</span> initBiomeSource() {
-		<span class="k">this</span>.biomeSource = <span class="k">new</span> <span class="t">NoisyBiomeSource</span>(<span class="k">this</span>.world.getSeed(),
-			<span class="t">ExampleMod</span>.NOISY_AMPLIFIED_BIOME, <span class="t">ExampleMod</span>.NOISY_LUSH_BIOME);
-	}
-
-	<span class="k">@Override</span>
-	<span class="k">public</span> <span class="t">ChunkSource</span> createChunkGenerator() {
-		<span class="k">return new</span> <span class="t">NoisyChunkSource</span>(<span class="k">this</span>.world);
-	}
-
-	<span class="k">@Override</span>
-	<span class="k">public boolean</span> hasWorldSpawn() {
-		<span class="k">return true</span>;
-	}
-
-	<span class="k">@Override</span>
-	<span class="k">public boolean</span> isValidSpawnPoint(<span class="k">int</span> x, <span class="k">int</span> z) {
-		<span class="k">return true</span>;
-	}
-}</code></pre></div>
-
-<div class="note"><p>The biome source and the chunk source <strong>must sample the same noise</strong>. The grass colour at a spot is decided here (by which biome <code>pick</code> returns), but the tree and flower density there is decided in the chunk source's <code>decorate</code> by its own <code>isAmplifiedBiome</code>. If the two disagreed, you'd get orange grass with lush-biome foliage. They don't, because both build an <code>OctavePerlinNoiseSampler</code> from <code>seed + 3</code> with two octaves and sample at <code>/ 220.0</code>. Same seed, same frequency, same answer. When you split a dimension into regions, route both decisions through one shared noise.</p></div>
-
-<h2>Editing existing biomes</h2>
-<p>Authoring a brand-new biome is one thing; reaching into a biome that already exists, vanilla's or another mod's, is another, and it's where mods break each other. Beta has a single global set of biome objects (<code>Biome.PLAINS</code>, <code>Biome.FOREST</code>, and so on) shared by every dimension and every mod, so clobbering a spawn list is how you stomp on everyone else. RetroAPI's <code>RetroBiomes</code> is built around one rule: <strong>additive, never destructive.</strong> Every add method appends to a list and leaves every other entry in place, and <code>addSpawn</code> de-dupes by class, so registering the same mob twice updates its weight instead of stacking a duplicate:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// RetroBiomes.addPassiveSpawn is ADDITIVE and de-dupes, so it never clobbers</span>
-<span class="c">// another mod's spawns; here it drops Aerbunnies into both Noisy biomes.</span>
-RetroBiomes.addPassiveSpawn(NOISY_AMPLIFIED_BIOME, AerbunnyEntity.class, <span class="n">4</span>);
-RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class="n">4</span>);</code></pre></div>
-
-<p>The same family covers monsters (<code>addMonsterSpawn</code>), water creatures (<code>addWaterSpawn</code>), a sweep over many biomes at once (<code>addSpawnToAll</code>), and tint recolours (<code>setGrassColor</code>, <code>setFoliageColor</code>). There <em>are</em> destructive methods, <code>setSpawn</code> and <code>clearSpawns</code>, but they exist for the rare case where a biome is genuinely yours to define, and the docs say so plainly. Reach for them only when you mean to take a biome over. The <a href="entities.html">Chapter 7</a> Aerbunny is what's being added here, dropped into both Noisy biomes so it has somewhere to live.</p>
-
-<h2>Spawn caps for modded mobs</h2>
-<p>Adding a mob to a biome's spawn list is only half of making it spawn naturally, because beta also caps how many of each category can exist. Its <code>NaturalSpawner</code> counts animals, monsters, and water creatures separately and stops spawning a category once it's full. The catch is how it counts: an <code>instanceof</code> test against a vanilla base class (<code>AnimalEntity</code> for the animal cap, and so on). A custom mob that extends <code>LivingEntity</code> directly, the common case, is an instance of none of those, so vanilla never counts it and it would spawn without limit, swarming the world.</p>
-
-<p><code>RetroSpawnGroups</code> closes that gap. It records which category each modded class belongs to, and a mixin on the counting path adds the modded count back in, so the cap applies to every mob, vanilla or modded, with no per-mob code:</p>
-
-<div class="codeblock"><span class="code-title">src/main/java/com/periut/retroapi/entity/RetroSpawnGroups.java, assign()</span><pre><code><span class="c">/** Records that {@code entityClass} spawns under {@code group} (so the cap counts it). */</span>
-<span class="k">public static void</span> assign(<span class="t">Class</span>&lt;? <span class="k">extends</span> <span class="t">LivingEntity</span>&gt; entityClass, <span class="t">SpawnGroup</span> group) {
-	GROUPS.put(entityClass, group);
-}</code></pre></div>
-
-<p>You almost never call <code>assign</code> yourself. It runs automatically the moment a mob is added to a biome, whether through <code>BiomeBuilder.passiveEntity</code> or <code>RetroBiomes.addPassiveSpawn</code>, both of which call it under the hood with the right vanilla group. So wiring the Aerbunny into the Noisy biomes above did two jobs at once: it gave the bunny somewhere to spawn, and it taught the animal cap to count it. The bunny lives only in the noisy dimension, exactly because that's the only place it was added.</p>
-
 <h2>Portals between dimensions</h2>
-<p>Two custom dimensions need two ways in, and rather than write two portal classes the showcase writes one configurable <code>DimensionPortalBlock</code> and registers it twice. It's the same <code>CustomPortal</code> pattern from <a href="dimensions.html">Chapter 10</a>, walk into it, a timer fills, your dimension flips, but the destination and the block to place at the far end are passed in:</p>
+<p>Two custom dimensions need two ways in, and rather than write two portal classes the showcase writes one configurable <code>DimensionPortalBlock</code> and registers it twice. It's the same <code>CustomPortal</code> pattern from <a href="dimensions.html">Dimensions &amp; portals</a>, walk into it, a timer fills, your dimension flips, but the destination and the block to place at the far end are passed in:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/DimensionPortalBlock.java</span><pre><code><span class="k">public</span> DimensionPortalBlock(<span class="k">int</span> id, <span class="t">Supplier</span>&lt;<span class="t">NamespacedIdentifier</span>&gt; destination, <span class="t">Supplier</span>&lt;<span class="t">Integer</span>&gt; portalBlockId) {
 	<span class="k">super</span>(id, <span class="t">Material</span>.GLASS);
@@ -342,7 +351,7 @@ RetroBiomes.addPassiveSpawn(NOISY_LUSH_BIOME, AerbunnyEntity.class, <span class=
 </div>
 <p class="filepath"><code>src/main/resources/assets/example_mod/textures/block/green_glass.png, orange_glass.png</code></p>
 
-<p>The return trip is the part Chapter 10 hand-waved. RetroAPI flips the travel direction for a player already in the dimension, but the portal also has to <em>be there</em> when you arrive. That's the second supplier, <code>portalBlockId</code>, handed to a custom travel agent. <code>getTravelAgent</code> returns a <code>GroundPortalForcer</code> seeded with the portal's own id, and that forcer either reuses a portal from an earlier trip or drops a fresh one on the surface:</p>
+<p>The return trip is the part <a href="dimensions.html">Dimensions &amp; portals</a> hand-waved. RetroAPI flips the travel direction for a player already in the dimension, but the portal also has to <em>be there</em> when you arrive. That's the second supplier, <code>portalBlockId</code>, handed to a custom travel agent. <code>getTravelAgent</code> returns a <code>GroundPortalForcer</code> seeded with the portal's own id, and that forcer either reuses a portal from an earlier trip or drops a fresh one on the surface:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/worldgen/GroundPortalForcer.java, moveToPortal() tail</span><pre><code><span class="k">int</span> y = world.getTopY(ex, ez);
 world.setBlock(ex, y, ez, <span class="k">this</span>.portalBlockId);
@@ -350,10 +359,6 @@ entity.setPositionAndAngles(ex + <span class="n">0.5</span>, y + <span class="n"
 
 <p>So the round trip closes itself: you walk in through a portal block, RetroAPI flips your direction and asks the forcer where to land, and the forcer plants an identical portal block on the ground at the destination. Step into that one and the same flip sends you home. The whole loop is forced by that one block id threaded through both suppliers.</p>
 
-<h2>What you have now</h2>
-<p>You can grow a world from a single equation, then trade the equation for Perlin noise and add ores, winding caves, lakes, trees, and biomes. You know the one rule that keeps modded blocks out of the chunk byte array, the one rule that keeps biome edits from breaking other mods, and the one registry that keeps your mobs honest about the spawn cap. And you can walk into any of it through a portal that builds its own return trip. That is a complete, self-contained land.</p>
-
-<p>The next chapter turns from worlds back to the smallest unit of all, the item, and gives it a memory: typed data components that ride along on an <code>ItemStack</code>, drive tooltips, and even change an icon. On to <a href="components.html">Chapter 21, Item Memory</a>.</p>
 </div>
 
 <div class="pager"></div>

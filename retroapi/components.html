@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 21: Item Memory, RetroAPI Guide</title>
+<title>Item components, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 21, Item Memory</h1>
-<p class="chapter-sub">Beta ItemStacks remember nothing. This chapter gives them typed, persistent data the modern way: declare a component once, then get and set it on any stack.</p>
+<h1>Item components</h1>
+<p class="chapter-sub">Beta ItemStacks remember nothing. This page gives them typed, persistent data the modern way: declare a component once, then get and set it on any stack.</p>
 
-<p>A beta <code>ItemStack</code> is three numbers: id, count, damage. There is no NBT field, so two stacks of the same item are interchangeable and an item cannot carry anything beyond which item it is and how worn it is. Modern Minecraft moved past that years ago: items hold rich, typed data called <strong>data components</strong>, and <code>stack.get(TYPE)</code> / <code>stack.set(TYPE, value)</code> read and write it. RetroAPI ports that whole idea backwards. You declare a component type once, then read and write it on any stack, and the value persists, copies, and (on a dedicated server) syncs. This is the closest neighbor to <a href="items.html">Chapter 5</a>: components extend items, so if you have not met the item builder yet, start there.</p>
+<p>A beta <code>ItemStack</code> is three numbers: id, count, damage. There is no NBT field, so two stacks of the same item are interchangeable and an item cannot carry anything beyond which item it is and how worn it is. Modern Minecraft moved past that years ago: items hold rich, typed data called <strong>data components</strong>, and <code>stack.get(TYPE)</code> / <code>stack.set(TYPE, value)</code> read and write it. RetroAPI ports that whole idea backwards. You declare a component type once, then read and write it on any stack, and the value persists, copies, and (on a dedicated server) syncs. This is the closest neighbor to <a href="items.html">Items</a>: components extend items, so if you have not met the item builder yet, start there.</p>
 
 <h2>Registering a component</h2>
 <p>A component is a <code>RetroComponentType&lt;T&gt;</code>, the beta port of modern's <code>DataComponentType</code>. You make one with <code>RetroComponents.register(id, defaultValue, serializer)</code>: an id, the value returned when the component is unset, and a serializer that says how the value rides in NBT for saving (and, on a dedicated server, on the wire). RetroAPI ships serializers for every primitive you are likely to want:</p>
@@ -168,7 +168,7 @@ MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTextu
 	<span class="k">return</span> layers;
 }</code></pre></div>
 
-<p>Right-clicking cycles <code>MOOD</code> through 0..3, and the gem recolors live the instant the component changes; loop all the way around and the <code>ATTUNEMENT</code> record awakens, adding the sparkle. Registering the two sprites is <a href="assets.html">Chapter 3</a>.</p>
+<p>Right-clicking cycles <code>MOOD</code> through 0..3, and the gem recolors live the instant the component changes; loop all the way around and the <code>ATTUNEMENT</code> record awakens, adding the sparkle. Registering the two sprites is <a href="assets.html">Textures, names &amp; files</a>.</p>
 
 <div class="asset-row">
 <div class="asset-card"><img src="assets/mood_gem_base.png" width="64" height="64" alt="mood_gem_base"><div class="asset-name">mood_gem_base.png</div><a href="assets/mood_gem_base.png" download>download</a></div>
@@ -180,7 +180,7 @@ MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTextu
 <ul>
 <li><strong>deep-copied</strong> when a stack is copied or split, so a half-stack keeps the parent's components and the two halves drift apart independently;</li>
 <li><strong>written to and read from NBT</strong> under a single <code>retroapi:components</code> tag, so it rides along through every save path;</li>
-<li><strong>saved to the sidecar</strong> and restored on load, the same vanilla-safe sidecar machinery that hides modded blocks and inventories from vanilla saves (the mechanism is <a href="blockentities.html">Chapter 6</a>).</li>
+<li><strong>saved to the sidecar</strong> and restored on load, the same vanilla-safe sidecar machinery that hides modded blocks and inventories from vanilla saves (the mechanism is <a href="blockentities.html">Block entities &amp; GUIs</a>).</li>
 </ul>
 <p>The upshot: components survive slot-moves, dropping the item, picking it back up, quitting and reloading the world. The Counter's number is still there tomorrow. Because beta has no key-iteration API on <code>NbtCompound</code>, the serializer writes the whole component compound to the binary NBT format and re-reads it to recover the keys; that detail lives in <code>ComponentNbt</code> and you never touch it.</p>
 
@@ -208,11 +208,11 @@ MOOD_GEM_SPARKLE = com.periut.retroapi.register.block.RetroTextures.addItemTextu
 	<span class="k">return true</span>;
 }</code></pre></div>
 
-<p>The client bump is a prediction so the tooltip and sprite move the instant you click; the server bump is the authority that persists and, via <code>ComponentWire</code>, reconciles the client. They land on the same number, so there is no flicker. Guard it server-only and the client does nothing, sees no change, and so never tells the server to do anything either, the count just sits still forever. Right-clicking a block routes to <code>useOnBlock</code>, which the server always processes, so it is the rock-solid path when air-clicks feel unreliable. The same logic drives the Mood Gem's color cycle. Setting up and probing a dedicated server is <a href="networking.html">Chapter 12</a> and <a href="testing.html">Chapter 22</a>.</p>
+<p>The client bump is a prediction so the tooltip and sprite move the instant you click; the server bump is the authority that persists and, via <code>ComponentWire</code>, reconciles the client. They land on the same number, so there is no flicker. Guard it server-only and the client does nothing, sees no change, and so never tells the server to do anything either, the count just sits still forever. Right-clicking a block routes to <code>useOnBlock</code>, which the server always processes, so it is the rock-solid path when air-clicks feel unreliable. The same logic drives the Mood Gem's color cycle. Setting up and probing a dedicated server is <a href="networking.html">Networking</a> and <a href="testing.html">Testing</a>.</p>
 
 <p class="credit-note">The Counter and the <code>GemAttunement</code> record are ports of the custom-data-components walkthrough in <a href="https://docs.fabricmc.net/develop/items/custom-data-components">FabricMC's docs</a> (fabric-docs), used under CC BY-NC-SA. RetroAPI carries the same shapes back to beta where <code>ItemStack</code> has no NBT to lean on.</p>
 
-<p>Components give items a memory. Next we make sure all of it actually holds up: running the client and a real dedicated server, offline mode, and the sided gotchas that this chapter's sync rule hints at, in <a href="testing.html">Chapter 22, Proving Grounds</a>.</p>
+<p>Components give items a memory. Next we make sure all of it actually holds up: running the client and a real dedicated server, offline mode, and the sided gotchas that this page's sync rule hints at, in <a href="testing.html"><a href="particles.html">Particles</a>, Proving Grounds</a>.</p>
 </div>
 
 <div class="pager"></div>

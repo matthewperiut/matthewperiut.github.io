@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 18: The Toolbelt, RetroAPI Guide</title>
+<title>Tools, food &amp; armor, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,16 +14,16 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 18, The Toolbelt</h1>
+<h1>Tools, food &amp; armor</h1>
 <p class="chapter-sub">A pickaxe that is really a tagged stone, a sword that is really a sword, food that bites back, and a full set of violet armor borrowed from the Aether.</p>
 
-<p>Tools, food, and armor are the three things players reach for first, and in beta each is handled differently. A tool is sometimes just an item wearing a tag and sometimes a real vanilla tool class. Food is a <em>property</em> you bolt onto any item, not a subclass. Armor is a genuine <code>ArmorItem</code> that happens to wear your art. This chapter walks all three using the showcase's own gear, and every line of code below is lifted byte-for-byte from <code>ExampleMod.java</code>.</p>
+<p>Tools, food, and armor are the three things players reach for first, and in beta each is handled differently. A tool is sometimes just an item wearing a tag and sometimes a real vanilla tool class. Food is a <em>property</em> you bolt onto any item, not a subclass. Armor is a genuine <code>ArmorItem</code> that happens to wear your art. This page walks all three using the showcase's own gear, and every line of code below is lifted byte-for-byte from <code>ExampleMod.java</code>.</p>
 
 <h2>Tools</h2>
-<p>There are two honest ways to make a tool, and the showcase ships one of each. The split is the same one you met with items in <a href="items.html">Chapter 5</a>: the tiny builder for the easy case, plain subclassing for the rest.</p>
+<p>There are two honest ways to make a tool, and the showcase ships one of each. The split is the same one you met with items in <a href="items.html">Items</a>: the tiny builder for the easy case, plain subclassing for the rest.</p>
 
 <h3>The tag way: the Ruby Pick</h3>
-<p>The Ruby Pick is not a <code>ToolItem</code> at all. It is a perfectly plain <code>Item</code> that has been <em>told</em> it counts as an iron-tier pickaxe, through the same mineable-tag and tool-tier system you wired up for blocks back in <a href="blocks.html">Chapter 4</a>. Two chained calls do it:</p>
+<p>The Ruby Pick is not a <code>ToolItem</code> at all. It is a perfectly plain <code>Item</code> that has been <em>told</em> it counts as an iron-tier pickaxe, through the same mineable-tag and tool-tier system you wired up for blocks back in <a href="blocks.html">Blocks</a>. Two chained calls do it:</p>
 
 <div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="c">// Tool KIND and TIER, declared in one chain: this plain Item (no ToolItem</span>
 <span class="c">// subclass anywhere) counts as an iron-tier pickaxe for the tag system, so it</span>
@@ -43,11 +43,15 @@ RUBY_PICK = (Item) RetroItemAccess.create()
 
 <p class="filepath"><code>src/main/resources/assets/example_mod/textures/item/ruby_pick.png</code></p>
 
-<p><code>.tool(RetroTool.PICKAXE)</code> declares the <em>kind</em>, this item harvests anything in the <code>mineable/pickaxe</code> tag, and <code>.tier(RetroToolTier.IRON)</code> declares <em>how good</em> it is, so it satisfies <code>needs_iron_tool</code> gating. Both feed the exact same harvest hook the ruby ore uses, so the pick mines the ruby ore it was meant to mine. Vanilla tool classes never call these, they infer the kind from their class and the tier from their <code>ToolMaterial</code>; the two declarations exist precisely for the case where there is no tool class, just an item you want to behave like one. The full tier ladder, the tag JSON, and the harvest rules all live in the tool-tiers section of <a href="blocks.html">Chapter 4</a>; this is the same Ruby Pick seen from the item side.</p>
+<p><code>.tool(RetroTool.PICKAXE)</code> declares the <em>kind</em>, this item harvests anything in the <code>mineable/pickaxe</code> tag, and <code>.tier(RetroToolTier.IRON)</code> declares <em>how good</em> it is, so it satisfies <code>needs_iron_tool</code> gating. Both feed the exact same harvest hook the ruby ore uses, so the pick mines the ruby ore it was meant to mine. Vanilla tool classes never call these, they infer the kind from their class and the tier from their <code>ToolMaterial</code>; the two declarations exist precisely for the case where there is no tool class, just an item you want to behave like one. The full tier ladder, the tag JSON, and the harvest rules all live in the tool-tiers section of <a href="blocks.html">Blocks</a>; this is the same Ruby Pick seen from the item side.</p>
 
-<div class="note"><p><strong>As of 0.2.3 this pick also mines vanilla blocks.</strong> RetroAPI now ships the beta-accurate <code>mineable</code>/<code>needs_&lt;tier&gt;_tool</code> membership for every vanilla block, so the Ruby Pick harvests vanilla iron ore (at iron speed) exactly as it harvests the modded ruby ore, no longer modded-blocks-only. The same release lets one item be several tool kinds at once (<code>.tool(RetroTool.PICKAXE, RetroTool.AXE)</code>) and lets a tier be computed from the stack at runtime (<code>.tier(stack -&gt; ...)</code>). See <a href="updates.html">Chapter 23</a>.</p></div>
+<div class="note"><p><strong>This pick mines vanilla blocks too.</strong> RetroAPI ships beta-accurate
+<code>mineable</code> / <code>needs_&lt;tier&gt;_tool</code> membership for every vanilla block, so the Ruby Pick harvests
+vanilla iron ore at iron speed exactly as it harvests modded ruby ore. One item can also be several tool kinds at once
+(<code>.tool(RetroTool.PICKAXE, RetroTool.AXE)</code>), and a tier can be computed at runtime from the stack, or from the
+stack and the block being mined. See <a href="tags.html">Tags</a>.</p></div>
 
-<p>The diagonal through-the-fist pose comes free here because the showcase ships a handheld item model at <code>retroapi/models/item/ruby_pick.json</code>; an item without such a model would opt in with <code>.handheld()</code>, the same one-call trick the Jump Stick used in <a href="items.html">Chapter 5</a>.</p>
+<p>The diagonal through-the-fist pose comes free here because the showcase ships a handheld item model at <code>retroapi/models/item/ruby_pick.json</code>; an item without such a model would opt in with <code>.handheld()</code>, the same one-call trick the Jump Stick used in <a href="items.html">Items</a>.</p>
 
 <p>That model is a plain generated item pointing at its own texture, with the <code>handheld</code> parent supplying the in-hand angle:</p>
 
@@ -144,7 +148,7 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
 	.food(<span class="n">4</span>)                       <span class="c">// eat to heal 4 (two hearts)</span>
 	.register(id(<span class="s">"candied_apple"</span>));</code></pre></div>
 
-<p>That is the whole food declaration. Right-click to eat, lose one from the stack, gain two hearts. The candied apple also happens to be a layered texture stacked over vanilla's apple sprite, which is the texture trick from <a href="items.html">Chapter 5</a> rather than anything to do with food; here we care only about the one-word <code>.food(4)</code>.</p>
+<p>That is the whole food declaration. Right-click to eat, lose one from the stack, gain two hearts. The candied apple also happens to be a layered texture stacked over vanilla's apple sprite, which is the texture trick from <a href="items.html">Items</a> rather than anything to do with food; here we care only about the one-word <code>.food(4)</code>.</p>
 
 <p>The showcase also ships an alternate item model for it, <code>retroapi/models/item/candied_apple_glint.json</code>, whose <code>layer0</code> points at a <code>sugar_sparkle</code> sprite to give the apple a glint variant; like the layering above it is purely cosmetic and has nothing to do with the food property.</p>
 
@@ -251,7 +255,7 @@ ZANITE_BOOTS = (Item) RetroItemAccess.of(
 
 <div class="note"><p>The two-arg constructor <code>RetroArmor(material, slot, wornTextureBase)</code> exists too, defaulting the tint to white (<code>0xFFFFFF</code>), in case you would rather the inventory icon show vanilla iron's own gray. Most sets want a color, so the four-arg form is the one you will reach for.</p></div>
 
-<p>Tools that mine, food that heals or bites, armor that wears your colors: the toolbelt is full. Next we hand the world an ear, sound effects, streaming music, and a jukebox record of your own, in <a href="sounds.html">Chapter 19, The Soundtrack</a>.</p>
+<p>Tools that mine, food that heals or bites, armor that wears your colors: the toolbelt is full. Next we hand the world an ear, sound effects, streaming music, and a jukebox record of your own, in <a href="sounds.html"><a href="sounds.html">Sounds &amp; music</a>, The Soundtrack</a>.</p>
 </div>
 
 <div class="pager"></div>

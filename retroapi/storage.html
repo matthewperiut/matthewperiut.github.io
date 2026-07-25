@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World safety, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>World safety</h1>
+<p class="chapter-sub">Where modded data actually lives, why the vanilla half of your save is never touched, and what happens when ids move or a mod is removed.</p>
+
+<p>You can write a whole mod without reading this page. Read it anyway if you are shipping one, because it explains the guarantees you are making to the people who install it.</p>
+
+<h2>The problem beta hands you</h2>
+
+<p>A chunk in b1.7.3 stores each block as a <strong>byte</strong>: ids 0-255, no more. Alongside it sits a 4-bit metadata nibble, 16 values, which vanilla already spends on things like wool colour and log type. There is no field for "which mod", no string ids, no room to grow.</p>
+
+<p>So any modded content on this version has to answer one question: <em>where do the extra bits go?</em> The tempting answer is "into the vanilla arrays, we will just use the free numbers". It works, right up until it does not:</p>
+
+<ul>
+<li>Add or remove a mod and the numbers shift, so blocks come back as the wrong blocks.</li>
+<li>Remove the mod entirely and vanilla reads its leftovers as whatever now occupies those ids.</li>
+<li>Two mods pick the same slot and the save is decided by load order.</li>
+</ul>
+
+<h2>The sidecar</h2>
+
+<p>RetroAPI does not write modded data into vanilla's bytes at all. Vanilla's region files stay byte-for-byte what vanilla would have written. Everything that does not fit lives beside them:</p>
+
+<table>
+<tr><th>File</th><th>Holds</th></tr>
+<tr><td><code>&lt;world&gt;/retroapi/id_map.dat</code></td><td>the world's own map: <code>example_mod:ruby_ore → 431</code>, plus item and dimension ids</td></tr>
+<tr><td><code>&lt;world&gt;/retroapi/…</code> region sidecars</td><td>per-chunk overlays: block ids ≥ 256, and the state bits above the metadata nibble</td></tr>
+<tr><td>NBT sub-tags on stacks</td><td>modded item identity and <a href="components.html">components</a>, written as strings</td></tr>
+</table>
+
+<p>The rule that makes it work: <strong>the identifier is the truth, the number is a lease.</strong> Your ore is <code>example_mod:ruby_ore</code> forever. The number it happens to have is negotiated per world, per launch, and rewritten whenever it needs to be.</p>
+
+<h2>What that buys you</h2>
+
+<ul>
+<li><strong>Removing a mod does not destroy the world.</strong> Vanilla's own blocks were never overwritten, so the world still opens; the modded blocks are gone, which is the correct outcome, not corruption.</li>
+<li><strong>Ids can move freely between sessions.</strong> Add a mod, remove another, reorder them, the saved map re-anchors everything by name.</li>
+<li><strong>More than 256 blocks</strong> (RetroAPI grows the arrays to 32,000 slots) and <strong>more than 16 states</strong> per block, because neither number has to fit in vanilla's field.</li>
+<li><strong>Multiplayer agrees.</strong> On join, the server sends its table and the client re-anchors to it before any chunk or inventory packet is read.</li>
+</ul>
+
+<div class="warn"><p><strong>The one thing you must not do</strong> is cache a number. An <code>ItemStack</code> stores a numeric id; a recipe is made of <code>ItemStack</code>s. Anything you build at registration time and keep is holding a lease that may expire. RetroAPI repairs everything it owns (recipes, smelting, fuels, achievement icons) when ids move, and gives you <code>IdRemapCallback</code> for the things only your mod knows about, see <a href="registry.html">How registration works</a>.</p></div>
+
+<h2>Backups</h2>
+
+<p>Before RetroAPI changes anything structural about a world's modded data, it copies the existing <code>retroapi/</code> folder aside. If something does go wrong, the vanilla region files are untouched by definition and the modded overlay has a previous copy sitting next to it.</p>
+
+<h2>Under StationAPI</h2>
+
+<p>StationAPI takes a different, equally valid route: it <em>flattens</em> the world format outright, so blocks become states with string ids and the 256/16 limits stop existing. When StationAPI is present, RetroAPI stands down, registration and storage are StationAPI's, and RetroAPI keeps only the parts that do not overlap (entities, dimensions, components, particles, world features).</p>
+
+<p>RetroAPI still writes its id map in that mode, because the map is what a later conversion needs in order to know that <code>431</code> once meant <code>example_mod:ruby_ore</code>. Converting a world in either direction is covered in <a href="stationapi.html">StationAPI interop</a>.</p>
+
+<h2>Testing your own mod against this</h2>
+
+<p>The behaviour above is not theory, RetroAPI's own test mod places modded blocks with wide states, modded items with components, dropped stacks and a modded mob, saves, reloads, and asserts every one of them survived, then converts the world to StationAPI's format and back and asserts again. If your mod does anything unusual with storage, the same pattern (place, save, reload, assert) is the way to check it. See <a href="testing.html">Testing</a>.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

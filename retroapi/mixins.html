@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 13: The Scalpel, RetroAPI Guide</title>
+<title>Mixins, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,14 +14,14 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 13, The Scalpel</h1>
+<h1>Mixins</h1>
 <p class="chapter-sub">Beta Minecraft has no events and no hooks. The only way to change anything is to cut into the game itself, so let's learn to cut cleanly.</p>
 
 <p>Every chapter before this one used RetroAPI's friendly front door: <code>RetroBlockAccess</code>, <code>RetroRecipes</code>, <code>RetroEntities</code>. But those APIs exist because someone wrote the mixins underneath them. When you need to change something RetroAPI doesn't wrap, pigs' sounds, fall damage, the color of grass, there is no API. There is only the mixin.</p>
 
 <p>A mixin is a class you write that the loader <strong>merges into a vanilla class at launch</strong>. Your method becomes part of <code>PlayerEntity</code>; your field becomes a field on <code>ItemEntity</code>. Modern Minecraft has events and Fabric API hooks to spare you most of this. Beta has none of that, there never was an API, so beta modding is <strong>extremely</strong> mixin-heavy. Nearly every interesting thing your mod does, it does by mixin.</p>
 
-<p>And that has a consequence that defines the whole craft. When every mod in a pack is rewriting the same small 2011 codebase, two mods reaching for the same method is not a freak accident, it's the <em>expected case</em>. Collisions are the norm. So the core skill of beta modding isn't writing a mixin that works; it's writing a mixin that works <em>alongside everyone else's</em>. That discipline is what this chapter teaches, through twelve graded examples shipped in the showcase.</p>
+<p>And that has a consequence that defines the whole craft. When every mod in a pack is rewriting the same small 2011 codebase, two mods reaching for the same method is not a freak accident, it's the <em>expected case</em>. Collisions are the norm. So the core skill of beta modding isn't writing a mixin that works; it's writing a mixin that works <em>alongside everyone else's</em>. That discipline is what this page teaches, through twelve graded examples shipped in the showcase.</p>
 
 <p>Here are the principles. Read them once now; they'll make sense in your hands by example twelve.</p>
 
@@ -184,9 +184,9 @@
     <span class="k">void</span> example_mod$jump();
 }</code></pre></div>
 
-<p><code>LivingEntity.jump()</code> is protected, only subclasses may call it. An <code>@Invoker</code> is an <em>interface</em> mixin: Mixin makes <code>LivingEntity</code> implement this interface, and the annotated method becomes a public bridge to the real one. Cast any living entity to the interface and call it: <code>((Example06JumpInvoker) player).example_mod$jump()</code>, which is exactly what <code>ExampleCounterBlock</code> does (the Jump Stick in <a href="items.html">Chapter 5</a> uses the same trick). Its sibling <code>@Accessor</code> does the same for fields.</p>
+<p><code>LivingEntity.jump()</code> is protected, only subclasses may call it. An <code>@Invoker</code> is an <em>interface</em> mixin: Mixin makes <code>LivingEntity</code> implement this interface, and the annotated method becomes a public bridge to the real one. Cast any living entity to the interface and call it: <code>((Example06JumpInvoker) player).example_mod$jump()</code>, which is exactly what <code>ExampleCounterBlock</code> does (the Jump Stick in <a href="items.html">Items</a> uses the same trick). Its sibling <code>@Accessor</code> does the same for fields.</p>
 
-<div class="note"><p><strong>A design lesson from this file's comment.</strong> If the private member you're exposing is API-shaped, "what's this item's furnace burn time?", the bridge belongs in the <em>shared library</em>, not copy-pasted into every mod. That's exactly why the freezer in <a href="blockentities.html">Chapter 6</a> calls <code>RetroRecipes.getTotalFuelTime(...)</code> instead of carrying its own invoker. Build the bridge once, in the library, and every mod benefits.</p></div>
+<div class="note"><p><strong>A design lesson from this file's comment.</strong> If the private member you're exposing is API-shaped, "what's this item's furnace burn time?", the bridge belongs in the <em>shared library</em>, not copy-pasted into every mod. That's exactly why the freezer in <a href="blockentities.html">Block entities &amp; GUIs</a> calls <code>RetroRecipes.getTotalFuelTime(...)</code> instead of carrying its own invoker. Build the bridge once, in the library, and every mod benefits.</p></div>
 
 <h3>7. <code>@ModifyArg</code>, rewriting one argument of one call</h3>
 <p><strong>In game:</strong> torches show flame particles instead of smoke. <strong>Teaches:</strong> surgically changing a single argument passed to a call inside a method.</p>
@@ -238,7 +238,7 @@
     }
 }</code></pre></div>
 
-<p>A <code>@Redirect</code> swaps a call out for your method entirely, you get the arguments the call would have received and return your own answer; vanilla's <code>getColor</code> is only called here because we choose to call it ourselves outside the example dimension. Two lessons hide in the handler's signature. First, a <code>@Redirect</code> handler can take the <em>enclosing method's own parameters appended after</em> the redirected call's arguments, that is exactly how this one receives <code>BlockView view, int x, int y, int z</code> on top of the <code>double temperature, double humidity</code> that <code>getColor</code> itself was passed. Second, the render-time <code>BlockView</code> is a <code>WorldRegion</code> wrapper, not the <code>World</code>, so a plain <code>view instanceof World</code> fails precisely during chunk rendering; RetroAPI's <code>com.periut.retroapi.world.RetroWorlds.unwrap(view)</code> sees through the wrapper to the real world, which is how we can gate the purple to <code>EXAMPLE_DIMENSION</code>. It works, and it's a trap. The showcase wraps this file in a giant warning box, reproduced here because it is the most important thing in the chapter:</p>
+<p>A <code>@Redirect</code> swaps a call out for your method entirely, you get the arguments the call would have received and return your own answer; vanilla's <code>getColor</code> is only called here because we choose to call it ourselves outside the example dimension. Two lessons hide in the handler's signature. First, a <code>@Redirect</code> handler can take the <em>enclosing method's own parameters appended after</em> the redirected call's arguments, that is exactly how this one receives <code>BlockView view, int x, int y, int z</code> on top of the <code>double temperature, double humidity</code> that <code>getColor</code> itself was passed. Second, the render-time <code>BlockView</code> is a <code>WorldRegion</code> wrapper, not the <code>World</code>, so a plain <code>view instanceof World</code> fails precisely during chunk rendering; RetroAPI's <code>com.periut.retroapi.world.RetroWorlds.unwrap(view)</code> sees through the wrapper to the real world, which is how we can gate the purple to <code>EXAMPLE_DIMENSION</code>. It works, and it's a trap. The showcase wraps this file in a giant warning box, reproduced here because it is the most important thing in the page:</p>
 
 <div class="danger">
 <pre><code>╔═══════════════════════════════════════════════════════════════════════╗
@@ -384,8 +384,8 @@
 
 <ul>
 <li><strong><code>PlayerTickMixin</code></strong> (client list), hooks <code>PlayerEntity.tick()</code> at HEAD to run the one-shot starter kit in singleplayer, where the world lives inside the client.</li>
-<li><strong><code>ServerPlayerTickMixin</code></strong> (server list), the dedicated-server twin, hooking <code>ServerPlayerEntity.tick()</code> to run the starter kit <em>and</em> drive the welcome packet from <a href="networking.html">Chapter 12</a>.</li>
-<li><strong><code>LivingEntityJumpMixin</code></strong> (common list), hooks <code>LivingEntity.jump()</code> to grant the "Jump for Joy" achievement (<a href="achievements.html">Chapter 9</a>) the first time a player jumps, with a <code>!world.isRemote</code> guard so the grant only fires where physics actually run.</li>
+<li><strong><code>ServerPlayerTickMixin</code></strong> (server list), the dedicated-server twin, hooking <code>ServerPlayerEntity.tick()</code> to run the starter kit <em>and</em> drive the welcome packet from <a href="networking.html">Networking</a>.</li>
+<li><strong><code>LivingEntityJumpMixin</code></strong> (common list), hooks <code>LivingEntity.jump()</code> to grant the "Jump for Joy" achievement (<a href="achievements.html">Achievements</a>) the first time a player jumps, with a <code>!world.isRemote</code> guard so the grant only fires where physics actually run.</li>
 </ul>
 
 <p>Look at <code>LivingEntityJumpMixin</code> if you want to see every principle in one file: it targets the declaring base class, checks <code>instanceof PlayerEntity</code>, gates on <code>world.isRemote</code>, prefixes its handler and its once-flag, and does exactly one job.</p>
@@ -395,7 +395,7 @@
 
 <ul>
 <li><strong>Targets are matched against biny names and remapped at build time.</strong> You write <code>method = "onLanding"</code> against the mapped name; Loom rewrites it to the obfuscated name in the built jar. You never see the obfuscated names.</li>
-<li><strong>A wrong name is a crash at class-load, and that's good.</strong> With <code>defaultRequire: 1</code>, if a target method or field doesn't exist, the game fails loudly at launch instead of silently doing nothing. Fail fast, fix the name. (<a href="testing.html">Chapter 22</a> shows what that crash looks like in the log.)</li>
+<li><strong>A wrong name is a crash at class-load, and that's good.</strong> With <code>defaultRequire: 1</code>, if a target method or field doesn't exist, the game fails loudly at launch instead of silently doing nothing. Fail fast, fix the name. (<a href="testing.html">Testing</a> shows what that crash looks like in the log.)</li>
 <li><strong>Verify names against the mapped jar</strong> in your Gradle cache, or against the decompiled sources Loom generates. Don't guess a method name, open the class and read it.</li>
 <li><strong>Constructors are targeted as <code>&lt;init&gt;(descriptor)</code></strong> and are only TAIL-injectable, the object must be fully built before you touch it (examples 2 and 9).</li>
 <li><strong>Interface mixins add zero overhead.</strong> <code>@Invoker</code>, <code>@Accessor</code>, and duck interfaces compile down to direct field/method access, they're free.</li>

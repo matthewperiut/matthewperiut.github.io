@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 7: Creatures, RetroAPI Guide</title>
+<title>Entities, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 7, Creatures</h1>
+<h1>Entities</h1>
 <p class="chapter-sub">A mob is easy to make and surprisingly deep to network. We'll do both, the easy class first, then the honest truth about how a server tells everyone it exists.</p>
 
-<p>A block sits at a fixed position; the world always knows where it is. An entity moves. It has a position that changes every tick, a rotation, a velocity, and, on a dedicated server, it lives entirely in the server's memory until the server decides to tell the clients about it. That last part is where modded entities in Beta 1.7.3 get interesting, and we'll spend most of this chapter there. But first, the part that's genuinely simple: writing the creature.</p>
+<p>A block sits at a fixed position; the world always knows where it is. An entity moves. It has a position that changes every tick, a rotation, a velocity, and, on a dedicated server, it lives entirely in the server's memory until the server decides to tell the clients about it. That last part is where modded entities in Beta 1.7.3 get interesting, and we'll spend most of this page there. But first, the part that's genuinely simple: writing the creature.</p>
 
 <h2>The creature class</h2>
 <p>Here is a complete, working custom mob. It extends <code>LivingEntity</code>, picks a skin, refuses to despawn, and tells RetroAPI how to recognize it on the wire. That's all four lines of substance.</p>
@@ -72,7 +72,7 @@ EXAMPLE_MOB = <span class="t">RetroEntities</span>.register(<span class="t">Exam
 <span class="t">RetroEntityRenderers</span>.register(<span class="t">ExampleEntity</span>.<span class="k">class</span>,
 	<span class="k">new</span> <span class="t">LivingEntityRenderer</span>(<span class="k">new</span> <span class="t">BipedEntityModel</span>(), <span class="n">0.5F</span>));</code></pre></div>
 
-<div class="danger"><p>The renderer registration lives in <code>initRetroClient()</code> and <strong>only</strong> there. <code>LivingEntityRenderer</code> and <code>BipedEntityModel</code> are client classes, they touch OpenGL. Put that line in the common <code>init()</code> and a dedicated server crashes the instant it tries to load a graphics class it doesn't have. Logic in common, drawing on the client: the same wall that separated the Container from the Screen in <a href="blockentities.html">Chapter 6</a>.</p></div>
+<div class="danger"><p>The renderer registration lives in <code>initRetroClient()</code> and <strong>only</strong> there. <code>LivingEntityRenderer</code> and <code>BipedEntityModel</code> are client classes, they touch OpenGL. Put that line in the common <code>init()</code> and a dedicated server crashes the instant it tries to load a graphics class it doesn't have. Logic in common, drawing on the client: the same wall that separated the Container from the Screen in <a href="blockentities.html">Block entities &amp; GUIs</a>.</p></div>
 
 <h2>Spawning one</h2>
 <p>Putting a mob into the world is three lines: construct it from the world, place it, and hand it to <code>spawnEntity</code>. The showcase does this in its per-player setup so you find one waiting at your feet on every join.</p>
@@ -82,13 +82,13 @@ EXAMPLE_MOB = <span class="t">RetroEntities</span>.register(<span class="t">Exam
 mob.setPositionAndAngles(player.x, player.y, player.z, player.yaw, <span class="n">0.0F</span>);
 world.spawnEntity(mob);</code></pre></div>
 
-<p>That's the whole spawning API: build, position, spawn. On the server, <code>world.spawnEntity</code> is also the moment the networking machinery wakes up, which brings us to the real subject of this chapter.</p>
+<p>That's the whole spawning API: build, position, spawn. On the server, <code>world.spawnEntity</code> is also the moment the networking machinery wakes up, which brings us to the real subject of this page.</p>
 
 <h2>The networking brief</h2>
 <p>This is the part the easy class above quietly depends on, and it's worth understanding rather than trusting. Entities are the one place where modding Beta 1.7.3 forces you to think about the client/server split in detail, so we'll take it slowly.</p>
 
 <h3>Singleplayer changes nothing, because there's no server</h3>
-<p>In Beta 1.7.3 there is no integrated server. Singleplayer runs the whole world client-side, in one process (<a href="entrypoints.html">Chapter 2</a> tells that story in full). The mob you spawn is the mob you render; the position field you read is the position field that ticked. Nothing crosses a network because there is no network. Everything below this point is about the <em>dedicated server</em> case, and on a dedicated server, the server simulates the mob and the clients have to be told it exists.</p>
+<p>In Beta 1.7.3 there is no integrated server. Singleplayer runs the whole world client-side, in one process (<a href="entrypoints.html">Entrypoints &amp; sides</a> tells that story in full). The mob you spawn is the mob you render; the position field you read is the position field that ticked. Nothing crosses a network because there is no network. Everything below this point is about the <em>dedicated server</em> case, and on a dedicated server, the server simulates the mob and the clients have to be told it exists.</p>
 
 <h3>Why vanilla's spawn packet can't carry your mob</h3>
 <p>When a vanilla server spawns a mob, it sends a spawn packet that says, in effect, "make entity type 54 (a zombie) at these coordinates." The client looks up type 54 in a fixed table and builds a zombie. Your mob has no number in that table. Hand a vanilla spawn packet an unknown type and the client throws <code>IllegalArgumentException</code> and crashes, there's no graceful fallback in the old code.</p>
@@ -159,16 +159,16 @@ world.spawnEntity(mob);</code></pre></div>
 <h3>What syncs after spawn, and what doesn't</h3>
 <p>The spawn frame is a one-time event. After it, the entity's position and rotation ride vanilla's normal entity tracker, ticking out to nearby clients at the period you set. That part is automatic.</p>
 
-<p>What is <em>not</em> automatic is custom state. The DataTracker carries a fixed set of small synced values, "on fire," "sneaking," and a handful of others the engine manages, and those stay in step for free. Anything beyond that bag is yours to sync. If your mob has a custom rage meter or a charge level you want every client to see, the engine will not move it for you; you send it with your own packet (<a href="networking.html">Chapter 12</a>), or, if it's a number you're drawing in a GUI rather than on the entity, with the container properties from <a href="blockentities.html">Chapter 6</a>. The freezer's lesson reappears here: anything you visualize, you budget a sync for.</p>
+<p>What is <em>not</em> automatic is custom state. The DataTracker carries a fixed set of small synced values, "on fire," "sneaking," and a handful of others the engine manages, and those stay in step for free. Anything beyond that bag is yours to sync. If your mob has a custom rage meter or a charge level you want every client to see, the engine will not move it for you; you send it with your own packet (<a href="networking.html">Networking</a>), or, if it's a number you're drawing in a GUI rather than on the entity, with the container properties from <a href="blockentities.html">Block entities &amp; GUIs</a>. The freezer's lesson reappears here: anything you visualize, you budget a sync for.</p>
 
 <div class="note"><p>Need to ship a few extra fields <em>in the spawn packet itself</em>, a variant, a color, a name picked at birth? <code>RetroMobSpawnData</code> has a <code>writeExtra</code>/<code>readExtra</code> hook for exactly that, appending your own bytes after the standard mob payload. It's an advanced pointer; the showcase doesn't need it, but it's there when you do.</p></div>
 
 <h3>Persistence: the world stays vanilla-openable</h3>
-<p>The same sidecar discipline from <a href="blockentities.html">Chapter 6</a> applies to entities. A modded entity in vanilla's <code>Entities</code> NBT would break the world for unmodded players, so RetroAPI's entity sidecar saves modded entities by their string id, off to the side. Open the world in plain Beta 1.7.3 and it loads, the mob simply isn't there. Put the mod back and the mob returns, exactly where it was. (And because our mob sets <code>canDespawn()</code> to <code>false</code>, it really does wait for you across re-logs, rather than wandering off into the void.)</p>
+<p>The same sidecar discipline from <a href="blockentities.html">Block entities &amp; GUIs</a> applies to entities. A modded entity in vanilla's <code>Entities</code> NBT would break the world for unmodded players, so RetroAPI's entity sidecar saves modded entities by their string id, off to the side. Open the world in plain Beta 1.7.3 and it loads, the mob simply isn't there. Put the mod back and the mob returns, exactly where it was. (And because our mob sets <code>canDespawn()</code> to <code>false</code>, it really does wait for you across re-logs, rather than wandering off into the void.)</p>
 
 <p>That's the whole bargain: an easy class on top, a careful spawn protocol underneath, and a sidecar keeping your world portable. You write four lines of mob and RetroAPI handles the rest of the conversation.</p>
 
-<p>Our world now has machines that work and a simple creature that wanders it. But that mob just stands there. The next chapter takes this same entity foundation and builds the showcase's most COMPLEX mob on it, the Aerbunny: it rides on your head and glides you safely down, breeds, panics and flees when struck, and along the way it teaches the render-state and input networking a living thing actually needs. On to <a href="complex-entity.html">Chapter 8</a>.</p>
+<p>Our world now has machines that work and a simple creature that wanders it. But that mob just stands there. The next chapter takes this same entity foundation and builds the showcase's most COMPLEX mob on it, the Aerbunny: it rides on your head and glides you safely down, breeds, panics and flees when struck, and along the way it teaches the render-state and input networking a living thing actually needs. On to <a href="complex-entity.html">A mob in full</a>.</p>
 </div>
 
 <div class="pager"></div>

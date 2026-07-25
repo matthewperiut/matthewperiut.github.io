@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 23: Bigger Than One, RetroAPI Guide</title>
+<title>Positions &amp; multiblocks, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 23, Bigger Than One</h1>
+<h1>Positions &amp; multiblocks</h1>
 <p class="chapter-sub">A position type, six directions with opinions, multiblock patterns drawn as ASCII, and the load pass that runs when the world is actually there.</p>
 
-<p>Beta passes positions around as three loose <code>int</code>s. That's fine for one block. The moment a block cares about what is <em>next to</em> it, or is part of something larger, mod code fills up with <code>world.setBlock(x + dx, y + dy, z + dz, …)</code> and hand-written direction switches that are wrong in exactly one rotation. This chapter is the toolkit for that.</p>
+<p>Beta passes positions around as three loose <code>int</code>s. That's fine for one block. The moment a block cares about what is <em>next to</em> it, or is part of something larger, mod code fills up with <code>world.setBlock(x + dx, y + dy, z + dz, …)</code> and hand-written direction switches that are wrong in exactly one rotation. This page is the toolkit for that.</p>
 
 <h2>RetroVec3i, the block position b1.7.3 never had</h2>
 
@@ -40,7 +40,7 @@
 
 <h2>RetroDirection, all six of them</h2>
 
-<p>The four-value <code>RetroFacing</code> from <a href="facing.html">Chapter 17</a> is the horizontal one a furnace uses. <code>RetroDirection</code> is the full six, with the offsets, rotations and face indices spelled out:</p>
+<p>The four-value <code>RetroFacing</code> from <a href="facing.html">Directional blocks</a> is the horizontal one a furnace uses. <code>RetroDirection</code> is the full six, with the offsets, rotations and face indices spelled out:</p>
 
 <div class="codeblock"><span class="code-title">directions with opinions</span><pre><code><span class="t">RetroDirection</span> facing = RetroDirection.fromPlacer(player);  <span class="c">// includes up/down</span>
 <span class="t">RetroDirection</span> back   = facing.opposite();

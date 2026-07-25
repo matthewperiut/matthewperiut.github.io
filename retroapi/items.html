@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chapter 5: Items, RetroAPI Guide</title>
+<title>Items, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,10 +14,10 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Chapter 5, Items</h1>
+<h1>Items</h1>
 <p class="chapter-sub">A one-line item, then the Jump Stick, where the small builder ends and plain old subclassing takes over.</p>
 
-<p>Items are the deliberately-thin sibling of blocks. RetroAPI's item builder is tiny on purpose: there are very few things <em>every</em> item needs, and everything interesting, right-click behavior, durability, sub-items, comes from subclassing vanilla's <code>Item</code>, exactly as it always did. So this chapter is two halves: the whole builder in a breath, then a real custom item.</p>
+<p>Items are the deliberately-thin sibling of blocks. RetroAPI's item builder is tiny on purpose: there are very few things <em>every</em> item needs, and everything interesting, right-click behavior, durability, sub-items, comes from subclassing vanilla's <code>Item</code>, exactly as it always did. So this page is two halves: the whole builder in a breath, then a real custom item.</p>
 
 <h2>The simplest item</h2>
 <p>Here is <code>SUSPICIOUS_SUBSTANCE</code> from <code>init()</code>, three lines, the same shape as a block:</p>
@@ -29,7 +29,7 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 	.texture(id(<span class="s">"suspicious_substance"</span>))
 	.register(id(<span class="s">"suspicious_substance"</span>));</code></pre></div>
 
-<p><code>create</code> a plain item, set its stack size, point it at a texture, <code>register</code> it. Done. It loads <code>textures/item/suspicious_substance.png</code> and reads its name from <code>item.@.suspicious_substance.name</code> in the lang file, both covered in <a href="assets.html">Chapter 3</a>.</p>
+<p><code>create</code> a plain item, set its stack size, point it at a texture, <code>register</code> it. Done. It loads <code>textures/item/suspicious_substance.png</code> and reads its name from <code>item.@.suspicious_substance.name</code> in the lang file, both covered in <a href="assets.html">Textures, names &amp; files</a>.</p>
 
 <div class="asset-row">
 <div class="asset-card"><img src="assets/suspicious_substance.png" width="64" height="64" alt="suspicious_substance"><div class="asset-name">suspicious_substance.png</div><a href="assets/suspicious_substance.png" download>download</a></div>
@@ -52,9 +52,9 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 <tr><td><code>register(NamespacedIdentifier)</code></td><td>finalize and register; returns the <code>Item</code></td></tr>
 </table>
 
-<p>The two tool rows feed the tag system from <a href="blocks.html">Chapter 4</a>: a plain <code>Item</code> chained through <code>.tool(RetroTool.PICKAXE).tier(RetroToolTier.IRON)</code> harvests everything an iron pickaxe would, no <code>ToolItem</code> subclass required. The showcase's Ruby Pick is exactly that, see the tool-tiers section of the blocks chapter.</p>
+<p>The two tool rows feed the tag system from <a href="blocks.html">Blocks</a>: a plain <code>Item</code> chained through <code>.tool(RetroTool.PICKAXE).tier(RetroToolTier.IRON)</code> harvests everything an iron pickaxe would, no <code>ToolItem</code> subclass required. The showcase's Ruby Pick is exactly that, see the tool-tiers section of the blocks chapter.</p>
 
-<p>Same id story as blocks: numeric item ids are allocated above vanilla's range, remapped per-world, and kept safe in vanilla saves, you only ever touch <code>NamespacedIdentifier</code>s. (The full id mechanics are in <a href="blocks.html">Chapter 4</a>.)</p>
+<p>Same id story as blocks: numeric item ids are allocated above vanilla's range, remapped per-world, and kept safe in vanilla saves, you only ever touch <code>NamespacedIdentifier</code>s. (The full id mechanics are in <a href="blocks.html">Blocks</a>.)</p>
 
 <p><b>Subclassing an item? Pass <code>RetroItemAccess.AUTO_ID</code> as the constructor's id.</b> Vanilla's <code>Item(int)</code> constructor writes the new item into the global <code>Item.ITEMS</code> array, so it needs a free slot to construct at all, the classic chicken-and-egg of legacy registration. <code>AUTO_ID</code> is a sentinel: RetroAPI intercepts the constructor and fills in a free, reserved slot for you, in one atomic step, so two items can never collide on a slot. The older <code>allocateId()</code> still works (it now reserves too), but <code>AUTO_ID</code> is the simpler and safer default, just write <code>super(RetroItemAccess.AUTO_ID)</code> and forget about numbers.</p>
 
@@ -126,10 +126,10 @@ SUSPICIOUS_SUBSTANCE = RetroItemAccess.create()
 </ul>
 
 <h3>2. Borrowing a sprite: <code>getTextureId(damage)</code></h3>
-<p>Overriding <code>getTextureId(damage)</code> returns the item's sprite index directly, and here it returns <code>Item.STICK.getTextureId(0)</code>, vanilla's stick. So the Jump Stick ships <strong>no PNG of its own</strong> and just wears the stick icon. (This is the item-side trick from <a href="assets.html">Chapter 3</a>; the <code>damage</code> argument would let you vary the icon by metadata if you wanted.)</p>
+<p>Overriding <code>getTextureId(damage)</code> returns the item's sprite index directly, and here it returns <code>Item.STICK.getTextureId(0)</code>, vanilla's stick. So the Jump Stick ships <strong>no PNG of its own</strong> and just wears the stick icon. (This is the item-side trick from <a href="assets.html">Textures, names &amp; files</a>; the <code>damage</code> argument would let you vary the icon by metadata if you wanted.)</p>
 
 <h3>3. The invoker bridge</h3>
-<p>The actual hop is <code>((Example06JumpInvoker) player).example_mod$jump()</code>. The catch: <code>LivingEntity.jump()</code> is <code>protected</code>, so ordinary code can't call it. <code>Example06JumpInvoker</code> is an <code>@Invoker</code> mixin, an interface mixin makes <code>LivingEntity</code> implement it, turning the protected method into a callable public bridge. Cast the player to the interface, call the bridge, done. How that works mechanically, and why a reusable bridge sometimes belongs in the shared library instead, is <a href="mixins.html">Chapter 13, example 6</a>.</p>
+<p>The actual hop is <code>((Example06JumpInvoker) player).example_mod$jump()</code>. The catch: <code>LivingEntity.jump()</code> is <code>protected</code>, so ordinary code can't call it. <code>Example06JumpInvoker</code> is an <code>@Invoker</code> mixin, an interface mixin makes <code>LivingEntity</code> implement it, turning the protected method into a callable public bridge. Cast the player to the interface, call the bridge, done. How that works mechanically, and why a reusable bridge sometimes belongs in the shared library instead, is <a href="mixins.html"><a href="mixins.html">Mixins</a>, example 6</a>.</p>
 
 <h2>ItemStacks</h2>
 <p>Once items exist, you move them around as <code>ItemStack</code>s. Beta exposes most of the stack's state as <strong>public fields</strong> rather than getters, which feels blunt but is just how the era worked:</p>
@@ -154,7 +154,7 @@ inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.SUSPICIOUS_SU
 inventory.addStack(<span class="k">new</span> ItemStack(ExampleMod.JUMP_STICK, <span class="n">1</span>));
 <span class="c">// … plus the blocks, buckets, and coal so the freezer can run right away …</span></code></pre></div>
 
-<p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Chapter 11</a>.</p>
+<p>That's the throwaway way. The durable way to get an item into players' hands is a recipe that outputs it, the showcase smelts and crafts <code>SUSPICIOUS_SUBSTANCE</code> several ways, and that's <a href="recipes.html">Recipes &amp; fuel</a>.</p>
 
 <h3>Only new players get the kit</h3>
 <p>A starter kit you hand out on <em>every</em> join would refill the inventory each time you log back in. The showcase wants it once, the first time a player exists. The trick is telling a brand-new player apart from a returning one, and that's a one-line mixin. A player's saved data is read back through <code>readNbt</code>, which only runs when there is something on disk to read; a freshly created player never goes through it. So the showcase marks every player that <em>does</em> load from disk, and <code>ExamplePlayerSetup</code> gives the kit only to the players left unmarked:</p>

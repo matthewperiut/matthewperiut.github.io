@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RetroAPI Guide, modding Minecraft Beta 1.7.3</title>
+<title>What RetroAPI is, RetroAPI wiki</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -14,78 +14,91 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>Modding Beta 1.7.3, the comfortable way</h1>
-<p class="chapter-sub">A guided tour from empty folder to custom blocks, machines, mobs, dimensions, and packets.</p>
+<h1>RetroAPI</h1>
+<p class="chapter-sub">A content library for Minecraft Beta 1.7.3: register blocks, items, mobs, dimensions and world features without hand-rolling id management, and without your mod corrupting the world it is installed in.</p>
 
-<p>It's Beta 1.7.3 again, the grass is that particular green, the world is quiet, and there is no modding API. There never was one. What there is, in 2026, is something better: modern tooling pointed backwards. <strong>Ornithe</strong> gives us a Fabric-style loader and Gradle builds for old versions; <strong>biny mappings</strong> give the decompiled code human names; <strong>OSL</strong> provides entrypoints, lifecycle events and networking; and <strong><a href="https://github.com/matthewperiut/RetroAPI">RetroAPI</a></strong> does the dangerous work, block ID expansion, texture atlasing, save-file safety, multiplayer sync, so your mod doesn't have to.</p>
+<h2>Where this sits</h2>
 
-<p>This guide is written as a story in chapters. Each chapter builds one feature of a real, working example mod, with every line of code copyable and every texture downloadable. By the last page you'll have seen a mod with custom blocks, items, a clicking counter, a crate with its own GUI, a fuel-burning freezer with animated progress bars, a mob, an achievement page, a dimension behind a walk-in portal, a welcome packet, and a twelve-step mixin course.</p>
+<p>Beta 1.7.3 is the version a lot of people mean when they say they miss Minecraft. Quiet worlds, that particular green, terrain that goes up and then stops. It is also, by modern standards, a version with no modding support whatsoever: no registries, no data packs, no ids that survive a mod being removed.</p>
 
-<h2>Grab a template</h2>
-<p>Two zips, one decision:</p>
-<p>
-<a class="download-btn" href="bare-retroapi-template.zip" download>⬇ bare-retroapi-template.zip <small>, a clean start</small></a>
-<a class="download-btn secondary" href="feature-showcase-retroapi-template.zip" download>⬇ feature-showcase-retroapi-template.zip <small>, everything, built &amp; commented</small></a>
-</p>
-<ul>
-<li><strong>Bare</strong> is the official <a href="https://github.com/OrnitheMC/ornithe-mod-template">ornithe-mod-template</a> with its build files already converted for b1.7.3 + RetroAPI (the exact conversion is <a href="setup.html">Chapter 1</a>). One example entrypoint, one example mixin, nothing else. Start here.</li>
-<li><strong>Feature showcase</strong> is the mod this guide walks through, every feature finished and heavily commented. Keep it open in a second editor window and steal from it freely (it's CC0).</li>
-</ul>
+<p>Plenty of work has already gone into fixing that, and RetroAPI stands on it rather than replacing it:</p>
 
-<div class="note"><p><strong>Already modding modern Minecraft?</strong> You'll feel at home: <code>fabric.mod.json</code>, entrypoints, mixins, and Loom all work the way you expect. The differences worth knowing: identifiers come from OSL (<code>NamespacedIdentifiers.from("mod", "thing")</code>), there is <em>no integrated server</em> in b1.7.3 (singleplayer runs entirely client-side, <a href="entrypoints.html">Chapter 2</a>), and the registry is RetroAPI's job, not the game's.</p></div>
+<table>
+<tr><th>Piece</th><th>What it does</th></tr>
+<tr><td><strong>Babric</strong></td><td>A fork of Fabric's loader for b1.7.3 specifically. It made Fabric-style mods and mixins possible on this version years before RetroAPI existed, and it is still perfectly good, RetroAPI ships a babric build for exactly that reason.</td></tr>
+<tr><td><strong>Ornithe</strong></td><td>Another Fabric fork, aimed at a wide sweep of old Minecraft versions rather than one, with mappings (biny/calamus) and Gradle tooling to match. Not the first to do this, just the broadest.</td></tr>
+<tr><td><strong>OSL</strong> (Ornithe Standard Libraries)</td><td>Entrypoints, lifecycle events, networking. The plumbing under the loader.</td></tr>
+<tr><td><strong>StationAPI</strong></td><td>The established content API for this version, and it predates RetroAPI by a long way. It flattens the world format and brings a modern registry with it. If you already use it, keep using it, RetroAPI is built to sit alongside it (see <a href="stationapi.html">StationAPI interop</a>).</td></tr>
+<tr><td><strong>RetroAPI</strong></td><td>The library this wiki is about: a smaller, opinionated content layer that leaves the vanilla world format alone and puts modded data <em>beside</em> it.</td></tr>
+</table>
 
-<h2>The chapters</h2>
-<div class="chapter-grid">
-<a class="chapter-card" href="setup.html"><span class="num">Chapter 1</span><span class="title">The Workshop</span><span class="desc">Set up Gradle, biny mappings, and fabric.mod.json, then run the game.</span></a>
-<a class="chapter-card" href="entrypoints.html"><span class="num">Chapter 2</span><span class="title">Four Doors In</span><span class="desc">The retroapi entrypoint and its client/server halves, what runs where, and why textures are safe in common code.</span></a>
-<a class="chapter-card" href="assets.html"><span class="num">Chapter 3</span><span class="title">Pixels &amp; Words</span><span class="desc">Texture loading and sprite ids, GUI art, lang files, and the sound autoloader.</span></a>
-<a class="chapter-card" href="blocks.html"><span class="num">Chapter 4</span><span class="title">Blocks</span><span class="desc">One cube, a multi-sided cube, and a pipe with its own render type.</span></a>
-<a class="chapter-card" href="items.html"><span class="num">Chapter 5</span><span class="title">Items</span><span class="desc">A simple item, then the Jump Stick, custom classes and right-click behavior.</span></a>
-<a class="chapter-card" href="blockentities.html"><span class="num">Chapter 6</span><span class="title">Machines</span><span class="desc">Block entities: a click counter, a crate with a GUI, and the freezer, with synced progress bars.</span></a>
-<a class="chapter-card" href="entities.html"><span class="num">Chapter 7</span><span class="title">Creatures</span><span class="desc">A custom mob, its renderer, and the truth about entity networking.</span></a>
-<a class="chapter-card" href="complex-entity.html"><span class="num">Chapter 8</span><span class="title">The Aerbunny</span><span class="desc">A complex mob in full: riding, slow-fall gliding, breeding, fear AI, and the input/mount networking behind them.</span></a>
-<a class="chapter-card" href="achievements.html"><span class="num">Chapter 9</span><span class="title">Achievements</span><span class="desc">Toasts, parent trees, your own page, and granting from gameplay.</span></a>
-<a class="chapter-card" href="dimensions.html"><span class="num">Chapter 10</span><span class="title">Other Worlds</span><span class="desc">Register a dimension and walk into it through a portal block.</span></a>
-<a class="chapter-card" href="recipes.html"><span class="num">Chapter 11</span><span class="title">Recipes</span><span class="desc">Shaped, shapeless, smelting, fuel, and metadata wildcards.</span></a>
-<a class="chapter-card" href="networking.html"><span class="num">Chapter 12</span><span class="title">Wires</span><span class="desc">Custom packets with OSL: a welcome message and its reply.</span></a>
-<a class="chapter-card" href="mixins.html"><span class="num">Chapter 13</span><span class="title">The Scalpel</span><span class="desc">Why beta modding is mixin-heavy, how to cut safely, and 12 graded examples.</span></a>
-<a class="chapter-card" href="states.html"><span class="num">Chapter 14</span><span class="title">Deeper States</span><span class="desc">Flattened blockstates: properties, secondary meta, and a 20-state lamp.</span></a>
-<a class="chapter-card" href="voxelshapes.html"><span class="num">Chapter 15</span><span class="title">True Shapes</span><span class="desc">VoxelShapes: multi-box outlines, collision, and mining through the gaps.</span></a>
-<a class="chapter-card" href="models.html"><span class="num">Chapter 16</span><span class="title">Shapes &amp; Pixels</span><span class="desc">JSON block and item models, render layers, tints, and animated textures.</span></a>
-<a class="chapter-card" href="facing.html"><span class="num">Chapter 17</span><span class="title">Facing the World</span><span class="desc">Directional blocks: a log whose grain flips, a freezer that faces the placer.</span></a>
-<a class="chapter-card" href="tools.html"><span class="num">Chapter 18</span><span class="title">The Toolbelt</span><span class="desc">Custom tools, the food API with a poisonous apple, and a full zanite armor set.</span></a>
-<a class="chapter-card" href="sounds.html"><span class="num">Chapter 19</span><span class="title">The Soundtrack</span><span class="desc">Sound effects, streaming music, shuffled background tracks, and jukebox records.</span></a>
-<a class="chapter-card" href="worldgen.html"><span class="num">Chapter 20</span><span class="title">New Lands</span><span class="desc">Chunk generators, Perlin terrain, biomes, spawn rules, and dimension portals.</span></a>
-<a class="chapter-card" href="components.html"><span class="num">Chapter 21</span><span class="title">Item Memory</span><span class="desc">Data components: typed item data, tooltips, and component-driven textures.</span></a>
-<a class="chapter-card" href="particles.html"><span class="num">Chapter 22</span><span class="title">Little Sparks</span><span class="desc">The particle registry: your own particles, sprite particles, and multiplayer.</span></a>
-<a class="chapter-card" href="multiblocks.html"><span class="num">Chapter 23</span><span class="title">Bigger Than One</span><span class="desc">Positions, six directions, multiblock patterns, and the after-load pass.</span></a>
-<a class="chapter-card" href="testing.html"><span class="num">Chapter 24</span><span class="title">Proving Grounds</span><span class="desc">runClient, runServer, offline mode, and the sided-code checklist.</span></a>
+<h2>What RetroAPI is actually for</h2>
+
+<p>Two things, and it is worth being blunt about them because everything else follows.</p>
+
+<h3>1. Making ordinary mod work short</h3>
+
+<p>Registering a block should be one call, not an id allocation scheme, an atlas patch and a save-format decision. Most of this wiki is that: a builder for the common case, an escape hatch for the rest.</p>
+
+<div class="codeblock"><span class="code-title">the whole registration of a block</span><pre><code>RUBY_ORE = RetroBlockAccess.create(Material.STONE)
+    .strength(<span class="n">3.0F</span>)
+    .texture(id(<span class="s">"ruby_ore"</span>))
+    .needsTool(RetroToolTier.IRON)
+    .register(id(<span class="s">"ruby_ore"</span>));</code></pre></div>
+
+<h3>2. Not eating the world</h3>
+
+<p>This is the part that matters more, and it is the reason the library has the shape it does.</p>
+
+<p>Beta stores a block as a <strong>byte</strong> plus a 4-bit metadata nibble. There is no room in that format for a modded block, so every approach to modded content on this version has to answer the same question: <em>where do the extra bits live?</em> Answer it by writing modded ids into the vanilla arrays and you get worlds that are fine right up until the mod is removed or its ids shift, at which point chunks come back as the wrong blocks, or do not come back at all.</p>
+
+<div class="note"><p><strong>RetroAPI's answer is a sidecar.</strong> Vanilla's own bytes stay exactly as vanilla wrote them. Anything that does not fit, block ids ≥ 256, the state bits above the nibble, modded item data, lives in separate files next to the region data, keyed by a stable string identifier (<code>mymod:ruby_ore</code>), with a per-world id map translating those names to whatever numbers this session happens to be using. Numbers can move between launches; names cannot. Remove the mod and the vanilla half of the world still loads, because the vanilla half was never touched. Details in <a href="storage.html">World safety</a>.</p></div>
+
+<p>That is also why RetroAPI can hand you 32,000 block slots, block states wider than the nibble, and per-stack data components on a version with none of those things: they are sidecar features, not edits to the format the vanilla game reads.</p>
+
+<h2>Code-driven or data-driven, your choice</h2>
+
+<p>Almost everything here can be declared two ways: as a call in your mod, or as a JSON file the game loads. Textures, block states, models, tags and translations all work either way, and they mix freely, one block can take its textures from code and its variants from a blockstate file.</p>
+
+<p>This wiki shows both. Use the switch in the header (or above any block that has both) to flip the whole site between them; it remembers your choice:</p>
+
+<div class="dual" data-label="Same block, both ways">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">in your mod's initRetro()</span><pre><code>LAMP = RetroBlockAccess.create(Material.STONE)
+    .states(LIT)
+    .texture(id(<span class="s">"lamp_off"</span>))
+    .light(<span class="n">1.0F</span>)
+    .register(id(<span class="s">"lamp"</span>));</code></pre></div>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
+  <span class="t">"properties"</span>: { <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>] },
+  <span class="t">"variants"</span>: {
+    <span class="t">"lit=false"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> },
+    <span class="t">"lit=true"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
+  }
+}</code></pre></div>
+</div>
 </div>
 
-<h2>The two-minute version</h2>
-<p>For the impatient, this is most of the API:</p>
-<div class="codeblock"><span class="code-title">the elevator pitch</span><pre><code><span class="c">// blocks (Chapter 4)</span>
-Block myBlock = RetroBlockAccess.create(Material.STONE)
-    .strength(1.5f, 10.0f).texture(id("my_block")).register(id("my_block"));
+<p>Neither is "the real way". Code is the default here because it is usually shorter, cannot mistype a file path, and keeps a block's definition in one place. Data files win when an artist or pack author needs to change something without touching Java, when the same shape repeats across dozens of blocks, or when you want a resource pack to be able to override it. Where the two disagree, code wins, and the page in question says so.</p>
 
-<span class="c">// items (Chapter 5)</span>
-Item myItem = RetroItemAccess.create()
-    .maxStackSize(64).texture(id("my_item")).register(id("my_item"));
+<h2>Start here</h2>
 
-<span class="c">// recipes (Chapter 11)</span>
-RetroRecipes.addShaped(new ItemStack(myBlock), "CC", "CC", 'C', Block.COBBLESTONE);
+<p>Two zips, one decision:</p>
 
-<span class="c">// achievements (Chapter 9)</span>
-Achievement first = RetroAchievements.register(id("first"), "my_mod.first", 0, 0, myItem, null);
+<ul>
+<li><a href="bare-retroapi-template.zip" download><strong>⬇ bare-retroapi-template.zip</strong></a>, a clean start. The Ornithe mod template with its build files already converted for b1.7.3 + RetroAPI: one entrypoint, one example mixin, nothing else.</li>
+<li><a href="feature-showcase-retroapi-template.zip" download><strong>⬇ feature-showcase-retroapi-template.zip</strong></a>, everything switched on: blocks, machines with GUIs, a mob, a dimension, particles, world features, achievements, packets, and a twelve-step mixin course. Heavily commented, CC0, steal from it freely.</li>
+</ul>
 
-<span class="c">// dimensions (Chapter 10)</span>
-DimensionRegistration dim = RetroDimensions.register(id("my_dim"), MyDimension::new);
+<p>Then: <a href="setup.html">set up a project</a> → <a href="entrypoints.html">entrypoints</a> → <a href="registry.html">the registry</a>.</p>
 
-<span class="c">// entities (Chapter 7)</span>
-RetroEntities.register(MyMob.ID, MyMob.class).factory((MobFactory) MyMob::new);</code></pre></div>
-<p>Everything persists across world saves, survives being opened in vanilla, and syncs over multiplayer, that's the part RetroAPI quietly handles for you.</p>
+<div class="note"><p><strong>Coming from modern Minecraft?</strong> Most of your instincts transfer: <code>fabric.mod.json</code>, entrypoints, mixins and Loom all behave the way you expect. Three things do not. Identifiers come from OSL (<code>NamespacedIdentifiers.from("mod", "thing")</code>). There is <strong>no integrated server</strong>, singleplayer is the client simulating the world itself (<a href="entrypoints.html">Entrypoints &amp; sides</a>). And the registry is a library's job here, not the game's, which is why ids move between sessions and why nothing you keep should be a raw number.</p></div>
 
-<p>Ready? <a href="setup.html"><strong>Chapter 1: The Workshop →</strong></a></p>
+<div class="note"><p><strong>Already using StationAPI?</strong> Nothing here asks you to stop. RetroAPI detects it, hands registration and the atlas over to it, and keeps its own systems (entities, dimensions, components, particles, world features) working alongside. The differences are collected in <a href="stationapi.html">StationAPI interop</a>.</p></div>
 </div>
 
 <div class="pager"></div>

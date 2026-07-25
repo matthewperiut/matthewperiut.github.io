@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationAPI interop, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>StationAPI interop</h1>
+<p class="chapter-sub">What changes when StationAPI is installed, what does not, and how one jar ships for both worlds.</p>
+
+<p>StationAPI is the older and larger content API for b1.7.3, and plenty of mods, and players, already run it. RetroAPI is not a replacement and does not ask you to choose: install both and they divide the work.</p>
+
+<h2>Who owns what</h2>
+
+<table>
+<tr><th>Concern</th><th>Alone</th><th>With StationAPI</th></tr>
+<tr><td>Block &amp; item registration</td><td>RetroAPI</td><td><strong>StationAPI</strong> (RetroAPI forwards your calls to it)</td></tr>
+<tr><td>Ids &amp; world storage</td><td>RetroAPI's sidecar</td><td><strong>StationAPI</strong>'s flattened format</td></tr>
+<tr><td>Texture atlas</td><td>RetroAPI's expanded atlas</td><td><strong>StationAPI</strong>'s atlas</td></tr>
+<tr><td>Recipes</td><td>RetroAPI</td><td>forwarded to StationAPI's registry</td></tr>
+<tr><td>Tags</td><td>RetroAPI (live, mutable)</td><td>read from StationAPI's layouts too</td></tr>
+<tr><td>Entities &amp; spawn packets</td><td colspan="2">RetroAPI, in both modes (the two systems are orthogonal)</td></tr>
+<tr><td>Dimensions &amp; portals</td><td>RetroAPI</td><td>RetroAPI, forwarded into StationAPI's dimension registry</td></tr>
+<tr><td>Components, particles, world features, multiblocks, sounds bridge</td><td colspan="2">RetroAPI, in both modes</td></tr>
+</table>
+
+<h2>What you actually have to do</h2>
+
+<p>Nothing, if you registered through the <code>retroapi</code> entrypoint. That is the reason it exists: it is the one hook that fires identically in both modes, whereas RetroAPI's own registration <em>events</em> deliberately do not fire when StationAPI is present (StationAPI owns registration there, and firing both would double-register).</p>
+
+<div class="codeblock"><span class="code-title">works the same with and without StationAPI</span><pre><code><span class="k">public class</span> ExampleMod <span class="k">implements</span> RetroModInitializer {
+    <span class="a">@Override</span>
+    <span class="k">public void</span> initRetro() {
+        RUBY_ORE = RetroBlockAccess.create(Material.STONE)
+            .strength(<span class="n">3.0F</span>).texture(id(<span class="s">"ruby_ore"</span>)).register(id(<span class="s">"ruby_ore"</span>));
+
+        RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n">8</span>).heightRange(<span class="n">4</span>, <span class="n">32</span>).register();
+    }
+}</code></pre></div>
+
+<div class="warn"><p>If your mod registers content from a <code>BlockRegistrationCallback</code> / <code>ItemRegistrationCallback</code> listener, it will register when RetroAPI is alone and <strong>silently not</strong> when StationAPI is present. Move that work into <code>initRetro()</code>; the events remain for reacting to registration, not for doing it.</p></div>
+
+<h2>Why some things stay RetroAPI's in both modes</h2>
+
+<p>They do not overlap with anything StationAPI provides, so there is nothing to hand over:</p>
+
+<ul>
+<li><strong>Entities</strong> use RetroAPI's own spawn interfaces and channels; the entity sets are disjoint and the wire formats do not collide.</li>
+<li><strong>Dimensions</strong> are registered by RetroAPI and then forwarded into StationAPI's dimension registry, reusing the same serial id so the <code>DIM&lt;n&gt;</code> folder stays put.</li>
+<li><strong>World features</strong> hook chunk decoration on the vanilla chunk cache, which StationAPI does not replace, so your ore generates in both modes, including in modded dimensions and custom generators.</li>
+<li><strong>Components, particles, the sound and particle bridges, multiblocks, positions</strong> are pure additions on top of vanilla behaviour.</li>
+</ul>
+
+<h2>Shipping one jar</h2>
+
+<p>RetroAPI's own distribution nests a small compatibility mod that only loads when StationAPI is present, so a single download works either way. Your mod does not need an equivalent: depend on <code>retroapi</code> and let it detect its surroundings.</p>
+
+<p>Two distribution builds exist for the two loaders:</p>
+
+<table>
+<tr><th>Jar</th><th>Loader</th><th>Notes</th></tr>
+<tr><td><code>retroapi-&lt;version&gt;.jar</code></td><td>Ornithe</td><td>requires OSL; the build the maven and this wiki point at</td></tr>
+<tr><td><code>retroapi-&lt;version&gt;-babric.jar</code></td><td>Babric</td><td>self-contained: OSL is reverse-converted and bundled inside</td></tr>
+</table>
+
+<h2>Converting worlds</h2>
+
+<p>Because RetroAPI keeps an identifier → id map on disk even in StationAPI mode, a world can be moved between the two storage formats without losing modded content: the map is what tells the converter that <code>431</code> meant <code>example_mod:ruby_ore</code>. RetroAPI's test suite runs that round trip headlessly, vanilla → flattened → vanilla, and fails the build on any modded-data loss.</p>
+
+<div class="note"><p>Known limitation of the round trip: content inside <em>modded dimensions</em> is not covered by the conversion assertions. The overworld path is.</p></div>
+
+<h2>Migrating a StationAPI mod</h2>
+
+<p>The APIs were kept deliberately close in shape, so most of a port is renaming:</p>
+
+<table>
+<tr><th>StationAPI</th><th>RetroAPI</th></tr>
+<tr><td><code>@Entrypoint</code> + event bus listeners</td><td><code>RetroModInitializer.initRetro()</code></td></tr>
+<tr><td><code>Identifier.of("mod:thing")</code></td><td><code>NamespacedIdentifiers.from("mod", "thing")</code></td></tr>
+<tr><td><code>BlockBuilder</code> / template blocks</td><td><code>RetroBlockAccess.create(...)</code> / <code>.of(Ctor::new)</code></td></tr>
+<tr><td><code>BiomeBuilder</code></td><td><code>BiomeBuilder</code> (same shape, see <a href="worldgen.html">Worldgen</a>)</td></tr>
+<tr><td><code>DimensionContainer</code></td><td><code>RetroDimensions.register(id, factory)</code></td></tr>
+<tr><td>Recipe register event</td><td><code>RetroRecipes</code>, or the bridged callback</td></tr>
+</table>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>

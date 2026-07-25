@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tags, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Tags</h1>
+<p class="chapter-sub">Groups of blocks or items you can name: which tool mines what, how good it has to be, and the "is this any kind of copper ore" question that mods have been solving separately since forever.</p>
+
+<p>A tag is a named set. RetroAPI ships the two families modern Minecraft uses for mining, lets you declare your own for anything else, and reads both from code and from data files, unioning whatever it finds.</p>
+
+<h2>The two built-in families</h2>
+
+<table>
+<tr><th>Tag</th><th>Means</th></tr>
+<tr><td><code>mineable/pickaxe</code>, <code>mineable/axe</code>, <code>mineable/shovel</code>, <code>mineable/hoe</code>, <code>mineable/sword</code>, <code>mineable/shears</code></td><td>this <em>kind</em> of tool mines the block at tool speed</td></tr>
+<tr><td><code>needs_stone_tool</code>, <code>needs_iron_tool</code>, <code>needs_diamond_tool</code></td><td>the tool must be at least this <em>tier</em> for the block to drop anything</td></tr>
+</table>
+
+<p>They are deliberately independent, exactly as in modern Minecraft. A <code>mineable</code> tag grants speed. Whether a block needs a tool <em>at all</em> comes from its material (beta's own stone/metal rule) or from a <code>needs_*_tool</code> tag. So a hand-breakable block in <code>mineable/axe</code> still drops by hand and merely mines faster with an axe, while a stone-material block in <code>mineable/pickaxe</code> drops only for a pickaxe.</p>
+
+<div class="dual" data-label="Tagging a block">
+<div data-mode="code">
+<span class="pane-title">Code-driven</span>
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code>RUBY_ORE = RetroBlockAccess.create(Material.STONE)
+    .strength(<span class="n">3.0F</span>)
+    .mineable(RetroTool.PICKAXE)          <span class="c">// speed: pickaxes</span>
+    .needsTool(RetroToolTier.IRON)        <span class="c">// drops: iron or better</span>
+    .tag(RetroTagKey.block(<span class="s">"ore_dictionary/ruby"</span>))
+    .texture(id(<span class="s">"ruby_ore"</span>))
+    .register(id(<span class="s">"ruby_ore"</span>));</code></pre></div>
+<p>Everything in one chain, next to the rest of the block's definition.</p>
+</div>
+<div data-mode="data">
+<span class="pane-title">Data-driven</span>
+<div class="codeblock"><span class="code-title">data/example_mod/tags/block/mineable/pickaxe.json</span><pre><code>{
+  <span class="t">"replace"</span>: <span class="k">false</span>,
+  <span class="t">"values"</span>: [
+    <span class="s">"example_mod:ruby_ore"</span>,
+    <span class="s">"minecraft:glass"</span>
+  ]
+}</code></pre></div>
+<div class="codeblock"><span class="code-title">data/example_mod/tags/block/needs_iron_tool.json</span><pre><code>{ <span class="t">"values"</span>: [ <span class="s">"example_mod:ruby_ore"</span> ] }</code></pre></div>
+<p>Vanilla blocks can be named too (<code>minecraft:glass</code>), which is how you make a vanilla block respect your tool rules.</p>
+</div>
+</div>
+
+<div class="note"><p>The two are a <strong>union</strong>, not a conflict: a block listed in code and in a file is simply in the tag once. That is what lets a pack author add blocks to your tag without touching your jar.</p></div>
+
+<h2>Blocks you never tagged</h2>
+
+<p>Leaving a block untagged is fine, and it is what most blocks do. RetroAPI infers the obvious default from the block's material:</p>
+
+<table>
+<tr><th>Material</th><th>Inferred</th></tr>
+<tr><td><code>STONE</code>, <code>METAL</code>, <code>ICE</code>, <code>PISTON</code></td><td><code>mineable/pickaxe</code></td></tr>
+<tr><td><code>WOOD</code>, <code>PUMPKIN</code></td><td><code>mineable/axe</code></td></tr>
+<tr><td><code>SOIL</code>, <code>SAND</code>, <code>CLAY</code>, <code>SOLID_ORGANIC</code>, snow</td><td><code>mineable/shovel</code></td></tr>
+<tr><td><code>LEAVES</code></td><td><code>mineable/shears</code>, <code>sword</code>, <code>hoe</code></td></tr>
+<tr><td><code>WOOL</code>, <code>COBWEB</code></td><td><code>mineable/shears</code></td></tr>
+</table>
+
+<div class="warn"><p>This inference is not a nicety, it is what stops a whole class of "my block is unbreakable" reports. Beta decides whether a tool is effective from hardcoded block <em>lists</em> inside each vanilla tool item, and no modded block is in those lists. Without a tag or an inferred default, a stone-material modded block drops nothing for <em>any</em> tool, vanilla or modded. An explicit <code>.mineable(...)</code> or a data file always wins over the inference.</p></div>
+
+<p>Vanilla blocks come pre-tagged with beta-accurate membership (stone and ores are pickaxe blocks, iron ore needs stone tier, gold/diamond need iron, and so on), generated from beta's own tool tables. That is what makes a custom tool work on vanilla blocks and not only on your own.</p>
+
+<h2>Your own tags</h2>
+
+<p>A tag key is just a name. Use them for anything you would otherwise express as a long <code>if</code>:</p>
+
+<div class="codeblock"><span class="code-title">arbitrary tags, blocks and items</span><pre><code><span class="k">static final</span> RetroTagKey ORE_RUBY  = RetroTagKey.block(<span class="s">"ore_dictionary/ruby"</span>);
+<span class="k">static final</span> RetroTagKey GEMS      = RetroTagKey.item(<span class="s">"ore_dictionary/gems"</span>);
+
+RetroTags.addToTag(ORE_RUBY, RUBY_ORE, DEEP_RUBY_ORE);
+RetroTags.addToTag(GEMS, RUBY, SAPPHIRE);
+
+<span class="k">if</span> (RetroTags.isIn(stack.getItem(), GEMS)) { … }
+<span class="k">for</span> (Block b : RetroTags.blocksIn(ORE_RUBY)) { … }
+RetroTags.removeFromTag(GEMS, SAPPHIRE);</code></pre></div>
+
+<p>RetroAPI's code tags stay live and mutable: adding to one after the game has started takes effect immediately, which is how two mods can agree on an "ore dictionary" at runtime without either one owning it.</p>
+
+<h2>Where tags are read</h2>
+
+<p>Data files are picked up from all of these layouts, so a mod written for another library's conventions usually needs no changes:</p>
+
+<ul>
+<li><code>data/&lt;namespace&gt;/tags/block/…</code> and <code>tags/blocks/…</code></li>
+<li><code>data/&lt;namespace&gt;/tags/item/…</code> and <code>tags/items/…</code></li>
+<li>StationAPI's <code>data/&lt;namespace&gt;/stationapi/tags/…</code> layout</li>
+</ul>
+
+<p>Entries may be <code>namespace:path</code> or a bare vanilla name (<code>minecraft:stone</code>); vanilla names resolve through RetroAPI's flattening tables, so you can write the modern name for a beta block and it lands on the right one.</p>
+
+<p>Tools read these tags from the other side: see <a href="tools.html">Tools, food &amp; armor</a> for tool kinds, tiers, and how a tool with no <code>ToolMaterial</code> declares what it is good at.</p>
+</div>
+
+<div class="pager"></div>
+</main>
+</div>
+</body>
+</html>
