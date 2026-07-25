@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>RetroAPI 0.3.0, the whole feature set</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>RetroAPI 0.3.0, the whole feature set</h1>
+<p class="chapter-sub">Everything a mod can use, in one page. Written to be handed to someone deciding whether the library covers what they need.</p>
+
+<div class="note"><p>This page is not linked from the wiki; it exists to be shared by URL. Each row links to the page that explains it properly. For Minecraft Beta 1.7.3 on Ornithe (Fabric fork) or Babric, with or without StationAPI.</p></div>
+
+<h2>Entrypoints</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>retroapi</code> entrypoint (<code>RetroModInitializer.initRetro()</code>)</td><td>Registration at the one moment it is safe: platform ready, before RetroAPI's own events, before recipes are sorted, before any world assigns ids. Fires identically with and without StationAPI, unlike the registration events.</td></tr>
+<tr><td><code>retroapi-client</code> / <code>retroapi-server</code></td><td>Sided halves for renderers, screens, particle factories / dedicated-server-only logic.</td></tr>
+<tr><td>Named failures</td><td>A mod that throws during registration is reported by mod id and entrypoint, not as an anonymous trace inside RetroAPI.</td></tr>
+<tr><td>OSL <code>init</code> still works</td><td>Nothing is deprecated; both can be used side by side.</td></tr>
+</table>
+<p><a href="entrypoints.html">Entrypoints &amp; sides →</a></p>
+
+<h2>Registration &amp; ids</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td>32,000 block slots, ids ≥ 256</td><td>Block/Item arrays are grown; modded ids live outside vanilla's byte range.</td></tr>
+<tr><td>Per-world id map</td><td>Content is anchored by <code>namespace:name</code>; numbers are leased per world and re-anchored on open.</td></tr>
+<tr><td>Automatic id remap repair</td><td>When ids move, RetroAPI repoints crafting and smelting recipes, fuels and achievement icons; the crafting list is re-sorted.</td></tr>
+<tr><td><code>IdRemapCallback</code></td><td>Your own cached <code>ItemStack</code>s and raw ids get fixed too: <code>remap.fix(stack)</code>, <code>remap.map(id)</code>.</td></tr>
+<tr><td>Multiplayer id sync</td><td>The server's table is applied on the client before any chunk or inventory packet is read.</td></tr>
+<tr><td>Interface injection</td><td><code>Block</code>/<code>Item</code> expose the builders with no cast, on Ornithe and Babric.</td></tr>
+</table>
+<p><a href="registry.html">How registration works →</a> · <a href="storage.html">World safety →</a></p>
+
+<h2>Blocks</h2>
+<table>
+<tr><th>Feature</th><th>Call</th></tr>
+<tr><td>Builder, or wrap your own subclass</td><td><code>RetroBlockAccess.create(Material)</code>, <code>.of(block)</code>, <code>.of(Ctor::new)</code>, <code>.of(Ctor::new, Material)</code></td></tr>
+<tr><td>Physical properties</td><td><code>.strength(h[, r])</code>, <code>.resistance</code>, <code>.light</code>, <code>.opacity</code>, <code>.sounds</code>, <code>.nonOpaque</code>, <code>.bounds</code></td></tr>
+<tr><td>Indestructible</td><td><code>.unbreakable()</code></td></tr>
+<tr><td>One texture</td><td><code>.texture(id)</code>, or <code>.sprite(index)</code> to reuse a vanilla sprite</td></tr>
+<tr><td>Per-face textures, no JSON</td><td><code>.sided(top, side, front[, bottom])</code>, <code>.column(top, side)</code>, <code>.textures(down, up, north, south, west, east)</code></td></tr>
+<tr><td>Per-position color, no model</td><td><code>.tint(provider)</code>, plus <code>RetroBlockColors.GRASS</code> / <code>.FOLIAGE</code></td></tr>
+<tr><td>Overlay passes, no renderer</td><td><code>.overlay(texture[, tint])</code>, <code>.overlay(provider)</code> — vanilla's grass-edge trick for any block</td></tr>
+<tr><td>Orientation</td><td><code>.facing()</code> (4-way), <code>.facingAll()</code> (6-way, dispenser rule)</td></tr>
+<tr><td>Harvest rules</td><td><code>.mineable(tools…)</code>, <code>.needsTool(tier)</code>, <code>.tag(keys…)</code>, <code>.alwaysDrops()</code>, <code>.effectiveTool(class)</code></td></tr>
+<tr><td>Render type</td><td><code>.renderType(id)</code> + <code>RenderType.register(id, renderer)</code> for a custom renderer</td></tr>
+<tr><td>Block items</td><td>Created automatically; <code>RetroMetaBlockItem</code> for per-meta names, custom factories supported</td></tr>
+<tr><td>Flammability</td><td><code>RetroFlammability</code> (burn + spread chances, follows the block through id remaps)</td></tr>
+</table>
+<p><a href="blocks.html">Blocks →</a></p>
+
+<h2>Block states</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td>Up to 4096 states per block</td><td>Bits 0-3 ride vanilla metadata, bits 4-11 live in the region sidecar</td></tr>
+<tr><td>Property types</td><td><code>RetroBoolProperty</code>, <code>RetroIntProperty</code>, <code>RetroEnumProperty</code>, <code>RetroCharProperty</code> (<code>'a'</code>-<code>'z'</code>, digits, or a set)</td></tr>
+<tr><td>Interned immutable states</td><td><code>state.with(P, v)</code>, <code>state.get(P)</code>, <code>getByName</code>, <code>==</code> comparison is valid</td></tr>
+<tr><td>Read/write in the world</td><td><code>RetroStates.get/set</code>, with block updates, re-render and server→client sync</td></tr>
+<tr><td>Data-declared properties</td><td><code>"properties"</code> in a blockstate JSON; code wins on conflict</td></tr>
+<tr><td>State-aware drops and placement</td><td>Wide states survive break → drop → place instead of truncating to the nibble</td></tr>
+</table>
+<p><a href="states.html">Block states →</a></p>
+
+<h2>Items, tools, food, armor</h2>
+<table>
+<tr><th>Feature</th><th>Call</th></tr>
+<tr><td>Builder, atomic id allocation</td><td><code>RetroItemAccess.create()</code>, <code>.of(item)</code>, <code>.of(Ctor::new)</code>, <code>AUTO_ID</code></td></tr>
+<tr><td>Sprites</td><td><code>.texture(id)</code>, <code>.layers(base, overlays…)</code>, <code>.overlay(id)</code> — layered with no model JSON</td></tr>
+<tr><td>Held pose</td><td><code>.handheld()</code></td></tr>
+<tr><td>Tool kinds</td><td><code>.tool(PICKAXE, AXE, …)</code> — multi-kind paxels included</td></tr>
+<tr><td>Tool tier</td><td><code>.tier(TIER)</code>, <code>.tier(stack -&gt; …)</code>, <code>.tier((stack, block) -&gt; …)</code> (block-aware)</td></tr>
+<tr><td>Tools with no <code>ToolMaterial</code></td><td><code>.miningSpeed(f)</code>, <code>.attackDamage(n)</code>, <code>.durability(n)</code>, <code>.damageOnMine(bool)</code></td></tr>
+<tr><td>Vanilla agreement</td><td><code>Item.isSuitableFor</code> is answered from tags + tier, so drops, speed and the correct-tool check agree</td></tr>
+<tr><td>Food</td><td><code>.food(health[, meat][, onEaten])</code> — a property, not a subclass</td></tr>
+<tr><td>Armor</td><td><code>RetroArmor</code> + <code>RetroArmorTexture</code> for full sets</td></tr>
+</table>
+<p><a href="items.html">Items →</a> · <a href="tools.html">Tools, food &amp; armor →</a></p>
+
+<h2>Tags</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>mineable/&lt;tool&gt;</code> and <code>needs_&lt;tier&gt;_tool</code></td><td>Modern decoupled semantics: kind grants speed, tier and material gate drops</td></tr>
+<tr><td>Material-inferred defaults</td><td>An untagged block behaves like the vanilla blocks it is made of, which is what stops "no tool can break my block"</td></tr>
+<tr><td>Beta-accurate vanilla membership</td><td>Custom tools work on vanilla blocks, not only modded ones</td></tr>
+<tr><td>Arbitrary block and item tags</td><td><code>RetroTagKey.block/item</code>, <code>RetroTags.addToTag/isIn/blocksIn/itemsIn/removeFromTag</code>, live and mutable at runtime</td></tr>
+<tr><td>Data files</td><td><code>data/&lt;ns&gt;/tags/{block,blocks,item,items}/…</code> and StationAPI's layout; unioned with code</td></tr>
+</table>
+<p><a href="tags.html">Tags →</a></p>
+
+<h2>Recipes</h2>
+<table>
+<tr><th>Feature</th><th>Call</th></tr>
+<tr><td>Shaped / shapeless</td><td><code>RetroRecipes.addShaped/addShapeless</code>, with a documented wildcard rule (bare <code>Block</code>/<code>Item</code> matches any metadata)</td></tr>
+<tr><td>Smelting and fuel</td><td><code>addSmelting</code>, <code>addFuel</code>, <code>getTotalFuelTime</code> for custom machines</td></tr>
+<tr><td>Removal</td><td><code>removeRecipe(stack)</code></td></tr>
+<tr><td>Ordering</td><td>Shaped-before-shapeless sorting is applied after registration and again after id remaps</td></tr>
+</table>
+<p><a href="recipes.html">Recipes &amp; fuel →</a></p>
+
+<h2>Block entities &amp; GUIs</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>RetroBlockEntities.register</code></td><td>String-id registration that round-trips through chunk NBT</td></tr>
+<tr><td><code>BlockEntityLoadedCallback</code></td><td>Fires on first tick, after NBT is read <em>and</em> the world exists — the pass beta lacks</td></tr>
+<tr><td><code>RetroGuiRegistry</code> / <code>RetroGuis</code></td><td>Container + screen pairs, opened from either side, with window sync ids</td></tr>
+<tr><td>Modded block entities in the sidecar</td><td>Survive save/load and world conversion</td></tr>
+</table>
+<p><a href="blockentities.html">Block entities &amp; GUIs →</a></p>
+
+<h2>Entities</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>RetroEntities.register(id, class).factory(…)</code></td><td>String-id entity registration, works with or without StationAPI</td></tr>
+<tr><td>Spawn networking</td><td>Modded spawns ride RetroAPI's own channels; queued spawns are flushed when a joining player's channel is ready</td></tr>
+<tr><td>Renderers</td><td><code>RetroEntityRenderers</code>, forwarded into StationAPI's dispatcher when present</td></tr>
+<tr><td>Spawn rules</td><td>Per-biome spawn entries and spawn caps for modded mobs</td></tr>
+</table>
+<p><a href="entities.html">Entities →</a> · <a href="complex-entity.html">A mob in full →</a></p>
+
+<h2>Particles</h2>
+<table>
+<tr><th>Feature</th><th>Call</th></tr>
+<tr><td>Particle registry</td><td><code>RetroParticleRegistry.register(id, factory)</code> — beta had no way to add one</td></tr>
+<tr><td>Ready-made particle</td><td><code>RetroSpriteParticle</code>: <code>.lifetime</code>, <code>.scale</code>, <code>.gravity</code>, <code>.drag</code>, <code>.tint</code>, <code>.shrink</code></td></tr>
+<tr><td>Spawn from common code</td><td><code>RetroParticles.spawn</code>, <code>.spawnCloud</code>, <code>.spawnOnBlock</code>, <code>.spawnVanilla</code></td></tr>
+<tr><td>Multiplayer bridge</td><td>The protocol has no particle packet and vanilla's server listener is empty; RetroAPI forwards to players in range</td></tr>
+</table>
+<p><a href="particles.html">Particles →</a></p>
+
+<h2>Sounds</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td>Autoloader</td><td>Drop <code>.ogg</code> files in <code>sounds/</code>; numbered files become variants automatically</td></tr>
+<tr><td>Explicit registration</td><td><code>RetroSounds</code> for effects, streaming music and records</td></tr>
+<tr><td>Multiplayer bridge</td><td>Vanilla's server-side <code>playSound</code> is empty; RetroAPI forwards world sounds to players in range, with client-side de-duplication</td></tr>
+</table>
+<p><a href="sounds.html">Sounds &amp; music →</a></p>
+
+<h2>Item components</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>RetroComponents.register(id, default, type)</code></td><td>Typed per-stack data on a version with none: int, string, compound records, lists</td></tr>
+<tr><td>Persistence &amp; networking</td><td>Written into a namespaced NBT sub-tag; survives saves, inventories, dropped items and packets</td></tr>
+<tr><td>Presentation</td><td>Component-driven tooltips and dynamic item textures</td></tr>
+</table>
+<p><a href="components.html">Item components →</a></p>
+
+<h2>Dimensions, biomes, world features</h2>
+<table>
+<tr><th>Feature</th><th>Call</th></tr>
+<tr><td>Dimensions</td><td><code>RetroDimensions.register(id, factory)</code>, stable serial ids, <code>DIM&lt;n&gt;</code> folders, forwarded into StationAPI when present</td></tr>
+<tr><td>Portals</td><td><code>CustomPortal</code> + teleporters, walk-in both directions, per-dimension travel messages</td></tr>
+<tr><td>Biomes</td><td><code>BiomeBuilder</code> (colors, weather, spawn weights), StationAPI-shaped</td></tr>
+<tr><td>Editing existing biomes</td><td><code>RetroBiomes.addPassiveSpawn/addMonsterSpawn/…</code>, additive so mods do not clobber each other</td></tr>
+<tr><td>World features</td><td><code>RetroFeatures.ore/cluster/custom</code> with <code>.size</code>, <code>.count</code>, <code>.heightRange</code>, <code>.rarity</code>, <code>.meta</code>, <code>.replace(blocks…)</code>, <code>.dimensions(…)</code> — no mixin into the generator</td></tr>
+<tr><td>Custom chunk generators</td><td><code>RetroWorldGen.createChunk/setBlockInChunk</code>, correct in both storage models</td></tr>
+</table>
+<p><a href="dimensions.html">Dimensions &amp; portals →</a> · <a href="worldgen.html">Worldgen →</a></p>
+
+<h2>Rendering</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td>Expanded texture atlas</td><td>Sprites beyond vanilla's 256, animated textures from <code>.mcmeta</code> or from code</td></tr>
+<tr><td>JSON models &amp; blockstates</td><td>Multi-element models, variant tables, cullfaces, custom UVs, tint indices</td></tr>
+<tr><td>Render layers</td><td>Cutout and translucent passes for modded blocks</td></tr>
+<tr><td>Custom block renderers</td><td><code>BlockRenderContext</code>: lit faces with smooth lighting, <code>spriteOverride</code>, <code>flipTexture</code>, <code>faceRotation</code>, <code>renderAllFaces</code>, <code>renderFaceUv</code>, <code>renderFaceCorner</code> — enough for connected textures</td></tr>
+<tr><td>Voxel shapes</td><td>Multi-box outlines, collision and raytracing for non-cube blocks</td></tr>
+</table>
+<p><a href="models.html">Models &amp; render layers →</a> · <a href="voxelshapes.html">Voxel shapes →</a></p>
+
+<h2>Positions, directions, multiblocks</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td><code>RetroVec3i</code></td><td>Immutable block position: arithmetic, offsets, rotation, distances, and world access (<code>blockId</code>, <code>state</code>, <code>setBlock</code>, <code>blockEntity</code>)</td></tr>
+<tr><td><code>RetroDirection</code> / <code>RetroFacing</code></td><td>Six and four directions with <code>opposite</code>, <code>rotateLeft/Right</code>, <code>vector</code>, <code>face</code>, <code>fromPlacer</code>, <code>nearest</code></td></tr>
+<tr><td><code>RetroMultiblock</code></td><td>Patterns drawn as ASCII layers, matched in one facing or all four, with per-character position lists and <code>fill(…)</code></td></tr>
+</table>
+<p><a href="multiblocks.html">Positions &amp; multiblocks →</a></p>
+
+<h2>Networking, achievements, misc</h2>
+<table>
+<tr><th>Feature</th><th>What it gives you</th></tr>
+<tr><td>Custom packets</td><td>OSL channels with typed buffers, both directions, main-thread hand-off</td></tr>
+<tr><td>Achievements</td><td><code>RetroAchievements</code>: own pages, icons from modded content, granting from gameplay</td></tr>
+<tr><td>Lang</td><td>Mod lang files, auto-generated fallback names</td></tr>
+<tr><td>World events</td><td><code>BlockSetCallback</code> and the registration callbacks for reacting to other mods</td></tr>
+</table>
+<p><a href="networking.html">Networking →</a> · <a href="achievements.html">Achievements →</a></p>
+
+<h2>World safety</h2>
+<table>
+<tr><th>Guarantee</th><th>How</th></tr>
+<tr><td>Vanilla region data is never rewritten</td><td>Modded ids ≥ 256, extra state bits and modded item data live in a sidecar beside the region files</td></tr>
+<tr><td>Removing the mod does not corrupt the world</td><td>The vanilla half was never touched; the modded half is simply absent</td></tr>
+<tr><td>Ids may move between sessions</td><td>Per-world <code>id_map.dat</code> re-anchors everything by name</td></tr>
+<tr><td>Backups</td><td>The <code>retroapi/</code> folder is copied aside before structural changes</td></tr>
+<tr><td>Verified, not asserted</td><td>Headless test: place modded content, save, reload, assert; then convert vanilla → flattened → vanilla and assert again</td></tr>
+</table>
+<p><a href="storage.html">World safety →</a></p>
+
+<h2>StationAPI interop</h2>
+<table>
+<tr><th>With StationAPI installed</th><th>Owner</th></tr>
+<tr><td>Registration, ids, storage, atlas, recipes</td><td>StationAPI (RetroAPI forwards and stands down)</td></tr>
+<tr><td>Entities, dimensions, components, particles, world features, multiblocks, sound/particle bridges</td><td>RetroAPI, unchanged</td></tr>
+<tr><td>Your code</td><td>Unchanged, if you register from the <code>retroapi</code> entrypoint</td></tr>
+</table>
+<p><a href="stationapi.html">StationAPI interop →</a></p>
+
+<h2>Toolchain</h2>
+<table>
+<tr><th>Feature</th><th>Detail</th></tr>
+<tr><td>Two loader builds</td><td><code>retroapi-0.3.0.jar</code> (Ornithe + OSL) and <code>retroapi-0.3.0-babric.jar</code> (self-contained)</td></tr>
+<tr><td>Maven</td><td><code>https://matthewperiut.github.io/repository</code> → <code>com.periut:retroapi:0.3.0</code></td></tr>
+<tr><td>Templates</td><td><a href="bare-retroapi-template.zip" download>bare</a> and <a href="feature-showcase-retroapi-template.zip" download>feature showcase</a>, both building against 0.3.0</td></tr>
+<tr><td>Test harness</td><td>Headless server self-checks and a vanilla↔StationAPI world-conversion round trip that fails the build on modded-data loss</td></tr>
+</table>
+
+<p style="margin-top:2em"><a href="index.html">← the full wiki</a></p>
+</div>
+</main>
+</div>
+</body>
+</html>
