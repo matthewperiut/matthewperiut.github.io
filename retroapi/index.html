@@ -62,13 +62,23 @@
 
 <p>This wiki shows both. Wherever the two differ, a switch sits directly above them, flip it and the whole site follows, and it remembers your choice:</p>
 
-<div class="dual" data-topic="blocks">
+<div class="dual" data-topic="block textures">
 <div data-mode="code">
-<div class="codeblock"><span class="code-title">in your mod's initRetro()</span><pre><code>LAMP = RetroBlockAccess.create(Material.STONE)
-    .states(LIT)
-    .texture(id(<span class="s">"lamp_off"</span>))
-    .light(<span class="n">1.0F</span>)
-    .register(id(<span class="s">"lamp"</span>));</code></pre></div>
+<div class="codeblock"><span class="code-title">in your mod's initRetro()</span><pre><code>MACHINE = RetroBlockAccess.create(Material.STONE)
+    .facing()
+    .sided(id(<span class="s">"machine_top"</span>), id(<span class="s">"machine_side"</span>), id(<span class="s">"machine_front"</span>))
+    .register(id(<span class="s">"machine"</span>));</code></pre></div>
+</div>
+<div data-mode="data">
+<div class="codeblock"><span class="code-title">assets/example_mod/models/block/machine.json</span><pre><code>{
+  <span class="t">"parent"</span>: <span class="s">"minecraft:block/orientable"</span>,
+  <span class="t">"textures"</span>: {
+    <span class="t">"top"</span>:   <span class="s">"example_mod:block/machine_top"</span>,
+    <span class="t">"side"</span>:  <span class="s">"example_mod:block/machine_side"</span>,
+    <span class="t">"front"</span>: <span class="s">"example_mod:block/machine_front"</span>
+  }
+}</code></pre></div>
+</div>
 </div>
 <div data-mode="data">
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
@@ -81,7 +91,9 @@
 </div>
 </div>
 
-<p>Neither is "the real way". Code is the default here because it is usually shorter, cannot mistype a file path, and keeps a block's definition in one place. Data files win when an artist or pack author needs to change something without touching Java, when the same shape repeats across dozens of blocks, or when you want a resource pack to be able to override it. Where the two disagree, code wins, and the page in question says so.</p>
+<p>Neither is "the real way". Code is the default here because it is usually shorter, cannot mistype a file path, and keeps a block's definition in one place. Data files win when an artist or pack author needs to change something without touching Java, when the same shape repeats across dozens of blocks, or when you want a resource pack to be able to override it.</p>
+
+<div class="warn"><p><strong>They are not always alternatives.</strong> Textures, names, tags and sounds genuinely are: pick a side. <strong>Block states are not.</strong> The blockstate JSON is the only place that can say what each variant <em>looks like</em>, and code is the only place that hands you a typed property object to read and write states with, so a block whose appearance changes with its state normally uses both halves. <a href="registry.html#where-the-two-combine-not-compete">How registration works</a> spells out which topics are which.</p></div>
 
 <h2>Start here</h2>
 

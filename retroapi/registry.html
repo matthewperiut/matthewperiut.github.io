@@ -51,13 +51,14 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 
 <h2>Code-driven and data-driven</h2>
 
-<p>Most content can be declared either as a builder call or as a JSON file under <code>assets/</code> or <code>data/</code>. Wherever both exist, a switch sits directly above the two versions and flips the whole wiki between them. What the two can express is not always identical, so here is the honest map:</p>
+<p>Most content can be declared as a builder call or as a JSON file under <code>assets/</code> or <code>data/</code>. Wherever the two are genuine alternatives, a switch sits directly above them and flips the whole wiki between them. They are not alternatives everywhere, though, so here is the honest map:</p>
 
 <table>
 <tr><th>Topic</th><th>Code</th><th>Data files</th><th>Which wins</th></tr>
 <tr><td>Block properties (hardness, light, material)</td><td>✔ builder</td><td>—</td><td>code only</td></tr>
 <tr><td>Block textures</td><td>✔ <code>.texture</code>, <code>.sided</code>, <code>.column</code>, <code>.textures</code></td><td>✔ model JSON</td><td>a model JSON overrides <code>.texture</code></td></tr>
-<tr><td>Block states</td><td>✔ <code>.states(...)</code></td><td>✔ <code>blockstates/*.json</code> <code>"properties"</code></td><td>code wins on conflict</td></tr>
+<tr><td>Block state <em>definitions</em></td><td>✔ <code>.states(...)</code></td><td>✔ <code>blockstates/*.json</code> <code>"properties"</code></td><td>code wins on conflict, <strong>but see below</strong></td></tr>
+<tr><td>What each state <em>looks like</em></td><td>state-aware textures, tint, overlays</td><td>✔ <code>blockstates/*.json</code> <code>"variants"</code></td><td>only data can pick a model per variant</td></tr>
 <tr><td>Item sprites</td><td>✔ <code>.texture</code>, <code>.layers</code>, <code>.overlay</code></td><td>✔ <code>models/item/*.json</code></td><td>a model JSON overrides code</td></tr>
 <tr><td>Tags (mineable, tiers, your own)</td><td>✔ <code>.mineable</code>, <code>.needsTool</code>, <code>.tag</code>, <code>RetroTags</code></td><td>✔ <code>data/&lt;ns&gt;/tags/**.json</code></td><td>union, both apply</td></tr>
 <tr><td>Display names</td><td>✔ auto-generated fallback</td><td>✔ <code>lang/*.lang</code></td><td>lang file wins</td></tr>
@@ -66,28 +67,55 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 <tr><td>Recipes, entities, dimensions, features, particles, components</td><td>✔</td><td>—</td><td>code only</td></tr>
 </table>
 
-<div class="dual" data-topic="block states">
+<div class="dual" data-topic="names">
 <div data-mode="code">
-<div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
+<div class="codeblock"><span class="code-title">initRetro()</span><pre><code>RUBY_ORE = RetroBlockAccess.create(Material.STONE)
+    .register(id(<span class="s">"ruby_ore"</span>));   <span class="c">// displays as "Ruby Ore"</span></code></pre></div>
+<p>No file at all: with no translation present RetroAPI generates a readable name from the identifier. Fine while prototyping.</p>
+</div>
+<div data-mode="data">
+<div class="codeblock"><span class="code-title">assets/example_mod/lang/en_US.lang</span><pre><code>tile.example_mod.ruby_ore.name=Ruby Ore</code></pre></div>
+<p>One line per name, per language, and a translation pack can add languages you never wrote. What you ship.</p>
+</div>
+</div>
+
+<h2>Where the two combine, not compete</h2>
+
+<p>The table above has one row that is easy to misread, so it gets its own section. <strong>Block states are not an either/or.</strong> The two sides do different jobs and a block with visual variants normally needs both.</p>
+
+<table>
+<tr><th>You want…</th><th>Comes from</th></tr>
+<tr><td>the list of properties to exist at all</td><td>either side, <code>.states(LIT)</code> or <code>"properties"</code> in the JSON</td></tr>
+<tr><td>a typed handle to read and write with (<code>state.get(LIT)</code>)</td><td><strong>code only</strong></td></tr>
+<tr><td>a different model per variant</td><td><strong>the blockstate JSON only</strong></td></tr>
+<tr><td>a different texture/tint/overlay per state, with no model</td><td>code (<code>.sided</code>, <code>.tint</code>, <code>.overlay</code>)</td></tr>
+</table>
+
+<p>Declare the property in JSON only and it does exist, but in Java you have to find it by name and cast, which throws away the type safety that made the property object worth having:</p>
+
+<div class="codeblock"><span class="code-title">the cost of a JSON-only property</span><pre><code><span class="a">@SuppressWarnings</span>(<span class="s">"unchecked"</span>)
+RetroProperty&lt;<span class="t">Boolean</span>&gt; lit =
+    (RetroProperty&lt;<span class="t">Boolean</span>&gt;) RetroStates.property(LAMP, <span class="s">"lit"</span>);
+RetroStates.set(world, x, y, z, state.with(lit, <span class="k">true</span>));</code></pre></div>
+
+<p>So the usual shape of a lamp that both <em>does</em> something and <em>looks</em> different is: the property in code, the variants in the blockstate file. They agree because they are the same property name; if they disagree, the code declaration wins and the mismatch is logged.</p>
+
+<div class="codeblock"><span class="code-title">both halves, which is normal</span><pre><code><span class="c">// code: the property you will actually use in game logic</span>
+<span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
 
 LAMP = RetroBlockAccess.create(Material.STONE)
     .states(LIT)
-    .defaultState(s -&gt; s.with(LIT, <span class="k">false</span>))
-    .texture(id(<span class="s">"lamp_off"</span>))
     .register(id(<span class="s">"lamp"</span>));</code></pre></div>
-<p>Nothing to ship but the class. The property object is what you read and write states with later.</p>
-</div>
-<div data-mode="data">
+
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
-  <span class="t">"properties"</span>: { <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>] },
+  <span class="c">// no "properties" needed: the code already declared it</span>
   <span class="t">"variants"</span>: {
     <span class="t">"lit=false"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> },
     <span class="t">"lit=true"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
   }
 }</code></pre></div>
-<p>The file declares the property <em>and</em> what each value looks like, and a resource pack can replace it. You still register the block in code; it just says less.</p>
-</div>
-</div>
+
+<p>A block whose states are pure gameplay, a machine that tracks progress but never changes its face, needs no JSON at all. A block that only changes color with its state can stay in code too, using <code>.tint(...)</code> or <code>.overlay(...)</code>. It is specifically <em>different models per variant</em> that requires the file.</p>
 
 <h2>What each page in this section covers</h2>
 

@@ -42,8 +42,10 @@
 	.defaultState(s -> s.with(LIT, <span class="k">false</span>))   <span class="c">// optional</span>
 	.register(id(<span class="s">"my_block"</span>));</code></pre></div>
 
-<div class="dual" data-topic="block states">
-<div data-mode="code">
+<div class="warn"><p><strong>Code and JSON are halves here, not alternatives.</strong> Either side can declare that the property <em>exists</em>, but only code hands you the typed <code>LIT</code> object your game logic reads and writes with, and only the blockstate JSON can give each variant a different model. A block that looks different per state normally uses both.</p></div>
+
+<p>The property in code, because that is what your logic needs:</p>
+
 <div class="codeblock"><span class="code-title">initRetro()</span><pre><code><span class="k">static final</span> RetroBoolProperty LIT = RetroBoolProperty.of(<span class="s">"lit"</span>);
 <span class="k">static final</span> RetroIntProperty  AGE = RetroIntProperty.of(<span class="s">"age"</span>, <span class="n">0</span>, <span class="n">9</span>);
 
@@ -51,19 +53,34 @@ LAMP = RetroBlockAccess.create(Material.STONE)
     .states(LIT, AGE)
     .defaultState(s -&gt; s.with(LIT, <span class="k">false</span>))
     .register(id(<span class="s">"lamp"</span>));</code></pre></div>
-<p>You hold the property objects, so reads and writes are type-checked: <code>state.get(AGE)</code> is an <code>int</code>, not a string lookup.</p>
-</div>
-<div data-mode="data">
+
+<p>And the looks in the blockstate file, because that is the only place a per-variant model can live. It does not repeat the property list, the code already declared it:</p>
+
 <div class="codeblock"><span class="code-title">assets/example_mod/blockstates/lamp.json</span><pre><code>{
-  <span class="t">"properties"</span>: {
-    <span class="t">"lit"</span>: [<span class="s">"false"</span>, <span class="s">"true"</span>],
-    <span class="t">"age"</span>: [<span class="s">"0"</span>, <span class="s">"1"</span>, <span class="s">"2"</span>, <span class="s">"3"</span>, <span class="s">"4"</span>, <span class="s">"5"</span>, <span class="s">"6"</span>, <span class="s">"7"</span>, <span class="s">"8"</span>, <span class="s">"9"</span>]
-  },
-  <span class="t">"variants"</span>: { <span class="t">"lit=false,age=0"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> } }
+  <span class="t">"variants"</span>: {
+    <span class="t">"lit=false,age=0"</span>: { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_off"</span> },
+    <span class="t">"lit=true,age=0"</span>:  { <span class="t">"model"</span>: <span class="s">"example_mod:block/lamp_on"</span> }
+  }
 }</code></pre></div>
-<p>The same definition, declared where the models are. Look properties up by name with <code>RetroStates.property(block, "age")</code>. If both are present, the code declaration wins and a mismatch is logged.</p>
-</div>
-</div>
+
+<h3>When you can skip one of them</h3>
+
+<table>
+<tr><th>The block…</th><th>Needs</th></tr>
+<tr><td>tracks state but never changes appearance (a machine's progress)</td><td>code only, no JSON</td></tr>
+<tr><td>changes color or gains an overlay per state</td><td>code only, via <code>.tint(...)</code> / <code>.overlay(...)</code> (<a href="blocks.html">Blocks</a>)</td></tr>
+<tr><td>swaps texture per face as it turns</td><td>code only, via <code>.sided(...)</code> (<a href="facing.html">Directional blocks</a>)</td></tr>
+<tr><td>uses a different <em>model</em> per variant</td><td>both: property in code, variants in JSON</td></tr>
+<tr><td>is authored entirely by a pack author, no Java at all</td><td>JSON only, with the caveat below</td></tr>
+</table>
+
+<p>The JSON-only route works, the properties are declared from the file, but Java then has to look the property up by name and cast it, giving up the type safety that made a property object useful:</p>
+
+<div class="codeblock"><span class="code-title">the cost of a JSON-only property</span><pre><code><span class="a">@SuppressWarnings</span>(<span class="s">"unchecked"</span>)
+RetroProperty&lt;<span class="t">Boolean</span>&gt; lit =
+    (RetroProperty&lt;<span class="t">Boolean</span>&gt;) RetroStates.property(LAMP, <span class="s">"lit"</span>);</code></pre></div>
+
+<p>If both sides declare the same property, the code declaration wins and a disagreement in the count is logged.</p>
 
 <h2>Reading and writing state</h2>
 <p>All world access goes through <code>RetroStates</code>. The two you reach for constantly are <code>get</code> and <code>set</code>:</p>
