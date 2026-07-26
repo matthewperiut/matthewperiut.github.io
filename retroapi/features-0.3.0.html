@@ -79,7 +79,7 @@
 <tr><td>Sprites</td><td><code>.texture(id)</code>, <code>.layers(base, overlays…)</code>, <code>.overlay(id)</code> — layered with no model JSON</td></tr>
 <tr><td>Held pose</td><td><code>.handheld()</code></td></tr>
 <tr><td>Tool kinds</td><td><code>.tool(PICKAXE, AXE, …)</code> — multi-kind paxels included</td></tr>
-<tr><td>Tool tier</td><td><code>.tier(TIER)</code>, <code>.tier(stack -&gt; …)</code>, <code>.tier((stack, block) -&gt; …)</code> (block-aware)</td></tr>
+<tr><td>Tool tier</td><td><code>.tier(TIER)</code>, <code>.tier(stack -&gt; …)</code>, <code>.tier((stack, block, player) -&gt; …)</code> (contextual; the player arrived in 0.3.1)</td></tr>
 <tr><td>Tools with no <code>ToolMaterial</code></td><td><code>.miningSpeed(f)</code>, <code>.attackDamage(n)</code>, <code>.durability(n)</code>, <code>.damageOnMine(bool)</code></td></tr>
 <tr><td>Vanilla agreement</td><td><code>Item.isSuitableFor</code> is answered from tags + tier, so drops, speed and the correct-tool check agree</td></tr>
 <tr><td>Food</td><td><code>.food(health[, meat][, onEaten])</code> — a property, not a subclass</td></tr>
