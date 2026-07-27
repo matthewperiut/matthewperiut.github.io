@@ -117,9 +117,9 @@ ZANITE_SWORD = (Item) RetroItemAccess.of(
     player != <span class="k">null</span> &amp;&amp; player.world.dimension.isNether
         ? RetroToolTier.WOOD : RetroToolTier.DIAMOND)</code></pre></div>
 
-<p>The contextual form is consulted per harvest, ahead of the other two, so "diamond-tier on stone, wood-tier on everything else", a drill bit that only bites certain ores, or a tool that is weaker in another dimension are all one lambda. The player is what makes the last one possible &mdash; it carries the world, so the tier can ask where its wielder is standing.</p>
+<p>The contextual form is consulted per harvest, ahead of the other two, so "diamond-tier on stone, wood-tier on everything else", a drill bit that only bites certain ores, or a tool that is weaker in another dimension are all one lambda. The player is what makes the last one possible - it carries the world, so the tier can ask where its wielder is standing.</p>
 
-<div class="warn"><p><strong>What the lambda does <em>not</em> get.</strong> The player is <code>null</code> when something asks for a tier outside a harvest (a tooltip, another mod's query) &mdash; treat that as "no context", not an error. And the block never carries metadata or a position, because beta's harvest hooks don't pass one: <code>canHarvest</code> and <code>getBlockBreakingSpeed</code> both take a bare <code>Block</code>. A tier that has to see the block <em>state</em> needs its own mixin.</p></div>
+<div class="warn"><p><strong>What the lambda does <em>not</em> get.</strong> The player is <code>null</code> when something asks for a tier outside a harvest (a tooltip, another mod's query) - treat that as "no context", not an error. And the block never carries metadata or a position, because beta's harvest hooks don't pass one: <code>canHarvest</code> and <code>getBlockBreakingSpeed</code> both take a bare <code>Block</code>. A tier that has to see the block <em>state</em> needs its own mixin.</p></div>
 
 <h2>Food</h2>
 <p>Food in RetroAPI is a <strong>property, not a subclass</strong>. You do not write a <code>FoodItem</code>; you chain <code>.food(...)</code> onto whatever item builder you already have, the same way modern Minecraft attaches a <code>FoodComponent</code>. The registry behind it is small enough to read in one sitting:</p>

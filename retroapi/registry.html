@@ -55,7 +55,7 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 
 <table>
 <tr><th>Topic</th><th>Code</th><th>Data files</th><th>Which wins</th></tr>
-<tr><td>Block properties (hardness, light, material)</td><td>✔ builder</td><td>—</td><td>code only</td></tr>
+<tr><td>Block properties (hardness, light, material)</td><td>✔ builder</td><td> - </td><td>code only</td></tr>
 <tr><td>Block textures</td><td>✔ <code>.texture</code>, <code>.sided</code>, <code>.column</code>, <code>.textures</code></td><td>✔ model JSON</td><td>a model JSON overrides <code>.texture</code></td></tr>
 <tr><td>Block state <em>definitions</em></td><td>✔ <code>.states(...)</code></td><td>✔ <code>blockstates/*.json</code> <code>"properties"</code></td><td>code wins on conflict, <strong>but see below</strong></td></tr>
 <tr><td>What each state <em>looks like</em></td><td>state-aware textures, tint, overlays</td><td>✔ <code>blockstates/*.json</code> <code>"variants"</code></td><td>only data can pick a model per variant</td></tr>
@@ -64,7 +64,7 @@ RetroFeatures.ore(RUBY_ORE).size(<span class="n">6</span>).count(<span class="n"
 <tr><td>Display names</td><td>✔ auto-generated fallback</td><td>✔ <code>lang/*.lang</code></td><td>lang file wins</td></tr>
 <tr><td>Texture animation</td><td>✔ <code>addAnimated*Texture</code></td><td>✔ <code>.png.mcmeta</code></td><td>either; mcmeta is detected automatically</td></tr>
 <tr><td>Sounds</td><td>✔ <code>RetroSounds</code></td><td>✔ drop <code>.ogg</code> files in place</td><td>files are auto-loaded</td></tr>
-<tr><td>Recipes, entities, dimensions, features, particles, components</td><td>✔</td><td>—</td><td>code only</td></tr>
+<tr><td>Recipes, entities, dimensions, features, particles, components</td><td>✔</td><td> - </td><td>code only</td></tr>
 </table>
 
 <div class="dual" data-topic="names">

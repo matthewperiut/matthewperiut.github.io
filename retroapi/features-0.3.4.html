@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>RetroAPI 0.3.0, the whole feature set</title>
+<title>RetroAPI 0.3.4, the whole feature set</title>
 <link rel="stylesheet" href="style.css">
 <script src="wiki.js"></script>
 </head>
@@ -15,10 +15,20 @@
 <div class="page-header"></div>
 
 <div class="section">
-<h1>RetroAPI 0.3.0, the whole feature set</h1>
+<h1>RetroAPI 0.3.4, the whole feature set</h1>
 <p class="chapter-sub">Everything a mod can use, in one page. Written to be handed to someone deciding whether the library covers what they need.</p>
 
 <div class="note"><p>This page is not linked from the wiki; it exists to be shared by URL. Each row links to the page that explains it properly. For Minecraft Beta 1.7.3 on Ornithe (Fabric fork) or Babric, with or without StationAPI.</p></div>
+
+<h2>What changed since 0.3.0</h2>
+<p>0.3.0 was the big release. Everything since has been the same two jobs: fixing what shipped broken, and closing gaps where an API quietly did less than it looked like it did.</p>
+<table>
+<tr><th>Version</th><th>What it was</th></tr>
+<tr><td>0.3.1</td><td>The client crashed on launch (a mixin shadowed a field name that does not exist, which is only checked when the game loads that class). Tags referencing other tags recursed until the stack died. Contextual tool tiers gained the player. A launch smoke suite now force-applies every mixin on both sides, with and without StationAPI, so this class of crash cannot ship again.</td></tr>
+<tr><td>0.3.2</td><td>Every item shared one set of components: a mutable default was handed out as a single shared instance, so mutating it wrote to every stack at once. Mods no longer inherit 56 unimplemented methods from the injected interfaces. The client stopped trying to load dedicated-server classes.</td></tr>
+<tr><td>0.3.3</td><td>A sweep for one shape of bug. Three placement APIs truncated a 12-bit state index to 4 bits. A tool tier could not refuse. Texture registration silently duplicated atlas slots. State placement could not skip neighbor notification. The conversion test pipeline documented four stages and ran three.</td></tr>
+<tr><td>0.3.4</td><td>Tinted item layers that can be declared on any item, including a subclass you do not own.</td></tr>
+</table>
 
 <h2>Entrypoints</h2>
 <table>
@@ -67,6 +77,8 @@
 <tr><td>Property types</td><td><code>RetroBoolProperty</code>, <code>RetroIntProperty</code>, <code>RetroEnumProperty</code>, <code>RetroCharProperty</code> (<code>'a'</code>-<code>'z'</code>, digits, or a set)</td></tr>
 <tr><td>Interned immutable states</td><td><code>state.with(P, v)</code>, <code>state.get(P)</code>, <code>getByName</code>, <code>==</code> comparison is valid</td></tr>
 <tr><td>Read/write in the world</td><td><code>RetroStates.get/set</code>, with block updates, re-render and server→client sync</td></tr>
+<tr><td>Placement that does not notify</td><td><code>RetroStates.setWithoutNotifyingNeighbors</code> and <code>placeWithoutNotifyingNeighbors</code> (block + state in one call), for generation and any code that owns its surroundings. Still marks the position dirty and still syncs, because those are not neighbor updates.</td></tr>
+<tr><td>A state index is 12 bits</td><td>Low nibble in vanilla metadata, bits 4-11 in the sidecar. Anything taking a bare <code>meta</code> can only carry the nibble, so every placement API has a state-taking form: <code>RetroFeatures.setBlock</code>, <code>RetroWorldGen.setStateInChunk</code>, <code>RetroMultiblock.Match.fill</code>.</td></tr>
 <tr><td>Data-declared properties</td><td><code>"properties"</code> in a blockstate JSON; code wins on conflict</td></tr>
 <tr><td>State-aware drops and placement</td><td>Wide states survive break → drop → place instead of truncating to the nibble</td></tr>
 </table>
@@ -76,10 +88,14 @@
 <table>
 <tr><th>Feature</th><th>Call</th></tr>
 <tr><td>Builder, atomic id allocation</td><td><code>RetroItemAccess.create()</code>, <code>.of(item)</code>, <code>.of(Ctor::new)</code>, <code>AUTO_ID</code></td></tr>
-<tr><td>Sprites</td><td><code>.texture(id)</code>, <code>.layers(base, overlays…)</code>, <code>.overlay(id)</code> - layered with no model JSON</td></tr>
+<tr><td>Sprites</td><td><code>.texture(id)</code>, <code>.layers(base, overlays…)</code>, <code>.overlay(id)</code> - layered with no model JSON, flattened into the atlas</td></tr>
+<tr><td>Tinted layers on ANY item</td><td><code>.overlay(id, tint)</code> draws as a render-time pass, so the <code>0xRRGGBB</code> multiply survives (the flattened form cannot tint: by stitch time the layers are one image). Declared, not implemented, so it works on a subclass you did not write. <code>.layer(RetroTextureLayer)</code> for full control, <code>getDeclaredLayers()</code> to read them back.</td></tr>
+<tr><td>Per-stack looks still win</td><td>An item implementing <code>RetroLayeredTexture</code> overrides the declared layers, so component-driven appearances are unaffected.</td></tr>
 <tr><td>Held pose</td><td><code>.handheld()</code></td></tr>
 <tr><td>Tool kinds</td><td><code>.tool(PICKAXE, AXE, …)</code> - multi-kind paxels included</td></tr>
 <tr><td>Tool tier</td><td><code>.tier(TIER)</code>, <code>.tier(stack -&gt; …)</code>, <code>.tier((stack, block, player) -&gt; …)</code> (contextual; the player arrived in 0.3.1)</td></tr>
+<tr><td>A tier that refuses</td><td><code>RetroToolTier.NONE</code> sits below every tier, so it satisfies no requirement. <code>null</code> means "no opinion, fall through", and falling through lands on <code>WOOD</code>, so a lambda previously could not say no. <code>isOre(block) ? DIAMOND : NONE</code>.</td></tr>
+<tr><td>Tag name from code</td><td><code>RetroToolTier.getTagName()</code>, for building <code>needs_&lt;tier&gt;_tool</code> ids yourself.</td></tr>
 <tr><td>Tools with no <code>ToolMaterial</code></td><td><code>.miningSpeed(f)</code>, <code>.attackDamage(n)</code>, <code>.durability(n)</code>, <code>.damageOnMine(bool)</code></td></tr>
 <tr><td>Vanilla agreement</td><td><code>Item.isSuitableFor</code> is answered from tags + tier, so drops, speed and the correct-tool check agree</td></tr>
 <tr><td>Food</td><td><code>.food(health[, meat][, onEaten])</code> - a property, not a subclass</td></tr>
@@ -151,6 +167,7 @@
 <table>
 <tr><th>Feature</th><th>What it gives you</th></tr>
 <tr><td><code>RetroComponents.register(id, default, type)</code></td><td>Typed per-stack data on a version with none: int, string, compound records, lists</td></tr>
+<tr><td>Mutable defaults are per-stack</td><td>A <code>List</code>/<code>Set</code>/<code>Map</code> default is copied for each stack that reads it, so mutating what <code>get</code> returns can never leak onto every other item. <code>registerSupplied(id, supplier, type)</code> covers a mutable default of your own type.</td></tr>
 <tr><td>Persistence &amp; networking</td><td>Written into a namespaced NBT sub-tag; survives saves, inventories, dropped items and packets</td></tr>
 <tr><td>Presentation</td><td>Component-driven tooltips and dynamic item textures</td></tr>
 </table>
@@ -184,7 +201,7 @@
 <tr><th>Feature</th><th>What it gives you</th></tr>
 <tr><td><code>RetroVec3i</code></td><td>Immutable block position: arithmetic, offsets, rotation, distances, and world access (<code>blockId</code>, <code>state</code>, <code>setBlock</code>, <code>blockEntity</code>)</td></tr>
 <tr><td><code>RetroDirection</code> / <code>RetroFacing</code></td><td>Six and four directions with <code>opposite</code>, <code>rotateLeft/Right</code>, <code>vector</code>, <code>face</code>, <code>fromPlacer</code>, <code>nearest</code></td></tr>
-<tr><td><code>RetroMultiblock</code></td><td>Patterns drawn as ASCII layers, matched in one facing or all four, with per-character position lists and <code>fill(…)</code></td></tr>
+<tr><td><code>RetroMultiblock</code></td><td>Patterns drawn as ASCII layers, matched in one facing or all four, with per-character position lists and <code>fill(…)</code>, by block + meta or by full state</td></tr>
 </table>
 <p><a href="multiblocks.html">Positions &amp; multiblocks →</a></p>
 

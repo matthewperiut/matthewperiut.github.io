@@ -83,7 +83,7 @@ dependencies {
 
 <span class="c">// Exclude the Legacy Fabric LWJGL 2 wrapper at RUNTIME only (starac provides LWJGL 3).</span>
 <span class="c">// It must stay on the compile/minecraft classpath so Condor (Ploceus LVT generator)</span>
-<span class="c">// can resolve org.lwjgl.* classes referenced by b1.7.3 — a blanket exclude here</span>
+<span class="c">// can resolve org.lwjgl.* classes referenced by b1.7.3 - a blanket exclude here</span>
 <span class="c">// strips LWJGL 2 from minecraftCompileLibraries and crashes LVT generation.</span>
 configurations.matching { it.name.toLowerCase().contains('runtime') }.configureEach {
 	exclude group: 'org.lwjgl.lwjgl'
