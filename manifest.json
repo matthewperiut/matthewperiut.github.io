@@ -30,11 +30,11 @@
     {
       "group": "com.periut",
       "artifact": "retroapi",
-      "version": "0.3.2",
-      "path": "repository/com/periut/retroapi/0.3.2/retroapi-0.3.2.jar",
+      "version": "0.3.3",
+      "path": "repository/com/periut/retroapi/0.3.3/retroapi-0.3.3.jar",
       "repo": "matthewperiut/RetroAPI",
       "branch": "main",
-      "commit": "e12ead0"
+      "commit": "79521f1"
     },
     {
       "group": "com.periut",
