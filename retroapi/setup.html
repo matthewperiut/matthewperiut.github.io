@@ -31,8 +31,8 @@
 
 <div class="codeblock"><span class="code-title">build.gradle</span><pre><code>plugins {
 	id 'java'
-	id 'net.fabricmc.fabric-loom-remap' version '1.16.3'
-	id 'ploceus' version '1.16.1'
+	id 'net.fabricmc.fabric-loom-remap' version '1.17.13'
+	id 'ploceus' version '1.17.4'
 	<span class="c">// also builds a babric variant of your mod (build/libs/&lt;name&gt;-babric.jar)</span>
 	id 'com.periut.retroconvert' version "${retroconvert_version}"
 }
@@ -51,6 +51,13 @@ repositories {
 	mavenLocal()
 	maven { url = 'https://matthewperiut.github.io/repository' } <span class="c">// gen2 mod deps (retroapi, retrocommands, retrodragon)</span>
 	maven { url = 'https://maven.glass-launcher.net/releases/' } <span class="c">// biny mappings</span>
+	<span class="c">// Loom >= 1.17 claims the whole org.lwjgl group for Mojang's libraries repo, which mirrors</span>
+	<span class="c">// LWJGL 3.4.0 only for the platforms Minecraft ships - retrodragon also needs</span>
+	<span class="c">// natives-linux-arm64, which lives on Central. Claim the group for Central too.</span>
+	exclusiveContent {
+		forRepository { mavenCentral() }
+		filter { includeGroup('org.lwjgl') }
+	}
 }
 
 dependencies {
