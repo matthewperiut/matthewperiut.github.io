@@ -64,10 +64,8 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	<span class="c">// biny instead of Feather: human-readable names for the whole game</span>
-	mappings ploceus.mappings("net.glasslauncher:biny-ornithe:b1.7.3+build.${project.biny_mappings}:mergedv2")
-
-	<span class="c">// exceptions/signatures/nests are per-side in beta (client and server were separate jars)</span>
+	<span class="c">// exceptions/signatures/nests are per-side in beta (client and server were separate jars),</span>
+	<span class="c">// and they MUST come before the mappings dependency -- see the note below.</span>
 	clientExceptions ploceus.raven(project.client_raven_build, 'client')
 	serverExceptions ploceus.raven(project.server_raven_build, 'server')
 	clientSignatures ploceus.sparrow(project.client_sparrow_build, 'client')
@@ -75,7 +73,19 @@ dependencies {
 	clientNests "net.glasslauncher:biny-nests:b1.7.3-client+build.${project.biny_nests_build}"
 	serverNests "net.glasslauncher:biny-nests:b1.7.3-server+build.${project.biny_nests_build}"
 
+	<span class="c">// biny instead of Feather: human-readable names for the whole game</span>
+	mappings ploceus.mappings("net.glasslauncher:biny-ornithe:b1.7.3+build.${project.biny_mappings}:mergedv2")
+
 	ploceus.dependOsl(project.osl_version)   <span class="c">// entrypoints, networking, lifecycle events…</span>
+
+	<span class="c">// OSL's block and item REGISTRY modules lock a registry of their own in Block.&lt;clinit&gt;,</span>
+	<span class="c">// which is what station-blocks-v0 and station-items-v0 also do. With both present the</span>
+	<span class="c">// game dies before it draws a frame on "Slot 0 is already occupied by Block{null}".</span>
+	<span class="c">// Drop them unless you actually use them.</span>
+	configurations.modImplementation {
+		exclude group: 'net.ornithemc.osl-gen2', module: 'blocks'
+		exclude group: 'net.ornithemc.osl-gen2', module: 'items'
+	}
 
 	modImplementation "com.periut:retroapi:${project.retroapi_version}"
 	modImplementation("com.periut:retrocommands:${project.retrocommands_version}") {
@@ -121,6 +131,28 @@ jar {
 		rename { "${it}_${base.archivesName.get()}" }
 	}
 }</code></pre></div>
+
+<p><strong>The order of that block matters, and only since ploceus 1.17.</strong> Exceptions,
+signatures and nests have to be declared <em>before</em> the <code>mappings</code> dependency.
+Ploceus resolves those configurations at the moment <code>ploceus.mappings(...)</code> is
+evaluated; declared afterwards they are still empty when it reads them, and the game jar is
+remapped with no inner classes at all. It fails silently, so what you get is not an error but a
+jar where every nested class has been flattened into <code>net/minecraft/unmapped/</code>.</p>
+
+<p>That flattening splits packages that have to stay whole. Beta bundles the argo JSON library,
+whose helper classes then sit outside <code>argo.jdom</code> and lose package-private access to
+it, and the game dies in <code>Minecraft.init</code> the moment there is a stats file to parse:</p>
+
+<div><pre><code>IllegalAccessError: failed to access class argo.jdom.JsonFieldBuilder
+  from class net.minecraft.unmapped.C_35499707
+  at PlayerStats.deserialize -&gt; StatsSyncer.loadStats -&gt; Minecraft.init</code></pre></div>
+
+<p>Which is a confusing thing to debug, because a fresh instance starts once, writes a stats file
+on exit, and then never starts again. Ploceus 1.16 called <code>provide()</code> eagerly so the
+order never mattered; if you are copying a dependency block from an older guide, move those six
+lines up. To check a jar directly, unzip the remapped client and look for
+<code>argo/jdom/JsonListenerToJdomAdapter$</code> &mdash; three entries means nesting worked, none
+means it did not.</p>
 
 <p>Three guests came along with RetroAPI, all optional but very welcome in a dev environment:</p>
 <table>
