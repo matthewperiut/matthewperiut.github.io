@@ -111,11 +111,11 @@
     {
       "group": "com.periut",
       "artifact": "retroconvert-gradle",
-      "version": "1.0.0",
-      "path": "repository/com/periut/retroconvert-gradle/1.0.0/retroconvert-gradle-1.0.0.jar",
+      "version": "1.0.3",
+      "path": "repository/com/periut/retroconvert-gradle/1.0.3/retroconvert-gradle-1.0.3.jar",
       "repo": "matthewperiut/retroconvert",
       "branch": "main",
-      "commit": "8fda3b3"
+      "commit": "0d4f7b6"
     },
     {
       "group": "com.periut",
