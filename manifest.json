@@ -134,6 +134,15 @@
       "repo": "matthewperiut/starac",
       "branch": "master",
       "commit": "353ce3e"
+    },
+    {
+      "group": "com.periut",
+      "artifact": "retrodragon",
+      "version": "0.1.0",
+      "path": "repository/com/periut/retrodragon/0.1.0/retrodragon-0.1.0.jar",
+      "repo": "matthewperiut/retrodragon",
+      "branch": "main",
+      "commit": "1a14b18"
     }
   ]
 }
