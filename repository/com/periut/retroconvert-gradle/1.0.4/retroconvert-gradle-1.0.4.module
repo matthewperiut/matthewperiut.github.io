@@ -1,0 +1,76 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut",
+    "module": "retroconvert-gradle",
+    "version": "1.0.4",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.4.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "retroconvert-gradle-1.0.4.jar",
+          "url": "retroconvert-gradle-1.0.4.jar",
+          "size": 123716,
+          "sha512": "bacb510b5c9d98459962979d8afa023c2251ad4a0bd09a33468629ac8a8cbd1270304dbf8b46b39d4f3fff996ffb9409b3c002d7b1e9c3292006c9606a613486",
+          "sha256": "3f39a1b069549b7e35de808447918c30f1be90ee8882cbb63751a9cd1d5fb2b8",
+          "sha1": "08f165d323d6b7c178de0d9e37250e6e8afda8eb",
+          "md5": "a670572182294082de8a6708e479ef94"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.ow2.asm",
+          "module": "asm",
+          "version": {
+            "requires": "9.6"
+          }
+        },
+        {
+          "group": "org.ow2.asm",
+          "module": "asm-commons",
+          "version": {
+            "requires": "9.6"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "retroconvert-gradle-1.0.4.jar",
+          "url": "retroconvert-gradle-1.0.4.jar",
+          "size": 123716,
+          "sha512": "bacb510b5c9d98459962979d8afa023c2251ad4a0bd09a33468629ac8a8cbd1270304dbf8b46b39d4f3fff996ffb9409b3c002d7b1e9c3292006c9606a613486",
+          "sha256": "3f39a1b069549b7e35de808447918c30f1be90ee8882cbb63751a9cd1d5fb2b8",
+          "sha1": "08f165d323d6b7c178de0d9e37250e6e8afda8eb",
+          "md5": "a670572182294082de8a6708e479ef94"
+        }
+      ]
+    }
+  ]
+}

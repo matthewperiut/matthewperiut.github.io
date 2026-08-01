@@ -1,0 +1,89 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.periut",
+    "module": "retroconvert",
+    "version": "1.0.4+mcb1.7.3",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.4.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "retroconvert-1.0.4+mcb1.7.3.jar",
+          "url": "retroconvert-1.0.4+mcb1.7.3.jar",
+          "size": 122681,
+          "sha512": "fcc080b7a8e0565ab4cb1612e8b4c3c4efea35171c7963cc36d0a54ac36871b47fff45d443d3c75ab29e1d92e55706aaa0708440e1fdd81e522d0b1fc3cb3670",
+          "sha256": "2137d22563f0d2a4dbdbc53f673bb2df08e53e0373482058dfc5565d4f9925d8",
+          "sha1": "3dc910199edac1ca0f6f05d3f5016d4f301d144c",
+          "md5": "002b8e1e26c1ef7bbd1c9a47b8cd3a68"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "net.fabricmc",
+          "module": "fabric-loader",
+          "version": {
+            "requires": "0.19.3"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "retroconvert-1.0.4+mcb1.7.3.jar",
+          "url": "retroconvert-1.0.4+mcb1.7.3.jar",
+          "size": 122681,
+          "sha512": "fcc080b7a8e0565ab4cb1612e8b4c3c4efea35171c7963cc36d0a54ac36871b47fff45d443d3c75ab29e1d92e55706aaa0708440e1fdd81e522d0b1fc3cb3670",
+          "sha256": "2137d22563f0d2a4dbdbc53f673bb2df08e53e0373482058dfc5565d4f9925d8",
+          "sha1": "3dc910199edac1ca0f6f05d3f5016d4f301d144c",
+          "md5": "002b8e1e26c1ef7bbd1c9a47b8cd3a68"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "retroconvert-1.0.4+mcb1.7.3-sources.jar",
+          "url": "retroconvert-1.0.4+mcb1.7.3-sources.jar",
+          "size": 94650,
+          "sha512": "b42d912c65f54a29fcec3d9dcfdcddb5028c71aab4c98d841575aaaedf40a50cd9237895fa44e8123b8355801ae2123479b627680f07a04217ab54e307676805",
+          "sha256": "21e939aeb2dc244b6302e44eae87cd3f589073dfd674898e48e2059ab2a48fcf",
+          "sha1": "78be43af4903427bc3dc7e6d10c6ca6f0c8a618d",
+          "md5": "be2ab485a48b4ead81752a24ac542fd0"
+        }
+      ]
+    }
+  ]
+}
