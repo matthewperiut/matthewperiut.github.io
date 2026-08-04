@@ -138,11 +138,11 @@
     {
       "group": "com.periut",
       "artifact": "retrodragon",
-      "version": "0.1.10",
-      "path": "repository/com/periut/retrodragon/0.1.10/retrodragon-0.1.10.jar",
+      "version": "0.1.11",
+      "path": "repository/com/periut/retrodragon/0.1.11/retrodragon-0.1.11.jar",
       "repo": "matthewperiut/retrodragon",
       "branch": "main",
-      "commit": "e6afa02"
+      "commit": "b76283a"
     }
   ]
 }
