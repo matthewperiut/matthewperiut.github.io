@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commands, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Commands</h1>
+<p class="chapter-sub">Brigadier, in b1.7.3. The same tree, the same builders, the same argument types you already write against on modern.</p>
+
+<p>RetroAPI 0.4.0 embeds a Brigadier fork and a command system built on it. If you have written a command for modern Minecraft, the code below will look like something you have already written, because it is: <code>literal</code>, <code>argument</code>, <code>.then</code>, <code>.executes</code>, <code>.requires</code>, <code>.suggests</code> all mean what they mean there.</p>
+
+<div class="note"><p><strong>Beta has no integrated server.</strong> Singleplayer is the client simulating the world itself, so a "server-side" command in singleplayer runs on the client. That is what <code>RegistrationEnvironment</code> is for, and it is the one thing about this API that has no modern counterpart.</p></div>
+
+<h2>Registering a command</h2>
+<p>Register a callback during your mod's initialisation. It runs every time the tree is built, which is once per world on a client and once at start-up on a dedicated server.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code>CommandRegistrationCallback.register((dispatcher, environment) -&gt;
+	dispatcher.register(literal(<span class="s">"hello"</span>)
+		.executes(context -&gt; {
+			context.getSource().sendFeedback(Text.literal(<span class="s">"Hello, world"</span>));
+			<span class="k">return</span> Command.SINGLE_SUCCESS;
+		})));</code></pre></div>
+
+<p>The static helpers come from <code>RetroCommandManager</code>, so a file of commands usually starts with these two imports and reads exactly like modern's:</p>
+
+<div class="codeblock"><pre><code><span class="k">import static</span> com.periut.retroapi.commands.RetroCommandManager.argument;
+<span class="k">import static</span> com.periut.retroapi.commands.RetroCommandManager.literal;</code></pre></div>
+
+<h2>The source</h2>
+<p><code>RetroCommandSource</code> is modern's <code>CommandSourceStack</code>: who ran the command, where from, and how much they are allowed to do.</p>
+
+<table>
+<tr><th>Method</th><th>What it gives you</th></tr>
+<tr><td><code>sendFeedback(Text)</code></td><td>output to whoever ran it, chat or console</td></tr>
+<tr><td><code>sendError(Text)</code></td><td>the same, styled as a failure</td></tr>
+<tr><td><code>getPlayer()</code> / <code>getPlayerOrThrow()</code></td><td>the player, or a clean "you must be a player" error</td></tr>
+<tr><td><code>getEntity()</code> / <code>getEntityOrThrow()</code></td><td>the entity, which for a command block is none</td></tr>
+<tr><td><code>getWorld()</code></td><td>the world the command acts on</td></tr>
+<tr><td><code>getPosition()</code></td><td>where it ran, which is what <code>~ ~ ~</code> is relative to</td></tr>
+<tr><td><code>hasPermissionLevel(int)</code></td><td><code>LEVEL_ALL</code> 0, <code>LEVEL_MODERATOR</code> 2, <code>LEVEL_OWNER</code> 4</td></tr>
+</table>
+
+<h2>Permissions</h2>
+<p><code>.requires(...)</code> gates a whole branch, exactly as on modern. A source that fails the test does not merely get refused: the branch is left out of the tree it is sent, so the command does not appear in its completions at all.</p>
+
+<div class="codeblock"><pre><code>dispatcher.register(literal(<span class="s">"smite"</span>)
+	.requires(source -&gt; source.hasPermissionLevel(RetroCommandSource.LEVEL_MODERATOR))
+	.executes(context -&gt; { <span class="c">/* ... */</span> <span class="k">return</span> Command.SINGLE_SUCCESS; }));</code></pre></div>
+
+<h2>Arguments</h2>
+<p>Brigadier's own types are all here (<code>IntegerArgumentType</code>, <code>StringArgumentType</code>, <code>BoolArgumentType</code>, …) plus the game-specific ones, which live in <code>com.periut.retroapi.commands.argument</code>.</p>
+
+<table>
+<tr><th>Type</th><th>Accepts</th><th>Read it back with</th></tr>
+<tr><td><code>entity()</code> / <code>entities()</code></td><td>a name, or a selector: <code>@p @a @r @e @s</code> with <code>[distance=..8,limit=3,type=Pig]</code></td><td><code>getEntity</code> / <code>getEntities</code></td></tr>
+<tr><td><code>player()</code> / <code>players()</code></td><td>the same, restricted to players</td><td><code>getPlayer</code> / <code>getPlayers</code></td></tr>
+<tr><td><code>blockPos()</code></td><td><code>10 64 -30</code>, <code>~ ~2 ~</code>, <code>^ ^ ^3</code></td><td><code>getBlockPos</code></td></tr>
+<tr><td><code>vec3()</code></td><td>the same, not rounded to the block</td><td><code>getVec3</code></td></tr>
+<tr><td><code>block()</code></td><td><code>stone</code>, <code>minecraft:wool:14</code>, <code>35:14</code></td><td><code>getBlock</code></td></tr>
+<tr><td><code>item()</code></td><td>the same for items, with a stack size</td><td><code>getItem</code></td></tr>
+<tr><td><code>dimension()</code></td><td><code>minecraft:overworld</code>, a RetroAPI dimension, a StationAPI one</td><td><code>getDimension</code></td></tr>
+<tr><td><code>gameMode()</code></td><td><code>survival creative adventure spectator</code>, their initials, or 0-3</td><td><code>getGameMode</code></td></tr>
+<tr><td><code>time()</code></td><td><code>day</code>, <code>night</code>, <code>1000t</code>, <code>2d</code></td><td><code>getTime</code></td></tr>
+<tr><td><code>message()</code></td><td>the rest of the line, with selectors resolved inside it</td><td><code>getMessage</code></td></tr>
+<tr><td><code>entitySummon()</code></td><td>a registered entity id</td><td><code>getEntitySummon</code></td></tr>
+</table>
+
+<div class="codeblock"><pre><code>dispatcher.register(literal(<span class="s">"heal"</span>)
+	.requires(source -&gt; source.hasPermissionLevel(RetroCommandSource.LEVEL_MODERATOR))
+	.then(argument(<span class="s">"targets"</span>, players())
+		.then(argument(<span class="s">"amount"</span>, integer(<span class="n">1</span>, <span class="n">20</span>))
+			.executes(context -&gt; {
+				<span class="k">int</span> amount = IntegerArgumentType.getInteger(context, <span class="s">"amount"</span>);
+				<span class="k">for</span> (PlayerEntity player : getPlayers(context, <span class="s">"targets"</span>)) {
+					player.heal(amount);
+				}
+				<span class="k">return</span> Command.SINGLE_SUCCESS;
+			}))));</code></pre></div>
+
+<h2>Suggestions</h2>
+<p>Every argument type above suggests its own values. For your own, hang <code>.suggests(...)</code> on the argument node and use the helpers in <code>SuggestionHelper</code>, which are modern's <code>CommandSource.suggestMatching</code> and friends.</p>
+
+<div class="codeblock"><pre><code>.then(argument(<span class="s">"colour"</span>, StringArgumentType.word())
+	.suggests((context, builder) -&gt; SuggestionHelper.suggestMatching(
+		List.of(<span class="s">"red"</span>, <span class="s">"green"</span>, <span class="s">"blue"</span>), builder))
+	.executes(context -&gt; { <span class="c">/* ... */</span> <span class="k">return</span> Command.SINGLE_SUCCESS; }))</code></pre></div>
+
+<table>
+<tr><th>Helper</th><th>What it does</th></tr>
+<tr><td><code>suggestMatching(Iterable&lt;String&gt;, builder)</code></td><td>prefix match, case-insensitive</td></tr>
+<tr><td><code>suggestMatching(…, builder, tooltips)</code></td><td>the same, with a tooltip per entry</td></tr>
+<tr><td><code>suggestIdentifiers(Iterable&lt;String&gt;, builder)</code></td><td>namespaced ids: offers namespaces first, then matches on the path alone</td></tr>
+</table>
+
+<div class="note"><p><strong>Suggestions on a server come from the server.</strong> A client running RetroAPI is sent a copy of the tree it is allowed to use and asks the server for completions it cannot compute itself, such as who is online. On a vanilla server the local tree is used, which still colours the syntax.</p></div>
+
+<h2>Where a command runs</h2>
+<p>The second parameter of the callback is <code>RegistrationEnvironment</code>. <code>DEDICATED</code> is a real server; <code>INTEGRATED</code> is singleplayer, where the client is the world. Use it to leave out commands that make no sense with nobody else connected.</p>
+
+<div class="codeblock"><pre><code>CommandRegistrationCallback.register((dispatcher, environment) -&gt; {
+	<span class="k">if</span> (environment.isDedicated()) {
+		dispatcher.register(literal(<span class="s">"broadcast"</span>) <span class="c">/* ... */</span>);
+	}
+});</code></pre></div>
+
+<h2>Client-only commands</h2>
+<p>A command that never needs the server, such as one that changes a local setting, can be registered the same way and simply never sent anywhere: in singleplayer everything is client-side already, and on a server the client's own tree still parses it.</p>
+
+<h2>What ships already</h2>
+<p>These come with RetroAPI, so you can crib from them, and so a world has the basics without a mod:</p>
+
+<p><code>/help</code> <code>/give</code> <code>/teleport</code> (<code>/tp</code>) <code>/kill</code> <code>/clear</code> <code>/time</code> <code>/weather</code> <code>/summon</code> <code>/seed</code> <code>/say</code> <code>/me</code> <code>/msg</code> <code>/list</code> <code>/gamemode</code> <code>/gamerule</code> <code>/setblock</code> <code>/fill</code> <code>/god</code> <code>/heal</code> <code>/hat</code> <code>/ride</code> <code>/warp</code> <code>/noclip</code> <code>/tpa</code></p>
+
+<div class="note"><p><strong>Coming from Retro Commands?</strong> This is that mod, moved into RetroAPI and kept. Install RetroAPI 0.4.0 and Retro Commands stands itself down automatically, so a pack can ship both while it migrates.</p></div>
+
+</div>
+</main>
+</div>
+</body>
+</html>

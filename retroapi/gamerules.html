@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game rules &amp; modes, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Game rules &amp; modes</h1>
+<p class="chapter-sub">The modern rules that have a beta equivalent, the four game modes, and two rules beta could never have had.</p>
+
+<h2>Game rules</h2>
+<p>Beta has none: whether fire spreads, whether mobs spawn and whether the sun moves are all hard-coded. RetroAPI backports the rules that map cleanly onto beta's own code, under modern's names, with <code>/gamerule</code> to read and set them.</p>
+
+<table>
+<tr><th>Rule</th><th>Default</th><th>What it changes</th></tr>
+<tr><td><code>doFireTick</code></td><td>true</td><td>fire neither spreads nor burns out</td></tr>
+<tr><td><code>doMobSpawning</code></td><td>true</td><td>the natural spawner does nothing</td></tr>
+<tr><td><code>doMobLoot</code></td><td>true</td><td>dying mobs drop nothing (players are <code>keepInventory</code>'s business)</td></tr>
+<tr><td><code>doTileDrops</code></td><td>true</td><td>broken blocks yield nothing</td></tr>
+<tr><td><code>keepInventory</code></td><td>false</td><td>dying scatters nothing</td></tr>
+<tr><td><code>mobGriefing</code></td><td>true</td><td>creepers and ghasts still explode and hurt, but leave terrain alone</td></tr>
+<tr><td><code>doDaylightCycle</code></td><td>true</td><td>the sun stops moving; <code>/time set</code> still works</td></tr>
+<tr><td><code>doWeatherCycle</code></td><td>true</td><td>weather stops changing on its own; <code>/weather</code> still works</td></tr>
+<tr><td><code>randomTickSpeed</code></td><td>3</td><td>scaled onto beta's own rate, so 3 means "exactly as beta always was"</td></tr>
+<tr><td><code>doImmediateRespawn</code></td><td>false</td><td>no death screen</td></tr>
+<tr><td><code>commandBlockOutput</code></td><td>true</td><td>command block output reaches the log</td></tr>
+<tr><td><code>sendCommandFeedback</code></td><td>true</td><td>and seeds a new command block's "track output"</td></tr>
+<tr><td><code>maxCommandChainLength</code></td><td>65536</td><td>how far one chain may walk in a tick</td></tr>
+<tr><td><code>maxBlockModifications</code></td><td>32768</td><td>the most blocks one <code>/fill</code> may touch</td></tr>
+<tr><td><code>sprinting</code></td><td><strong>false</strong></td><td>sprinting, which arrived in 1.8</td></tr>
+<tr><td><code>swimming</code></td><td><strong>false</strong></td><td>swimming as a pose and a movement mode</td></tr>
+</table>
+
+<div class="note"><p><strong>Sprinting and swimming are off by default</strong> because a beta world should still feel like beta unless somebody asks otherwise. They are independent: with sprinting on and swimming off, entering water simply stops the sprint, which is what modern does too.</p></div>
+
+<h3>Your own rules</h3>
+<div class="codeblock"><pre><code><span class="k">public static final</span> RetroGameRule MY_RULE =
+	RetroGameRules.registerBoolean(<span class="s">"mymod:doSomething"</span>, <span class="k">true</span>);
+
+<span class="c">// anywhere afterwards:</span>
+<span class="k">if</span> (RetroGameRules.getBoolean(MY_RULE)) { <span class="c">/* ... */</span> }</code></pre></div>
+
+<p>Register during init, before any world loads, so the rule exists by the time <code>/gamerule</code> lists it and a saved value is read back. <code>registerInt</code> is the other half. Namespace your key; the vanilla-equivalent rules deliberately are not namespaced, because they are the vanilla names.</p>
+
+<p>Values live with the world, in <a href="storage.html">the sidecar</a>. The server owns them and sends the whole set to every client on join and again whenever one changes, because some rules are decided client-side before the server ever sees the move.</p>
+
+<h2>Game modes</h2>
+<p>All four, under modern's names and ids, set with <code>/gamemode &lt;mode&gt; [targets]</code>.</p>
+
+<table>
+<tr><th>Mode</th><th>What it does</th></tr>
+<tr><td><code>survival</code></td><td>beta, unchanged</td></tr>
+<tr><td><code>creative</code></td><td>no damage, no health bar, instant breaking with no drops, flight, the creative inventory</td></tr>
+<tr><td><code>adventure</code></td><td>may not break or place blocks</td></tr>
+<tr><td><code>spectator</code></td><td>flies through terrain, invisible to other players, may not interact</td></tr>
+</table>
+
+<p>A player's mode is <strong>permanent player data</strong>: it survives death, dimension changes and reconnects, exactly as on modern.</p>
+
+<div class="codeblock"><pre><code><span class="k">if</span> (RetroGameModes.get(player) == RetroGameMode.CREATIVE) { <span class="c">/* ... */</span> }
+
+RetroGameModes.set(player.name, RetroGameMode.SPECTATOR);</code></pre></div>
+
+<h2>Flight</h2>
+<p>Creative flight is modern's: double-tap jump to start, space and shift for up and down, momentum and air friction rather than a constant glide, doubled speed while sprinting, and touching the ground turns it off. Spectator always flies and passes through terrain.</p>
+
+<p>The scroll wheel is a throttle in spectator and under <code>/noclip</code>, as it is in modern's spectator; in creative the wheel stays on the hotbar where it belongs.</p>
+
+</div>
+</main>
+</div>
+</body>
+</html>

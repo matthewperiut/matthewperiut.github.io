@@ -49,7 +49,7 @@ ploceus {
 
 repositories {
 	mavenLocal()
-	maven { url = 'https://matthewperiut.github.io/repository' } <span class="c">// gen2 mod deps (retroapi, retrocommands, retrodragon)</span>
+	maven { url = 'https://matthewperiut.github.io/repository' } <span class="c">// gen2 mod deps (retroapi, retrodragon)</span>
 	maven { url = 'https://maven.glass-launcher.net/releases/' } <span class="c">// biny mappings</span>
 	<span class="c">// Loom >= 1.17 claims the whole org.lwjgl group for Mojang's libraries repo, which mirrors</span>
 	<span class="c">// LWJGL 3.4.0 only for the platforms Minecraft ships - retrodragon also needs</span>
@@ -88,11 +88,6 @@ dependencies {
 	}
 
 	modImplementation "com.periut:retroapi:${project.retroapi_version}"
-	modImplementation("com.periut:retrocommands:${project.retrocommands_version}") {
-		exclude group: 'net.modificationstation'
-		exclude group: 'net.glasslauncher.mods'
-		exclude group: 'com.github.GeyserMC'
-	}
 	<span class="c">// retrodragon brings LWJGL 3, which would clash with vanilla</span>
 	<span class="c">// Minecraft's LWJGL 2 API, so keep it off the compile classpath.</span>
 	modRuntimeOnly "com.periut:retrodragon:${project.retrodragon_version}"
@@ -154,11 +149,10 @@ lines up. To check a jar directly, unzip the remapped client and look for
 <code>argo/jdom/JsonListenerToJdomAdapter$</code> &mdash; three entries means nesting worked, none
 means it did not.</p>
 
-<p>Three guests came along with RetroAPI, all optional but very welcome in a dev environment:</p>
+<p>Two guests came along with RetroAPI, both optional but very welcome in a dev environment:</p>
 <table>
 <tr><th>Dependency</th><th>What it does for you</th></tr>
 <tr><td><code>retroapi</code></td><td>The star of this guide, registration, persistence, networking, rendering.</td></tr>
-<tr><td><code>retrocommands</code></td><td>In-game commands (<code>/give</code>, <code>/tp</code>, …) while testing. Beta had almost none.</td></tr>
 <tr><td><code>retrodragon</code></td><td>Runs the old client on LWJGL 3 with a WebGPU renderer, modern keyboards, displays, and macOS support. Hence the LWJGL 2 exclusion just below it.</td></tr>
 </table>
 
@@ -174,7 +168,6 @@ archives_base_name = example_mod   <span class="c"># ← change me</span>
 
 # Dependencies
 retroapi_version=0.4.1
-retrocommands_version = 0.7.5
 retrodragon_version = 0.1.14
 retroconvert_version = 1.0.4
 

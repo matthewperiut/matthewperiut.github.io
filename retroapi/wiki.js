@@ -37,6 +37,12 @@
             ['facing.html', 'Directional blocks', 'Four-way, six-way, and per-face textures'],
             ['voxelshapes.html', 'Voxel shapes', 'Multi-box outlines, collision and raytracing']
         ]],
+        ['Commands & creative', [
+            ['commands.html', 'Commands', 'Brigadier trees, arguments, suggestions, and where they run'],
+            ['gamerules.html', 'Game rules & modes', 'Backported rules, the four game modes, flight and spectator'],
+            ['creativetabs.html', 'Creative tabs', 'Item groups, entries, and adding to somebody else\'s tab'],
+            ['commandblocks.html', 'Command blocks', 'Impulse, chain and repeat, conditional, and the block data behind them']
+        ]],
         ['Systems & internals', [
             ['multiblocks.html', 'Positions & multiblocks', 'RetroVec3i, RetroDirection, patterns, the load pass'],
             ['networking.html', 'Networking', 'Custom packets with OSL networking'],

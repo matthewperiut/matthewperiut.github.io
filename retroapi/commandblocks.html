@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command blocks, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Command blocks</h1>
+<p class="chapter-sub">All three, with modern's modes, modern's editor and modern's chain behaviour.</p>
+
+<p>Ported from modern Minecraft, including the rule that decides what a command block <em>is</em>: the mode is not a setting stored on the block, it is which of three blocks you placed. Retyping one in the editor swaps the block and keeps the facing.</p>
+
+<table>
+<tr><th>Block</th><th>Mode</th><th>Runs</th></tr>
+<tr><td><code>minecraft:command_block</code></td><td>Impulse</td><td>once, on the rising edge of a redstone signal</td></tr>
+<tr><td><code>minecraft:repeating_command_block</code></td><td>Repeat</td><td>every tick while powered, or always if set to Always Active</td></tr>
+<tr><td><code>minecraft:chain_command_block</code></td><td>Chain</td><td>when the block pointing into it succeeds, in the same tick</td></tr>
+</table>
+
+<div class="note"><p><strong>They register under <code>minecraft:</code>, not RetroAPI's namespace.</strong> They are vanilla blocks beta happens not to have yet, and a world that later moves to a version which does have them should find its command blocks already under the right name.</p></div>
+
+<h2>Getting one</h2>
+<p>There is no recipe, exactly as on modern. <code>/give &lt;player&gt; minecraft:command_block</code>, or the Operator Utilities tab of the <a href="creativetabs.html">creative inventory</a>. Only a creative player can open the editor.</p>
+
+<h2>The editor</h2>
+<p>Modern's screen, at modern's geometry: the command field, then three buttons across the bottom.</p>
+
+<table>
+<tr><th>Button</th><th>Values</th></tr>
+<tr><td>Mode</td><td>Impulse / Chain / Repeat, which swaps the block</td></tr>
+<tr><td>Condition</td><td>Unconditional, or Conditional: only run if the block behind succeeded</td></tr>
+<tr><td>Redstone</td><td>Needs Redstone, or Always Active</td></tr>
+<tr><td>O / X</td><td>track output, which fills Previous Output</td></tr>
+</table>
+
+<h2>Chains</h2>
+<p>A chain block runs when the block pointing into it succeeds, and the walk continues while the next block along is also a chain block, re-reading each block's facing so a chain can turn corners. Length is capped by the <code>maxCommandChainLength</code> game rule, and a block may only run once per tick, so a chain that loops back on itself stops instead of hanging the game.</p>
+
+<h2>Where the settings live</h2>
+<p>Beta's block metadata is entirely spent on which way the block faces, so Conditional and Always Active ride on <a href="storage.html">the block-data API</a>, RetroAPI's per-position <code>int</code> store. The command text itself is on the block entity, because that store holds numbers and a command is a string.</p>
+
+<div class="codeblock"><pre><code>CommandBlocks.isConditional(world, x, y, z);
+CommandBlocks.setAuto(world, x, y, z, <span class="k">true</span>);
+
+<span class="k">if</span> (world.getBlockEntity(x, y, z) <span class="k">instanceof</span> CommandBlockEntity block) {
+	block.setCommand(<span class="s">"say hello"</span>);
+}</code></pre></div>
+
+<h2>What a command block runs as</h2>
+<p>Modern's source: named <code>@</code>, positioned at the block, permission level 2, with no entity. That is what makes <code>@p</code> mean "nearest to the block" and <code>~ ~ ~</code> mean the block's own coordinates.</p>
+
+<h2>Commands worth pairing them with</h2>
+<p><code>/setblock &lt;pos&gt; &lt;block&gt; [destroy|keep|replace]</code> and <code>/fill &lt;from&gt; &lt;to&gt; &lt;block&gt; [destroy|hollow|keep|outline|replace]</code>, both ported with modern's modes. See <a href="commands.html">Commands</a>.</p>
+
+</div>
+</main>
+</div>
+</body>
+</html>

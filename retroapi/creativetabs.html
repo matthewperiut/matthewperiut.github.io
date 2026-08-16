@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative tabs, RetroAPI wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="wiki.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar"></aside>
+<main class="content">
+<div class="page-header"></div>
+
+<div class="section">
+<h1>Creative tabs</h1>
+<p class="chapter-sub">Item groups, built the way Fabric API builds them, in a creative inventory backported from modern.</p>
+
+<p>Beta has no creative mode, so RetroAPI brings one: <code>/gamemode creative</code>, and a creative inventory ported from modern Minecraft's, down to the panel, the tab strip, the scrollbar and the search box. Tabs are registered content like anything else, and a mod adds one the way it would on modern with Fabric API.</p>
+
+<div class="note"><p><strong>Creative is deliberately hidden.</strong> There is no button and no world-creation switch, exactly as modern hides command blocks: the only way in is <code>/gamemode</code>. See <a href="gamerules.html">Game rules &amp; modes</a>.</p></div>
+
+<h2>Your own tab</h2>
+<p>Build it during your mod's initialisation. <code>build()</code> registers it, so there is no second call to remember.</p>
+
+<div class="codeblock"><span class="code-title">src/main/java/com/example/example_mod/ExampleMod.java, in initRetro()</span><pre><code><span class="k">public static</span> RetroItemGroup GEMS;
+
+<span class="c">// ... in initRetro(), after the items exist:</span>
+GEMS = RetroItemGroup.builder(id(<span class="s">"gems"</span>))
+	.displayName(Text.literal(<span class="s">"Gems"</span>))
+	.icon(() -&gt; <span class="k">new</span> ItemStack(GEM))
+	.entries(entries -&gt; {
+		entries.add(GEM);
+		entries.add(GEM_BLOCK);
+		entries.add(GEM_PICKAXE);
+	})
+	.build();</code></pre></div>
+
+<table>
+<tr><th>Builder method</th><th>What it does</th></tr>
+<tr><td><code>displayName(Text)</code> / <code>displayName(String)</code></td><td>the name on the tab's tooltip and above the grid</td></tr>
+<tr><td><code>icon(Supplier&lt;ItemStack&gt;)</code></td><td>the item drawn on the tab itself; a supplier, so it may depend on things registered later</td></tr>
+<tr><td><code>entries(collector)</code></td><td>what the tab contains, in order</td></tr>
+<tr><td><code>build()</code></td><td>builds <em>and</em> registers</td></tr>
+</table>
+
+<div class="note"><p><strong><code>entries</code> runs every time the screen opens</strong>, not once at registration. A tab can therefore show something that depends on the world, or on what another mod added after you.</p></div>
+
+<h2>Filling a tab</h2>
+<p>The collector handed to <code>entries</code> takes blocks, items and stacks, and knows about beta's metadata subtypes.</p>
+
+<table>
+<tr><th>Call</th><th>Adds</th></tr>
+<tr><td><code>add(Item)</code> / <code>add(Block)</code></td><td>one entry, subtype 0</td></tr>
+<tr><td><code>add(Item, int)</code> / <code>add(Block, int)</code></td><td>a specific subtype: a wool colour, a log species</td></tr>
+<tr><td><code>add(ItemStack)</code></td><td>a stack you built yourself, components and all</td></tr>
+<tr><td><code>addRange(Block, int, int)</code></td><td>every subtype in a range, which is how wool and dye are listed</td></tr>
+</table>
+
+<div class="codeblock"><pre><code>.entries(entries -&gt; {
+	entries.add(GEM);
+	entries.addRange(Block.WOOL, <span class="n">0</span>, <span class="n">15</span>);   <span class="c">// all sixteen colours</span>
+	entries.add(<span class="k">new</span> ItemStack(GEM_SWORD.id, <span class="n">1</span>, <span class="n">0</span>));
+})</code></pre></div>
+
+<h2>Adding to somebody else's tab</h2>
+<p>The equivalent of Fabric's <code>ItemGroupEvents.modifyEntriesEvent</code>. Works on the vanilla tabs and on other mods' tabs alike.</p>
+
+<div class="codeblock"><pre><code>RetroItemGroups.modifyEntries(VanillaItemGroups.INGREDIENTS, entries -&gt; entries.add(GEM));
+RetroItemGroups.modifyEntries(VanillaItemGroups.BUILDING_BLOCKS, entries -&gt; entries.add(GEM_BLOCK));</code></pre></div>
+
+<h2>The tabs that already exist</h2>
+<p>RetroAPI sorts beta's own content into modern's tabs, in modern's order. Where modern has something beta does not, the entry is simply missing rather than replaced.</p>
+
+<table>
+<tr><th>Field on <code>VanillaItemGroups</code></th><th>Tab</th></tr>
+<tr><td><code>BUILDING_BLOCKS</code></td><td>Building Blocks</td></tr>
+<tr><td><code>COLORED_BLOCKS</code></td><td>Colored Blocks, the sixteen wools</td></tr>
+<tr><td><code>NATURAL</code></td><td>Natural Blocks</td></tr>
+<tr><td><code>FUNCTIONAL</code></td><td>Functional Blocks</td></tr>
+<tr><td><code>REDSTONE</code></td><td>Redstone Blocks</td></tr>
+<tr><td><code>TOOLS</code></td><td>Tools &amp; Utilities</td></tr>
+<tr><td><code>COMBAT</code></td><td>Combat</td></tr>
+<tr><td><code>FOOD_AND_DRINKS</code></td><td>Food &amp; Drinks</td></tr>
+<tr><td><code>INGREDIENTS</code></td><td>Ingredients</td></tr>
+<tr><td><code>OPERATOR</code></td><td>Operator Utilities: <a href="commandblocks.html">command blocks</a>, spawner, bedrock</td></tr>
+<tr><td><code>SEARCH</code></td><td>Search: everything registered, yours included, with the search field</td></tr>
+</table>
+
+<div class="note"><p><strong>The search tab builds itself from the registries</strong>, so anything you register appears there without you doing anything. It is also the quickest way to check a new item registered at all.</p></div>
+
+<h2>Pages</h2>
+<p>Ten tabs fit on a page. Register more and the screen grows the same page arrows Fabric API adds on modern, in the same place, with Page Up and Page Down as shortcuts. The search tab is pinned to every page.</p>
+
+<h2>What a click does</h2>
+<p>Clicking an item asks the server for that stack; the server checks the asker really is in creative before handing anything over. In singleplayer there is nobody to ask, so it goes straight into the inventory. This is the one place the port differs in shape from modern, which moves the stack through a container beta does not have.</p>
+
+</div>
+</main>
+</div>
+</body>
+</html>
